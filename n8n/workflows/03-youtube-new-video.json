@@ -1,0 +1,222 @@
+{
+  "name": "03 YouTube AI新動画検知",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "aa1bb2cc-dd3e-4f56-7890-aabbccddeeff",
+      "name": "1時間ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 対象YouTubeチャンネルリスト（AI系チャンネル）\n// チャンネルIDはYouTubeのURLから取得\nconst channels = [\n  { id: 'UCXZCJLpDE5rmngGqaA3sYjA', name: 'Anthropic' },\n  { id: 'UCJXGnVUJrEMPYloEkHqEpyg', name: 'OpenAI' },\n  { id: 'UCnUYZLuoy1rq1aVMwx4aTzw', name: 'Google DeepMind' },\n  { id: 'UC0RhatS1pyxInC00YKjjBqQ', name: 'Marques Brownlee (AI解説)' },\n  { id: 'UCbfYPyITQ-7l4upoX8nvctg', name: 'Two Minute Papers' }\n];\n\n// 1時間前のタイムスタンプ（ISO 8601形式）\nconst oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();\n\nreturn channels.map(ch => ({\n  json: {\n    channelId: ch.id,\n    channelName: ch.name,\n    publishedAfter: oneHourAgo\n  }\n}));"
+      },
+      "id": "bb2cc3dd-ee4f-5678-9012-bbccddee0011",
+      "name": "対象チャンネルリスト設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "queryParameters": {
+          "parameters": [
+            { "name": "part", "value": "snippet" },
+            { "name": "channelId", "value": "={{ $json.channelId }}" },
+            { "name": "type", "value": "video" },
+            { "name": "order", "value": "date" },
+            { "name": "publishedAfter", "value": "={{ $json.publishedAfter }}" },
+            { "name": "maxResults", "value": "5" }
+          ]
+        }
+      },
+      "id": "cc3dd4ee-ff5a-6789-0123-ccddee0f1122",
+      "name": "YouTube APIで新動画検索",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "YOUTUBE_API_CRED_ID",
+          "name": "YouTube Data API v3 Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// YouTube検索結果から動画情報を整形\nconst items = $json.items || [];\nif (items.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\nreturn items.map(item => ({\n  json: {\n    videoId: item.id.videoId,\n    title: item.snippet.title,\n    description: item.snippet.description,\n    channelTitle: item.snippet.channelTitle,\n    publishedAt: item.snippet.publishedAt,\n    thumbnailUrl: item.snippet.thumbnails?.high?.url || '',\n    videoUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`\n  }\n}));"
+      },
+      "id": "dd4ee5ff-aa6b-7890-1234-ddee0f1a2233",
+      "name": "動画情報を整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ee5ff6aa-bb7c-8901-2345-ee0f1a2b3344",
+      "name": "新動画あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "=あなたはAI情報専門サイト「AIナビ」のライターです。以下のYouTube動画を日本語で紹介する記事を書いてください。\n\n動画情報:\n- タイトル: {{ $json.title }}\n- チャンネル: {{ $json.channelTitle }}\n- 公開日: {{ $json.publishedAt }}\n- 説明: {{ $json.description }}\n- 動画URL: {{ $json.videoUrl }}\n\n以下の構成でHTMLとして記事を作成してください:\n\n<h2>この動画の概要</h2>\n[動画の内容を2〜3文で要約]\n\n<h2>動画のポイント（推測）</h2>\n<ul>\n<li>[ポイント1]</li>\n<li>[ポイント2]</li>\n<li>[ポイント3]</li>\n</ul>\n\n<h2>AIユーザーへの注目ポイント</h2>\n[なぜこの動画を見るべきかを説明]\n\n<p>▶️ <strong>動画を見る</strong>: <a href=\"{{ $json.videoUrl }}\">{{ $json.title }}</a></p>\n<p>📺 チャンネル: {{ $json.channelTitle }}</p>\n\n日本語で、初心者にも分かりやすく書いてください。"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "ff6aa7bb-cc8d-9012-3456-0f1a2b3c4455",
+      "name": "Claude APIで動画紹介記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst videoData = $('動画情報を整形').item.json;\n\nreturn [{\n  json: {\n    title: `【YouTube】${videoData.title} | ${videoData.channelTitle}`,\n    content: content,\n    status: 'draft'\n  }\n}];"
+      },
+      "id": "aa7bb8cc-dd9e-0123-4567-1a2b3c4d5566",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "draft"
+          }
+        }
+      },
+      "id": "bb8cc9dd-ee0f-1234-5678-2b3c4d5e6677",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_OAUTH_CRED_ID",
+          "name": "WordPress.com OAuth Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "cc9dd0ee-ff1a-2345-6789-3c4d5e6f7788",
+      "name": "新動画なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 420]
+    }
+  ],
+  "connections": {
+    "1時間ごとトリガー": {
+      "main": [
+        [{ "node": "対象チャンネルリスト設定", "type": "main", "index": 0 }]
+      ]
+    },
+    "対象チャンネルリスト設定": {
+      "main": [
+        [{ "node": "YouTube APIで新動画検索", "type": "main", "index": 0 }]
+      ]
+    },
+    "YouTube APIで新動画検索": {
+      "main": [
+        [{ "node": "動画情報を整形", "type": "main", "index": 0 }]
+      ]
+    },
+    "動画情報を整形": {
+      "main": [
+        [{ "node": "新動画あり？", "type": "main", "index": 0 }]
+      ]
+    },
+    "新動画あり？": {
+      "main": [
+        [{ "node": "Claude APIで動画紹介記事生成", "type": "main", "index": 0 }],
+        [{ "node": "新動画なし（スキップ）", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude APIで動画紹介記事生成": {
+      "main": [
+        [{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "YouTube" },
+    { "name": "AI情報収集" }
+  ],
+  "notes": "必要な認証情報:\n1. YouTube Data API v3 Key (httpQueryAuth): key=YOUR_YOUTUBE_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress.com OAuth Token (httpHeaderAuth): Authorization: Bearer YOUR_WP_ACCESS_TOKEN\n\n対象チャンネル（コードノード内で変更可能）:\n- Anthropic公式\n- OpenAI公式\n- Google DeepMind公式\n- Marques Brownlee (AI解説)\n- Two Minute Papers\n\nYouTube API割り当て: 10,000 units/日（1チャンネル検索=100units = 最大100チャンネル/日）"
+}

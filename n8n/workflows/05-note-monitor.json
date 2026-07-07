@@ -1,0 +1,203 @@
+{
+  "name": "05 note AIクリエイター記事監視",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "aaaa1111-bbbb-2222-cccc-333344445555",
+      "name": "1時間ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 監視対象のnote RSS URL一覧\n// ユーザーRSS: https://note.com/{username}/rss\n// タグRSS: https://note.com/hashtag/{tag}/rss\nconst noteSources = [\n  { url: 'https://note.com/hashtag/生成AI/rss', label: 'note #生成AI' },\n  { url: 'https://note.com/hashtag/ChatGPT/rss', label: 'note #ChatGPT' },\n  { url: 'https://note.com/hashtag/Claude/rss', label: 'note #Claude' },\n  { url: 'https://note.com/hashtag/プロンプト/rss', label: 'note #プロンプト' },\n  { url: 'https://note.com/hashtag/AIツール/rss', label: 'note #AIツール' }\n];\n\nreturn noteSources.map(src => ({ json: src }));"
+      },
+      "id": "bbbb2222-cccc-3333-dddd-444455556666",
+      "name": "note監視ソース設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}"
+      },
+      "id": "cccc3333-dddd-4444-eeee-555566667777",
+      "name": "note RSS取得",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 新記事フィルタリング（過去1時間以内）\nconst processedUrls = $getWorkflowStaticData('global').noteProcessedUrls || [];\nconst items = $input.all();\nconst newItems = [];\n\nfor (const item of items) {\n  const url = item.json.link || item.json.url;\n  if (!url) continue;\n  \n  // 1時間以内の記事のみ\n  const pubDate = item.json.pubDate || item.json.isoDate;\n  if (pubDate) {\n    const ageMs = Date.now() - new Date(pubDate).getTime();\n    if (ageMs > 60 * 60 * 1000) continue;\n  }\n  \n  if (!processedUrls.includes(url)) {\n    newItems.push({\n      json: {\n        title: item.json.title || 'タイトルなし',\n        link: url,\n        pubDate: item.json.pubDate || new Date().toISOString(),\n        summary: item.json.contentSnippet || item.json.content || '',\n        creator: item.json.creator || item.json.author || '不明'\n      }\n    });\n  }\n}\n\n// 処理済みURL記録（最大300件）\nconst allUrls = [...processedUrls, ...newItems.map(i => i.json.link)];\n$getWorkflowStaticData('global').noteProcessedUrls = allUrls.slice(-300);\n\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
+      },
+      "id": "dddd4444-eeee-5555-ffff-666677778888",
+      "name": "新記事フィルタリング",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "eeee5555-ffff-6666-aaaa-777788889999",
+      "name": "新記事あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "=あなたはAI情報専門サイト「AIナビ」のライターです。以下のnoteの記事を参考に、AIツールの使い方や実践知識をまとめた紹介記事を書いてください。\n\n元記事情報:\n- タイトル: {{ $json.title }}\n- 著者: {{ $json.creator }}\n- URL: {{ $json.link }}\n- 概要: {{ $json.summary }}\n\n以下の構成でHTMLとして記事を作成してください:\n\n<h2>この記事で学べること</h2>\n[記事のポイントを3項目で]\n\n<h2>注目のAI活用アイデア</h2>\n[実践的な活用方法を具体的に説明]\n\n<h2>初心者が試せるステップ</h2>\n<ol>\n<li>[ステップ1]</li>\n<li>[ステップ2]</li>\n<li>[ステップ3]</li>\n</ol>\n\n<p>📝 <strong>元記事を読む</strong>: <a href=\"{{ $json.link }}\">{{ $json.title }}</a>（by {{ $json.creator }}）</p>\n\n日本語で、実際に試せる内容を重視して書いてください。"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "ffff6666-aaaa-7777-bbbb-888899990000",
+      "name": "Claude APIで紹介記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst noteData = $('新記事フィルタリング').item.json;\n\nreturn [{\n  json: {\n    title: `【note】${noteData.title}`,\n    content: content,\n    status: 'draft'\n  }\n}];"
+      },
+      "id": "aaaa7777-bbbb-8888-cccc-999900001111",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "draft"
+          }
+        }
+      },
+      "id": "bbbb8888-cccc-9999-dddd-000011112222",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_OAUTH_CRED_ID",
+          "name": "WordPress.com OAuth Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "cccc9999-dddd-0000-eeee-111122223333",
+      "name": "新記事なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 420]
+    }
+  ],
+  "connections": {
+    "1時間ごとトリガー": {
+      "main": [
+        [{ "node": "note監視ソース設定", "type": "main", "index": 0 }]
+      ]
+    },
+    "note監視ソース設定": {
+      "main": [
+        [{ "node": "note RSS取得", "type": "main", "index": 0 }]
+      ]
+    },
+    "note RSS取得": {
+      "main": [
+        [{ "node": "新記事フィルタリング", "type": "main", "index": 0 }]
+      ]
+    },
+    "新記事フィルタリング": {
+      "main": [
+        [{ "node": "新記事あり？", "type": "main", "index": 0 }]
+      ]
+    },
+    "新記事あり？": {
+      "main": [
+        [{ "node": "Claude APIで紹介記事生成", "type": "main", "index": 0 }],
+        [{ "node": "新記事なし（スキップ）", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude APIで紹介記事生成": {
+      "main": [
+        [{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "note" },
+    { "name": "AI情報収集" }
+  ],
+  "notes": "必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress.com OAuth Token (httpHeaderAuth): Authorization: Bearer YOUR_WP_ACCESS_TOKEN\n\n監視タグ（コードノードで変更可能）:\n- #生成AI\n- #ChatGPT\n- #Claude\n- #プロンプト\n- #AIツール\n\nnote RSSは認証不要で利用可能です。"
+}

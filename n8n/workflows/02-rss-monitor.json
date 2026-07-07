@@ -1,0 +1,283 @@
+{
+  "name": "02 RSS Monitor - AI公式ブログ監視",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "1a2b3c4d-5e6f-7890-1234-abcdef012345",
+      "name": "30分ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://openai.com/blog/rss.xml"
+      },
+      "id": "2b3c4d5e-6f7a-8901-2345-bcdef0123456",
+      "name": "OpenAI Blog RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [460, 100]
+    },
+    {
+      "parameters": {
+        "url": "https://www.anthropic.com/blog.rss"
+      },
+      "id": "3c4d5e6f-7a8b-9012-3456-cdef01234567",
+      "name": "Anthropic Blog RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [460, 220]
+    },
+    {
+      "parameters": {
+        "url": "https://blog.google/technology/ai/rss/"
+      },
+      "id": "4d5e6f7a-8b9c-0123-4567-def012345678",
+      "name": "Google AI Blog RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [460, 340]
+    },
+    {
+      "parameters": {
+        "url": "https://ai.meta.com/blog/rss/"
+      },
+      "id": "5e6f7a8b-9c0d-1234-5678-ef0123456789",
+      "name": "Meta AI Blog RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [460, 460]
+    },
+    {
+      "parameters": {
+        "url": "https://note.com/topics/ai/rss"
+      },
+      "id": "6f7a8b9c-0d1e-2345-6789-f01234567890",
+      "name": "note AI RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [460, 580]
+    },
+    {
+      "parameters": {
+        "numberInputs": 5,
+        "mode": "passThrough",
+        "clashHandling": {
+          "values": {
+            "resolveClash": "preferInput1"
+          }
+        }
+      },
+      "id": "7a8b9c0d-1e2f-3456-7890-012345678901",
+      "name": "RSS結果を統合",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [700, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 重複チェックと新記事フィルタリング\n// n8nの静的データを使って既処理URLを記憶\nconst processedUrls = $getWorkflowStaticData('global').processedUrls || [];\nconst items = $input.all();\nconst newItems = [];\n\nfor (const item of items) {\n  const url = item.json.link || item.json.url || item.json.guid;\n  if (!url) continue;\n  \n  // 24時間以内の記事のみ対象（古い記事は除外）\n  const pubDate = item.json.pubDate || item.json.isoDate;\n  if (pubDate) {\n    const articleAge = Date.now() - new Date(pubDate).getTime();\n    const hoursOld = articleAge / (1000 * 60 * 60);\n    if (hoursOld > 24) continue;\n  }\n  \n  if (!processedUrls.includes(url)) {\n    newItems.push({\n      json: {\n        title: item.json.title || 'タイトルなし',\n        link: url,\n        pubDate: item.json.pubDate || item.json.isoDate || new Date().toISOString(),\n        summary: item.json.contentSnippet || item.json.content || item.json.summary || '本文なし',\n        source: item.json.creator || item.json.author || '不明'\n      }\n    });\n  }\n}\n\n// 処理済みURLを記録（最大500件保持）\nconst allUrls = [...processedUrls, ...newItems.map(i => i.json.link)];\n$getWorkflowStaticData('global').processedUrls = allUrls.slice(-500);\n\nconsole.log(`新記事数: ${newItems.length}件`);\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
+      },
+      "id": "8b9c0d1e-2f3a-4567-8901-123456789012",
+      "name": "新記事フィルタリング（重複除外）",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "9c0d1e2f-3a4b-5678-9012-234567890123",
+      "name": "新記事あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1140, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "=あなたはAI情報専門サイト「AIナビ」の日本語ライターです。以下のAI企業の公式ブログ記事を日本語で分かりやすく解説する記事を書いてください。\n\n元記事情報:\n- タイトル: {{ $json.title }}\n- URL: {{ $json.link }}\n- 公開日: {{ $json.pubDate }}\n- 概要: {{ $json.summary }}\n\n以下の構成でHTMLとして記事を作成してください:\n\n<h2>このニュースのポイント</h2>\n[3つの箇条書きで要点をまとめる]\n\n<h2>詳細解説</h2>\n[分かりやすく500〜800字で解説]\n\n<h2>AIツールへの影響・活用方法</h2>\n[実際に使う人にとっての意味を説明]\n\n<h2>まとめ</h2>\n[2〜3文で締めくくり]\n\n<p>🔗 <strong>元記事</strong>: <a href=\"{{ $json.link }}\">{{ $json.title }}</a></p>\n\n日本語で、AI初心者にも分かりやすく書いてください。専門用語には括弧で補足を入れてください。"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        }
+      },
+      "id": "0d1e2f3a-4b5c-6789-0123-345678901234",
+      "name": "Claude APIで日本語記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// WordPress投稿データを整形\nconst claudeContent = $json.content[0].text;\nconst rssItem = $('新記事フィルタリング（重複除外）').item.json;\n\n// ソースからカテゴリを推測\nconst link = rssItem.link || '';\nlet source = 'AIニュース';\nif (link.includes('openai.com')) source = 'OpenAI';\nelse if (link.includes('anthropic.com')) source = 'Anthropic';\nelse if (link.includes('google')) source = 'Google AI';\nelse if (link.includes('meta.ai') || link.includes('ai.meta')) source = 'Meta AI';\nelse if (link.includes('note.com')) source = 'note';\n\nconst title = `【${source}】${rssItem.title}`;\n\nreturn [{\n  json: {\n    title: title,\n    content: claudeContent,\n    status: 'draft',\n    source: source\n  }\n}];"
+      },
+      "id": "1e2f3a4b-5c6d-7890-1234-456789012345",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "draft"
+          }
+        }
+      },
+      "id": "2f3a4b5c-6d7e-8901-2345-567890123456",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1800, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_OAUTH_CRED_ID",
+          "name": "WordPress.com OAuth Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "3a4b5c6d-7e8f-9012-3456-678901234567",
+      "name": "新記事なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1360, 460]
+    }
+  ],
+  "connections": {
+    "30分ごとトリガー": {
+      "main": [
+        [
+          { "node": "OpenAI Blog RSS", "type": "main", "index": 0 },
+          { "node": "Anthropic Blog RSS", "type": "main", "index": 0 },
+          { "node": "Google AI Blog RSS", "type": "main", "index": 0 },
+          { "node": "Meta AI Blog RSS", "type": "main", "index": 0 },
+          { "node": "note AI RSS", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "OpenAI Blog RSS": {
+      "main": [
+        [{ "node": "RSS結果を統合", "type": "main", "index": 0 }]
+      ]
+    },
+    "Anthropic Blog RSS": {
+      "main": [
+        [{ "node": "RSS結果を統合", "type": "main", "index": 1 }]
+      ]
+    },
+    "Google AI Blog RSS": {
+      "main": [
+        [{ "node": "RSS結果を統合", "type": "main", "index": 2 }]
+      ]
+    },
+    "Meta AI Blog RSS": {
+      "main": [
+        [{ "node": "RSS結果を統合", "type": "main", "index": 3 }]
+      ]
+    },
+    "note AI RSS": {
+      "main": [
+        [{ "node": "RSS結果を統合", "type": "main", "index": 4 }]
+      ]
+    },
+    "RSS結果を統合": {
+      "main": [
+        [{ "node": "新記事フィルタリング（重複除外）", "type": "main", "index": 0 }]
+      ]
+    },
+    "新記事フィルタリング（重複除外）": {
+      "main": [
+        [{ "node": "新記事あり？", "type": "main", "index": 0 }]
+      ]
+    },
+    "新記事あり？": {
+      "main": [
+        [{ "node": "Claude APIで日本語記事生成", "type": "main", "index": 0 }],
+        [{ "node": "新記事なし（スキップ）", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude APIで日本語記事生成": {
+      "main": [
+        [{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "RSS" },
+    { "name": "AI情報収集" }
+  ],
+  "notes": "必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress.com OAuth Token (httpHeaderAuth): Authorization: Bearer YOUR_WP_ACCESS_TOKEN\n\nRSSソース:\n- OpenAI Blog: https://openai.com/blog/rss.xml\n- Anthropic Blog: https://www.anthropic.com/blog.rss\n- Google AI Blog: https://blog.google/technology/ai/rss/\n- Meta AI Blog: https://ai.meta.com/blog/rss/\n- note AI: https://note.com/topics/ai/rss\n\nスケジュール: 30分ごと\n注意: RSSのURLは実際のサイトで確認してください（変更の可能性あり）"
+}

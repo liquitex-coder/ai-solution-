@@ -1,0 +1,219 @@
+{
+  "name": "04 Threads AIインフルエンサー監視",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "id": "1122aabb-ccdd-eeff-0011-223344556677",
+      "name": "3時間ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 対象Threadsアカウント（ユーザーID）\n// ユーザーIDは Threads API で取得\n// 例: https://www.threads.net/@username のIDをAPIで取得する\nconst targetAccounts = [\n  { username: 'chroniki_claude', userId: 'THREADS_USER_ID_1', description: 'Claude Code専門家' },\n  { username: 'ai_trend_jp', userId: 'THREADS_USER_ID_2', description: 'AIトレンド情報' },\n  { username: 'prompt_engineering_jp', userId: 'THREADS_USER_ID_3', description: 'プロンプトエンジニアリング' }\n];\n\n// 3時間前のタイムスタンプ\nconst threeHoursAgo = Math.floor((Date.now() - 3 * 60 * 60 * 1000) / 1000);\n\nreturn targetAccounts.map(acc => ({\n  json: {\n    username: acc.username,\n    userId: acc.userId,\n    description: acc.description,\n    since: threeHoursAgo\n  }\n}));"
+      },
+      "id": "2233bbcc-ddee-ff00-1122-334455667788",
+      "name": "対象アカウント設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.threads.net/v1.0/{{ $json.userId }}/threads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "id,text,timestamp,permalink,media_type" },
+            { "name": "since", "value": "={{ $json.since }}" },
+            { "name": "limit", "value": "10" }
+          ]
+        }
+      },
+      "id": "3344ccdd-eeff-0011-2233-445566778899",
+      "name": "Threads API投稿取得",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "THREADS_API_CRED_ID",
+          "name": "Threads API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Threadsレスポンスを整形\nconst posts = $json.data || [];\nif (posts.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\n// AI関連キーワードフィルタ\nconst aiKeywords = ['AI', 'Claude', 'GPT', 'ChatGPT', 'Gemini', '人工知能', '機械学習', 'プロンプト', 'LLM', '生成AI', 'Anthropic', 'OpenAI'];\n\nconst aiPosts = posts.filter(post => {\n  const text = post.text || '';\n  return aiKeywords.some(kw => text.toLowerCase().includes(kw.toLowerCase()));\n});\n\nif (aiPosts.length === 0) {\n  return [{ json: { skip: true } }];\n}\n\n// 全投稿をまとめて1つの記事にする\nconst username = $('対象アカウント設定').item.json.username;\nconst postsText = aiPosts.map(p => `- ${p.text} (${p.permalink})`).join('\\n');\n\nreturn [{\n  json: {\n    username: username,\n    postCount: aiPosts.length,\n    postsText: postsText,\n    posts: aiPosts\n  }\n}];"
+      },
+      "id": "4455ddee-ff00-1122-3344-556677889900",
+      "name": "AI関連投稿をフィルタリング",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "5566eeff-0011-2233-4455-667788990011",
+      "name": "AI投稿あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "=あなたはAI情報専門サイト「AIナビ」のライターです。以下のThreadsのAIインフルエンサーの投稿をまとめた「AIノウハウまとめ」記事を書いてください。\n\nアカウント: @{{ $json.username }}\n投稿数: {{ $json.postCount }}件\n\n投稿内容:\n{{ $json.postsText }}\n\n以下の構成でHTMLとして記事を作成してください:\n\n<h2>今週の注目AIノウハウ</h2>\n[投稿の要点を3〜5個のポイントにまとめる]\n\n<h2>実践的なTipsまとめ</h2>\n<ul>\n[各投稿から実践的なヒントを箇条書きで抽出]\n</ul>\n\n<h2>あなたの業務に活かすには</h2>\n[ビジネスパーソン向けに活用方法を提案]\n\n<h2>注目の投稿</h2>\n[最も重要な投稿を1〜2件紹介、リンクも含める]\n\n<p>📱 元の投稿: <a href=\"https://www.threads.net/@{{ $json.username }}\">@{{ $json.username }}</a></p>\n\n日本語で、AI初心者にも実践しやすい内容で書いてください。"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "6677ff00-1122-3344-5566-778899001122",
+      "name": "Claude APIでまとめ記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst threadsData = $('AI関連投稿をフィルタリング').item.json;\n\nreturn [{\n  json: {\n    title: `【Threads】@${threadsData.username}のAIノウハウまとめ（${threadsData.postCount}件）`,\n    content: content,\n    status: 'draft'\n  }\n}];"
+      },
+      "id": "7788aa11-2233-4455-6677-889900112233",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "draft"
+          }
+        }
+      },
+      "id": "8899bb22-3344-5566-7788-990011223344",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_OAUTH_CRED_ID",
+          "name": "WordPress.com OAuth Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "9900cc33-4455-6677-8899-001122334455",
+      "name": "AI投稿なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 420]
+    }
+  ],
+  "connections": {
+    "3時間ごとトリガー": {
+      "main": [
+        [{ "node": "対象アカウント設定", "type": "main", "index": 0 }]
+      ]
+    },
+    "対象アカウント設定": {
+      "main": [
+        [{ "node": "Threads API投稿取得", "type": "main", "index": 0 }]
+      ]
+    },
+    "Threads API投稿取得": {
+      "main": [
+        [{ "node": "AI関連投稿をフィルタリング", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI関連投稿をフィルタリング": {
+      "main": [
+        [{ "node": "AI投稿あり？", "type": "main", "index": 0 }]
+      ]
+    },
+    "AI投稿あり？": {
+      "main": [
+        [{ "node": "Claude APIでまとめ記事生成", "type": "main", "index": 0 }],
+        [{ "node": "AI投稿なし（スキップ）", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude APIでまとめ記事生成": {
+      "main": [
+        [{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "Threads" },
+    { "name": "AI情報収集" }
+  ],
+  "notes": "必要な認証情報:\n1. Threads API Token (httpHeaderAuth): Authorization: Bearer YOUR_THREADS_ACCESS_TOKEN\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress.com OAuth Token (httpHeaderAuth): Authorization: Bearer YOUR_WP_ACCESS_TOKEN\n\nThreads API設定:\n- developers.facebook.com でアプリ作成\n- Threads APIアクセス申請\n- 対象アカウントのユーザーIDを取得してコードノードに設定\n\n注意: Threads API は現在 (2026年) ベータ版のため仕様変更の可能性があります"
+}
