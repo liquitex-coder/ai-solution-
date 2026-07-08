@@ -110,7 +110,7 @@
             "messages": [
               {
                 "role": "user",
-                "content": "=あなたはAI情報専門サイト「AIナビ」の日本語ライターです。以下のGitHubリポジトリを日本語で詳しく解説する記事を書いてください。\n\nリポジトリ情報:\n- 名前: {{ $json.name }}\n- 説明: {{ $json.description }}\n- スター数: {{ $json.stars }}⭐\n- 言語: {{ $json.language }}\n- トピック: {{ $json.topics }}\n- URL: {{ $json.url }}\n\n以下の形式でHTMLとして出力してください（WordPressに直接投稿します）:\n\n<h2>このツールで何ができる？</h2>\n[2〜3文で分かりやすく説明]\n\n<h2>こんな人におすすめ</h2>\n<ul>\n<li>[ターゲットユーザー1]</li>\n<li>[ターゲットユーザー2]</li>\n<li>[ターゲットユーザー3]</li>\n</ul>\n\n<h2>基本的な使い方</h2>\n[ステップ形式で3〜5ステップ]\n\n<h2>他のツールとの違い</h2>\n[差別化ポイントを2〜3文]\n\n<h2>難易度</h2>\n[入門/中級/上級 のいずれかと理由]\n\n記事の最後に必ず以下を付けてください:\n<p>📌 <strong>GitHubで確認</strong>: <a href=\"{{ $json.url }}\">{{ $json.name }}</a>（{{ $json.stars }}⭐）</p>\n\n日本語で、AI初心者にも分かりやすく書いてください。専門用語には括弧で説明を付けてください。"
+                "content": "=あなたはAI情報専門サイト「AIナビ」の日本語ライターです。以下のGitHubリポジトリを日本語で詳しく解説する記事を書いてください。\n\nリポジトリ情報:\n- 名前: {{ $json.name }}\n- 説明: {{ $json.description }}\n- スター数: {{ $json.stars }}⭐\n- 言語: {{ $json.language }}\n- トピック: {{ $json.topics }}\n- URL: {{ $json.url }}\n\n重要: HTMLコンテンツのみを出力してください。<!DOCTYPE>、<html>、<head>、<body>タグは使用しないでください。マークダウンのコードブロック（```html）も使用しないでください。<h2>タグから直接始めてください。\n\n以下の形式で出力してください:\n\n<h2>このツールで何ができる？</h2>\n[2〜3文で分かりやすく説明]\n\n<h2>こんな人におすすめ</h2>\n<ul>\n<li>[ターゲットユーザー1]</li>\n<li>[ターゲットユーザー2]</li>\n<li>[ターゲットユーザー3]</li>\n</ul>\n\n<h2>基本的な使い方</h2>\n[ステップ形式で3〜5ステップ]\n\n<h2>他のツールとの違い</h2>\n[差別化ポイントを2〜3文]\n\n<h2>難易度</h2>\n[入門/中級/上級 のいずれかと理由]\n\n<p>📌 <strong>GitHubで確認</strong>: <a href=\"{{ $json.url }}\">{{ $json.name }}</a>（{{ $json.stars }}⭐）</p>\n\n日本語で、AI初心者にも分かりやすく書いてください。専門用語には括弧で説明を付けてください。"
               }
             ]
           }
@@ -138,7 +138,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Claude APIレスポンスを整形してWordPress投稿用データを作成\nconst claudeResponse = $json.content[0].text;\nconst repoData = $('上位5件を整形').first().json;\n\n// 現在アイテムのデータを取得\nconst currentItem = $input.item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\n\n// タイトル生成（SEO最適化）\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\n\n// タグ生成\nconst tags = ['GitHubトレンド', 'AIツール', 'AI情報', currentItem.language].filter(Boolean);\n\nreturn [{\n  json: {\n    title: title,\n    content: claudeResponse,\n    status: 'draft',\n    categories: ['GitHubトレンド'],\n    tags: tags,\n    meta: {\n      description: `${shortName}の使い方・特徴・対象ユーザーを詳しく解説。スター数${currentItem.stars}の注目AIリポジトリ。`,\n      rank: rank,\n      repoUrl: currentItem.url,\n      stars: currentItem.stars\n    }\n  }\n}];"
+        "jsCode": "// Claude APIレスポンスを整形してWordPress投稿用データを作成\nconst raw = $json.content[0].text;\n\n// マークダウンコードフェンスを除去（=```html または ```html 形式に対応）\nconst stripped = raw\n  .replace(/^=?`{3}html\\s*\\n?/m, '')\n  .replace(/\\n?`{3}\\s*$/m, '')\n  .trim();\n\n// bodyタグがある場合は中身だけ抽出（フルHTMLページ対応）\nconst bodyMatch = stripped.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i);\nconst content = bodyMatch ? bodyMatch[1].trim() : stripped;\n\nconst currentItem = $input.item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\n\n// タイトル生成（SEO最適化）\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\n\n// タグ生成\nconst tags = ['GitHubトレンド', 'AIツール', 'AI情報', currentItem.language].filter(Boolean);\n\nreturn [{\n  json: {\n    title: title,\n    content: content,\n    status: 'draft',\n    categories: ['GitHubトレンド'],\n    tags: tags,\n    meta: {\n      description: `${shortName}の使い方・特徴・対象ユーザーを詳しく解説。スター数${currentItem.stars}の注目AIリポジトリ。`,\n      rank: rank,\n      repoUrl: currentItem.url,\n      stars: currentItem.stars\n    }\n  }\n}];"
       },
       "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
       "name": "WordPress投稿データ整形",
@@ -149,16 +149,24 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "url": "https://public-api.wordpress.com/rest/v1.1/sites/256007927/posts/new",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "draft"
-          }
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "title", "value": "={{ $json.title }}" },
+            { "name": "content", "value": "={{ $json.content }}" },
+            { "name": "status", "value": "={{ $json.status }}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer Ahpuh&*3y9QUW7IKSyeDAgSPKA@lvz$enUmvMVwe9!STzaf(PAL9f@F)gEM$qJ1z" }
+          ]
         }
       },
       "id": "a7b8c9d0-e1f2-3456-abcd-567890123456",
