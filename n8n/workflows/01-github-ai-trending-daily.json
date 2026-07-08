@@ -106,11 +106,11 @@
           "contentType": "json",
           "jsonBody": {
             "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 2000,
+            "max_tokens": 3000,
             "messages": [
               {
                 "role": "user",
-                "content": "=【出力フォーマット厳守】\n1行目は必ず「<h2>」で始めること。\nDOCTYPE・html・head・body・style・scriptタグは一切使用禁止。\nマークダウン（```）も禁止。\nHTMLページ構造は禁止。記事本文のHTMLのみ出力すること。\n\nあなたはAI情報専門サイト「AIナビ」の日本語ライターです。以下のGitHubリポジトリを日本語で詳しく解説する記事を書いてください。\n\nリポジトリ情報:\n- 名前: {{ $json.name }}\n- 説明: {{ $json.description }}\n- スター数: {{ $json.stars }}⭐\n- 言語: {{ $json.language }}\n- トピック: {{ $json.topics }}\n- URL: {{ $json.url }}\n\n以下の形式で出力してください（この形式以外は禁止）:\n\n<h2>このツールで何ができる？</h2>\n<p>[2〜3文で分かりやすく説明]</p>\n\n<h2>こんな人におすすめ</h2>\n<ul>\n<li>[ターゲットユーザー1]</li>\n<li>[ターゲットユーザー2]</li>\n<li>[ターゲットユーザー3]</li>\n</ul>\n\n<h2>基本的な使い方</h2>\n<ol>\n<li>[ステップ1]</li>\n<li>[ステップ2]</li>\n<li>[ステップ3]</li>\n</ol>\n\n<h2>他のツールとの違い</h2>\n<p>[差別化ポイントを2〜3文]</p>\n\n<h2>難易度</h2>\n<p>[入門/中級/上級 のいずれかと理由]</p>\n\n<p>📌 <strong>GitHubで確認</strong>: <a href=\"{{ $json.url }}\">{{ $json.name }}</a>（{{ $json.stars }}⭐）</p>\n\n日本語で、AI初心者にも分かりやすく書いてください。専門用語には括弧で説明を付けてください。"
+                "content": "=【出力フォーマット厳守】\n1行目は必ず「<h2>」で始めること。\nDOCTYPE・html・head・body・style・scriptタグは一切使用禁止。\nマークダウン（```）も禁止。HTMLページ構造は禁止。記事本文のHTMLのみ出力すること。\n\nあなたはAI情報専門サイト「AIナビ」の日本語ライターです。以下のGitHubリポジトリを日本語で詳しく解説する記事を書いてください。\n\nリポジトリ情報:\n- 名前: {{ $json.name }}\n- 説明: {{ $json.description }}\n- スター数: {{ $json.stars }}⭐\n- 言語: {{ $json.language }}\n- トピック: {{ $json.topics }}\n- URL: {{ $json.url }}\n\n以下の形式で出力してください（この形式以外は禁止）:\n\n<h2>このツールで何ができる？</h2>\n<p>[2〜3文で分かりやすく説明]</p>\n\n<h2>仕組みの図解</h2>\n<svg viewBox=\"0 0 600 160\" xmlns=\"http://www.w3.org/2000/svg\" style=\"width:100%;max-width:600px;height:auto;background:#f0f4ff;border-radius:12px;padding:10px\" aria-label=\"仕組み図\">\n[このツールのデータフローを3〜5個のボックスと矢印で表現するSVGを生成。rect要素でボックス、line/polygon要素で矢印、text要素で日本語ラベルを記述。色は#4a90d9（青）と#ffffff（白）を使用]\n</svg>\n\n<h2>こんな人におすすめ</h2>\n<ul>\n<li>[ターゲットユーザー1]</li>\n<li>[ターゲットユーザー2]</li>\n<li>[ターゲットユーザー3]</li>\n</ul>\n\n<h2>基本的な使い方</h2>\n<ol>\n<li>[ステップ1]</li>\n<li>[ステップ2]</li>\n<li>[ステップ3]</li>\n</ol>\n\n<h2>他のツールとの違い</h2>\n<p>[差別化ポイントを2〜3文]</p>\n\n<h2>難易度</h2>\n<p>[入門/中級/上級 のいずれかと理由]</p>\n\n<p>📌 <strong>GitHubで確認</strong>: <a href=\"{{ $json.url }}\">{{ $json.name }}</a>（{{ $json.stars }}⭐）</p>\n\n日本語で、AI初心者にも分かりやすく書いてください。専門用語には括弧で説明を付けてください。"
               }
             ]
           }
@@ -138,13 +138,39 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $json.content[0].text;\n\n// マークダウンコードフェンス除去\nlet content = raw\n  .replace(/`{3}html\\s*/gi, '')\n  .replace(/`{3}/g, '')\n  .trim();\n\n// <h2>/<h3> より前の余計なHTMLを全て除去\nconst h2Index = content.search(/<h[23]/i);\nif (h2Index > 0) {\n  content = content.slice(h2Index);\n} else if (h2Index === -1) {\n  // h2が見つからない場合: DOCTYPE以降の不要タグを除去\n  content = content\n    .replace(/<!DOCTYPE[^>]*>/gi, '')\n    .replace(/<html[^>]*>/gi, '')\n    .replace(/<\\/html>/gi, '')\n    .replace(/<head>[\\s\\S]*?<\\/head>/gi, '')\n    .replace(/<body[^>]*>/gi, '')\n    .replace(/<\\/body>/gi, '')\n    .replace(/<style>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script>[\\s\\S]*?<\\/script>/gi, '')\n    .trim();\n}\n\nconst currentItem = $input.item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\nconst tags = ['GitHubトレンド', 'AIツール', 'AI情報', currentItem.language].filter(Boolean);\n\nreturn [{\n  json: {\n    title: title,\n    content: content,\n    status: 'draft',\n    tags: tags\n  }\n}];"
+        "method": "GET",
+        "url": "https://api.unsplash.com/search/photos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "={{ $('上位5件を整形').item.json.language }} artificial intelligence programming" },
+            { "name": "per_page", "value": "1" },
+            { "name": "orientation", "value": "landscape" }
+          ]
+        }
+      },
+      "id": "b1c2d3e4-f5a6-7890-bcde-f12345678901",
+      "name": "Unsplash画像取得",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "UNSPLASH_CRED_ID",
+          "name": "Unsplash API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Claudeの記事コンテンツ\nconst claudeJson = $('Claude APIで日本語記事生成').item.json;\nconst raw = claudeJson.content[0].text;\n\n// Unsplash画像URL\nconst unsplashResults = $json.results || [];\nconst imageUrl = unsplashResults.length > 0 ? unsplashResults[0].urls.regular : null;\nconst imageAlt = unsplashResults.length > 0 ? (unsplashResults[0].alt_description || 'AI Tool illustration') : '';\nconst imageCredit = unsplashResults.length > 0 ? unsplashResults[0].user.name : '';\n\n// マークダウンコードフェンス除去\nlet content = raw\n  .replace(/`{3}html\\s*/gi, '')\n  .replace(/`{3}/g, '')\n  .trim();\n\n// <h2>/<h3> より前の余計なHTMLを全て除去\nconst h2Index = content.search(/<h[23]/i);\nif (h2Index > 0) {\n  content = content.slice(h2Index);\n} else if (h2Index === -1) {\n  content = content\n    .replace(/<!DOCTYPE[^>]*>/gi, '')\n    .replace(/<html[^>]*>/gi, '')\n    .replace(/<\\/html>/gi, '')\n    .replace(/<head>[\\s\\S]*?<\\/head>/gi, '')\n    .replace(/<body[^>]*>/gi, '')\n    .replace(/<\\/body>/gi, '')\n    .replace(/<style>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script>[\\s\\S]*?<\\/script>/gi, '')\n    .trim();\n}\n\n// アイキャッチ画像を記事冒頭に追加\nif (imageUrl) {\n  const imgHtml = `<figure style=\"margin:0 0 24px 0\"><img src=\"${imageUrl}\" alt=\"${imageAlt}\" style=\"width:100%;border-radius:8px\"/><figcaption style=\"font-size:12px;color:#888;text-align:right\">Photo by ${imageCredit} on Unsplash</figcaption></figure>\\n`;\n  content = imgHtml + content;\n}\n\nconst currentItem = $('上位5件を整形').item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\nconst tags = ['GitHubトレンド', 'AIツール', 'AI情報', currentItem.language].filter(Boolean);\n\nreturn [{\n  json: {\n    title: title,\n    content: content,\n    status: 'draft',\n    tags: tags\n  }\n}];"
       },
       "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
       "name": "WordPress投稿データ整形",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 300]
+      "position": [1560, 300]
     },
     {
       "parameters": {
@@ -228,6 +254,17 @@
       ]
     },
     "Claude APIで日本語記事生成": {
+      "main": [
+        [
+          {
+            "node": "Unsplash画像取得",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unsplash画像取得": {
       "main": [
         [
           {
