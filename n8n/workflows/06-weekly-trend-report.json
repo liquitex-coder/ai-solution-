@@ -1,0 +1,101 @@
+{
+  "name": "06 週次AIトレンドレポート（毎週月曜）",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 0 * * 1" }] } },
+      "id": "11112222-3333-4444-5555-666677778888",
+      "name": "毎週月曜0時トリガー (JST)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst weekStr = `${weekAgo.getFullYear()}年${weekAgo.getMonth()+1}月${weekAgo.getDate()}日〜${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;\nconst trendQueries = [\n  { query: '最新 AI ツール 2026', label: '新AIツール' },\n  { query: 'ChatGPT Claude Gemini 最新 機能 アップデート', label: 'LLM最新情報' },\n  { query: 'AI 業務効率化 活用事例 日本', label: '国内AI活用事例' },\n  { query: 'プロンプトエンジニアリング テクニック 最新', label: 'プロンプト技術' },\n  { query: 'AI 自動化 n8n Make Zapier ワークフロー', label: 'AI自動化' }\n];\nreturn trendQueries.map(q => ({ json: { query: q.query, label: q.label, weekStr } }));"
+      },
+      "id": "22223333-4444-5555-6666-777788889999",
+      "name": "トレンドキーワード設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "model": "llama-3.1-sonar-large-128k-online", "messages": [{ "role": "user", "content": "=日本語で回答。トピック「{{ $json.label }}」の今週のトレンド・主要ニュース・実務への影響を調査してください。" }], "max_tokens": 1500 } }
+      },
+      "id": "33334444-5555-6666-7777-888899990000",
+      "name": "Perplexity APIでトレンド検索",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": { "httpHeaderAuth": { "id": "PERPLEXITY_API_CRED_ID", "name": "Perplexity API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst queryData = $('トレンドキーワード設定').all();\nconst sections = items.map((item, index) => ({ label: queryData[index]?.json.label || '', content: item.json.choices?.[0]?.message?.content || '' }));\nconst weekStr = queryData[0]?.json.weekStr || '';\nreturn [{ json: { weekStr, sections } }];"
+      },
+      "id": "44445555-6666-7777-8888-999900001111",
+      "name": "トレンドデータ集約",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "model": "claude-sonnet-5", "max_tokens": 4000, "messages": [{ "role": "user", "content": "=AIナビ編集長として、対象期間 {{ $json.weekStr }} の週次AIトレンドレポートをHTMLで作成してください。\nリサーチ結果:\n{{ $json.sections.map(s => `【${s.label}】\\n${s.content}`).join('\\n\\n---\\n\\n') }}" }] } },
+        "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
+      },
+      "id": "55556666-7777-8888-9999-000011112222",
+      "name": "Claude APIで週次レポート生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst weekStr = $('トレンドデータ集約').first().json.weekStr;\nconst now = new Date();\nconst monthDay = `${now.getMonth()+1}月${now.getDate()}日`;\nreturn [{ json: { title: `【週次AIトレンド】${monthDay}週 - 注目のAIニュース・ツールまとめ`, content, status: 'publish' } }];"
+      },
+      "id": "66667777-8888-9999-0000-111122223333",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "title": "={{ $json.title }}", "content": "={{ $json.content }}", "status": "={{ $json.status }}" } }
+      },
+      "id": "77778888-9999-0000-1111-222233334444",
+      "name": "WordPressに即時公開",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+    }
+  ],
+  "connections": {
+    "毎週月曜0時トリガー (JST)": { "main": [[{ "node": "トレンドキーワード設定", "type": "main", "index": 0 }]] },
+    "トレンドキーワード設定": { "main": [[{ "node": "Perplexity APIでトレンド検索", "type": "main", "index": 0 }]] },
+    "Perplexity APIでトレンド検索": { "main": [[{ "node": "トレンドデータ集約", "type": "main", "index": 0 }]] },
+    "トレンドデータ集約": { "main": [[{ "node": "Claude APIで週次レポート生成", "type": "main", "index": 0 }]] },
+    "Claude APIで週次レポート生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
+    "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに即時公開", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "週次レポート" }, { "name": "Perplexity" }, { "name": "AI情報収集" }],
+  "notes": "必要な認証情報:\n1. Perplexity API Key (httpHeaderAuth): Authorization: Bearer YOUR_PERPLEXITY_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nスケジュール: 毎週月曜 0:00 UTC (= 09:00 JST)\n週次レポートは status: publish で即公開。"
+}
