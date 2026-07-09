@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst weekStr = `${weekAgo.getFullYear()}年${weekAgo.getMonth()+1}月${weekAgo.getDate()}日〜${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;\nconst trendQueries = [\n  { query: '最新 AI ツール 2026', label: '新AIツール' },\n  { query: 'ChatGPT Claude Gemini 最新 機能 アップデート', label: 'LLM最新情報' },\n  { query: 'AI 業務効率化 活用事例 日本', label: '国内AI活用事例' },\n  { query: 'プロンプトエンジニアリング テクニック 最新', label: 'プロンプト技術' },\n  { query: 'AI 自動化 n8n Make Zapier ワークフロー', label: 'AI自動化' }\n];\nreturn trendQueries.map(q => ({ json: { query: q.query, label: q.label, weekStr } }));"
+        "jsCode": "const now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst weekStr = `${weekAgo.getFullYear()}年${weekAgo.getMonth()+1}月${weekAgo.getDate()}日～${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;\nconst trendQueries = [\n  { query: '最新 AI ツール 2026', label: '新AIツール' },\n  { query: 'ChatGPT Claude Gemini 最新 機能 アップデート', label: 'LLM最新情報' },\n  { query: 'AI 業務効率化 活用事例 日本', label: '国内AI活用事例' },\n  { query: 'プロンプトエンジニアリング テクニック 最新', label: 'プロンプト技術' },\n  { query: 'AI 自動化 n8n Make Zapier ワークフロー', label: 'AI自動化' }\n];\nreturn trendQueries.map(q => ({ json: { query: q.query, label: q.label, weekStr } }));"
       },
       "id": "22223333-4444-5555-6666-777788889999",
       "name": "トレンドキーワード設定",
@@ -46,18 +46,35 @@
     },
     {
       "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '06-weekly-report.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "p006wf06-aa00-4006-8006-000000000006",
+      "name": "プロンプト読込み (WF-06)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": { "contentType": "json", "jsonBody": { "model": "claude-sonnet-5", "max_tokens": 4000, "messages": [{ "role": "user", "content": "=AIナビ編集長として、対象期間 {{ $json.weekStr }} の週次AIトレンドレポートをHTMLで作成してください。\nリサーチ結果:\n{{ $json.sections.map(s => `【${s.label}】\\n${s.content}`).join('\\n\\n---\\n\\n') }}" }] } },
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-sonnet-5",
+            "max_tokens": 4000,
+            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\n期間: ' + $json.weekStr + '\\n\\nリサーチ結果:\\n' + JSON.stringify($json.sections) }}" }]
+          }
+        },
         "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
       },
       "id": "55556666-7777-8888-9999-000011112222",
       "name": "Claude APIで週次レポート生成",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 300],
+      "position": [1340, 300],
       "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
     },
     {
@@ -68,7 +85,7 @@
       "name": "WordPress投稿データ整形",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 300]
+      "position": [1560, 300]
     },
     {
       "parameters": {
@@ -82,20 +99,29 @@
       "name": "WordPressに即時公開",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 300],
+      "position": [1780, 300],
       "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+    },
+    {
+      "parameters": {},
+      "id": "e006wf06-ee00-4006-8006-000000000006",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 600]
     }
   ],
   "connections": {
     "毎週月曜0時トリガー (JST)": { "main": [[{ "node": "トレンドキーワード設定", "type": "main", "index": 0 }]] },
     "トレンドキーワード設定": { "main": [[{ "node": "Perplexity APIでトレンド検索", "type": "main", "index": 0 }]] },
     "Perplexity APIでトレンド検索": { "main": [[{ "node": "トレンドデータ集約", "type": "main", "index": 0 }]] },
-    "トレンドデータ集約": { "main": [[{ "node": "Claude APIで週次レポート生成", "type": "main", "index": 0 }]] },
+    "トレンドデータ集約": { "main": [[{ "node": "プロンプト読込み (WF-06)", "type": "main", "index": 0 }]] },
+    "プロンプト読込み (WF-06)": { "main": [[{ "node": "Claude APIで週次レポート生成", "type": "main", "index": 0 }]] },
     "Claude APIで週次レポート生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
     "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに即時公開", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
   "tags": [{ "name": "週次レポート" }, { "name": "Perplexity" }, { "name": "AI情報収集" }],
-  "notes": "必要な認証情報:\n1. Perplexity API Key (httpHeaderAuth): Authorization: Bearer YOUR_PERPLEXITY_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nスケジュール: 毎週月曜 0:00 UTC (= 09:00 JST)\n週次レポートは status: publish で即公開。"
+  "notes": "必要な認証情報:\n1. Perplexity API Key (httpHeaderAuth): Authorization: Bearer YOUR_PERPLEXITY_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/06-weekly-report.md から動的読込み。\nスケジュール: 毎週月曜 0:00 UTC (= 09:00 JST)\n週次レポートは status: publish で即公開。"
 }
