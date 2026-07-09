@@ -162,7 +162,15 @@ n8n/workflows/06-weekly-trend-report.json
 1. 「HTTP Header Auth」を選択
 2. Name: `WordPress App Password`
 3. **Name**: `Authorization`
-4. **Value**: `Basic BASE64(username:app_password)` ← `echo -n 'admin:xxxx xxxx xxxx' | base64` で生成
+4. **Value**: `Basic BASE64(username:app_password)` ← 下記コマンドで生成
+
+```bash
+# app_password は WordPress のスペースあり文字列（例: xxxx xxxx xxxx xxxx xxxx xxxx）
+echo -n 'admin:xxxx xxxx xxxx xxxx xxxx xxxx' | base64
+# 出力: YWRtaW46eHh4eCB4eHh4IHh4eHggeHh4eCB4eHh4IHh4eHg=
+# この文字列を Value に設定する
+```
+
 5. 保存
 
 #### C. GitHub API Token
@@ -235,30 +243,146 @@ n8n/workflows/06-weekly-trend-report.json
 
 ---
 
-## トラブルシューティング
+## エラーハンドリング
 
-### WordPress.com 投稿に失敗する場合
+### n8n Error Trigger ノードの設定（推奨）
 
-- トークンの有効期限切れ → Step 1-2 を再実行
-- サイトURLの確認: `liquitex929aa21393-eyqci.wordpress.com`
+全ワークフローに Error Trigger ノードを追加することでエラー為に通知を受け取れます。
 
-### Claude APIでエラーが出る場合
+1. n8n メニュー「Settings」→「Workflow settings」
+2. "Error workflow": 専用のエラー通知ワークフローを設定
+3. エラー通知ワークフローの例（将来追加予定）: Slack/メールにエラー内容を送信
 
-- APIキーが正しいか確認
-- レートリミット超過の可能性 → 少し待って再実行
+### エラー別対応手順
+
+#### 401 Unauthorized（WordPress 認証エラー）
+
+**原因**: Application Password の期限切れ / 誤入力 / アカウント変更
+
+**対応手順**:
+1. WordPress 管理画面 → 「ユーザー」→ 「プロフィール」
+2. 「アプリケーションパスワード」内の旧パスワードを削除
+3. 「新しいアプリケーションパスワード」を追加「追加」
+4. 新しいパスワードで base64 を再生成
+
+```bash
+echo -n 'username:NEW_APP_PASSWORD' | base64
+```
+
+5. n8n Credentials 「WordPress App Password」の値を更新
+
+#### 403 Forbidden（GitHub API レート制限）
+
+**原因**: トークンなしで 60 req/h を超過 / トークン小で 5000 req/h を超過
+
+**n8n でのレート制限対応**:
+1. ワークフロー01 の "GitHub APIでAIリポジトリ取得" ノードの後に「**IF**」ノードを追加
+2. 条件: `{{ $json.message }}` に "rate limit" を含む場合
+3. はい側: 「**Wait**」ノードで 60分待機 → 再実行
+4. いいえ側: 通常処理を続行
+
+**レート制限残数の確認**:
+```bash
+# 現在のコア数確認
+curl -H "Authorization: token YOUR_TOKEN" https://api.github.com/rate_limit
+```
+
+#### 529 Overloaded（Claude API 過負荷）
+
+**原因**: Anthropic サーバーの一時的過負荷。数分待つことがほとんど。
+
+**n8n での指数バックオフパターン**:
+1. Claude API ノードの「**Settings**」→「**On Error**」に「**Retry on Fail**」を設定
+2. Max Tries: `3`
+3. Wait Between Tries: `60000`（ms）
+4. または手動で Wait ノードをパイプラインに挿入:
+
+```
+Claude API ノード
+  ↓（失敗時）
+IF ノード: status == 529 ?
+  ↓ Yes
+Wait ノード: 60000ms
+  ↓
+Claude API ノード（再実行）
+```
+
+#### 410 Gone（WordPress REST API エンドポイント変更）
+
+**原因**: WordPress バージョンアップで REST APIエンドポイントが変更
+
+**対応**:
+1. WordPress バージョンを確認: `wp-admin/about.php`
+2. WP REST API エンドポイントを手動で確認:
+
+```bash
+# WordPress.com
+curl https://public-api.wordpress.com/wp/v2/sites/YOUR_SITE/posts
+
+# セルフホスト WordPress
+curl http://localhost:8080/wp-json/wp/v2/posts
+```
+
+3. n8n ワークフロー内の HTTP ノードの URL を更新
+
+#### n8n タイムアウト
+
+**原因**: 1回の実行で全ノードを完了できない場合
+
+**対応**:
+1. ワークフローを分割する
+   - 例: ワークフロー01 のリポジトリ取得エラーー→ リポジトリ取得「パート2」と分割
+2. 高負荷な身辺ノード（Code ノード内の御丗いデータ）を減らす
+3. n8n.cloud がタイムアウト設定内に収まるようパイプラインを短縮化
+
+---
+
+## トラブルシューティング（環境別）
+
+### Docker コンテナが起動しない
+
+```bash
+# ログを確認
+docker compose logs db
+docker compose logs wordpress
+docker compose logs n8n
+
+# コンテナをリセット
+docker compose down && docker compose up -d
+```
+
+**チェックリスト**:
+- [ ] ポート 8080/5678/3306 が既に使用中でないか確認: `lsof -i :8080`
+- [ ] `.env` の変数が正しく設定されているか確認
+- [ ] Docker に十分なメモリがあるか確認（最低4GB推奨）
+
+### WordPress.com 投稿に失敗する
+
+- Application Password の Base64 エンコードを再生成して試す
+- WordPress.com の REST API エンドポイント URL を再確認
+- n8n Credentials の値が正しく保存されているか確認
+
+### Claude APIでエラーが出る
+
+- `401`: APIキーが正しいか確認（コンソールでキーを再コピー）
+- `429`: レート制限超過 → Wait ノードで待機して再実行
+- `529`: 過負荷 → 60秒待機すると大多数解決する
+- `model not found`: モデル ID が変更された可能性 → Anthropicドキュメントで最新のモデル ID を確認
 
 ### GitHub APIで403エラー
 
-- トークンなしでもパブリックAPIは使えるが、レート制限が厳しい（60req/h）
-- トークンを設定すると5,000req/hに増加
+- トークンなしではパブリックAPIは使えるがレート制限が厳しい（60req/h）
+- トークンを設定すると5000req/hに増加
+- `X-RateLimit-Remaining: 0` の場合、`X-RateLimit-Reset` の Unixタイムスタンプまで待機
 
-### RSS URLが404になる場合
+### RSS URLが404になる
 
 - 各社のブログRSSのURLは変更されることがある
 - 実際のサイトでRSSリンクを確認して更新
+- note.com の RSS: `https://note.com/hashtag/{TAG}/rss`（TAGは URL エンコードする）
 
-### Docker コンテナが起動しない場合
+### n8n のワークフローが自動実行されない
 
-- `docker compose logs db` でMySQL ログを確認
-- ポート競合: 8080/5678/3306 が既に使用中でないか確認
-- `.env` の変数が正しく設定されているか確認
+- ワークフローの „Active” スイッチが ON か確認
+- n8n クラウドのプランが有効か確認（トライアル期限切れ）
+- Executions タブでエラーログを確認
