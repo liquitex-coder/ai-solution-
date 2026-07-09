@@ -1,1 +1,190 @@
-# ai-solution-
+# AIナビ — 全自動AI情報メディア
+
+AI初心者〜中級者向けの日本語AI情報ハブ。GitHub・各社ブログ・YouTube・SNSから情報を自動収集し、Claude APIで日本語記事を生成してWordPressへ自動投稿するパイプライン。
+
+## アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    情報収集ソース                              │
+│  GitHub API  RSS(各社Blog)  YouTube API  Threads  note RSS  │
+│              Perplexity API                                  │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────┐
+│               n8n オーケストレーター                            │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐   │
+│  │ WF-01    │ │ WF-02    │ │ WF-03〜05│ │ WF-06        │   │
+│  │ GitHub   │ │ RSS      │ │ YouTube  │ │ 週次レポート  │   │
+│  │ Trending │ │ Monitor  │ │ Threads  │ │              │   │
+│  │ 毎朝8:00 │ │ 30分ごと │ │ note     │ │ 毎週月曜     │   │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └──────┬───────┘   │
+│       └────────────┴────────────┴──────────────┘            │
+│                          │                                   │
+│                    ┌─────▼──────┐                            │
+│                    │ n8n/prompts│ (Git管理Markdownプロンプト)  │
+│                    └─────┬──────┘                            │
+└──────────────────────────┼──────────────────────────────────┘
+                           │
+                           ▼
+            ┌──────────────────────────┐
+            │      Claude API          │
+            │  haiku: WF 01-05         │
+            │  sonnet-5: WF 06         │
+            └──────────────┬───────────┘
+                           │
+                           ▼
+            ┌──────────────────────────┐
+            │   WordPress REST API     │
+            │   /wp-json/wp/v2/posts   │
+            │   status: draft (安全)   │
+            └──────────────────────────┘
+```
+
+## クイックスタート（ローカルサンドボックス）
+
+```bash
+# 1. 環境変数を設定
+cp .env.example .env
+# .env を編集して各APIキーを入力
+
+# 2. サービスを起動
+docker-compose up -d
+
+# 3. WordPress 初期化（カテゴリ/タグ自動作成）
+bash scripts/wp-init.sh
+
+# 4. MCP サーバー依存インストール
+cd mcp && npm install && cd ..
+
+# 5. Claude Code を再起動 → WordPress MCP が自動認識される
+```
+
+### サービス URL
+
+| サービス | URL | 用途 |
+|---|---|---|
+| WordPress | http://localhost:8080 | CMS・REST API |
+| n8n | http://localhost:5678 | ワークフロー管理 |
+| MySQL | localhost:3306 | DB（直接接続不要） |
+
+## n8n ワークフロー一覧
+
+| # | ファイル | トリガー | 処理 | モデル |
+|---|---|---|---|---|
+| 01 | `01-github-ai-trending-daily.json` | 毎朝 8:00 JST | GitHub AI リポジトリ → 解説記事 | haiku |
+| 02 | `02-rss-monitor.json` | 30分ごと | 各社ブログ RSS → 要約記事 | haiku |
+| 03 | `03-youtube-summary.json` | 1時間ごと | YouTube AI 動画 → 解説記事 | haiku |
+| 04 | `04-threads-influencer.json` | 3時間ごと | Threads AI 投稿 → まとめ記事 | haiku |
+| 05 | `05-note-monitor.json` | 1時間ごと | note AI 記事 → 要約記事 | haiku |
+| 06 | `06-weekly-trend-report.json` | 毎週月曜 | Perplexity トレンド → 週次レポート | sonnet-5 |
+
+## プロンプト管理（n8n/prompts/）
+
+Claude API へのプロンプトはすべて Markdown ファイルで Git 管理。ワークフロー JSON へのハードコードは禁止。
+
+```
+n8n/prompts/
+├── article-base.md       # 全ワークフロー共通フォーマット規則
+├── 01-github-trending.md # WF-01 用プロンプト
+├── 02-rss-summary.md     # WF-02 用プロンプト
+├── 03-youtube-summary.md # WF-03 用プロンプト
+├── 04-threads-summary.md # WF-04 用プロンプト
+├── 05-note-summary.md    # WF-05 用プロンプト
+└── 06-weekly-report.md   # WF-06 用プロンプト（sonnet-5）
+```
+
+ワークフローは GitHub API 経由でプロンプトを動的に取得:
+
+```
+HTTP Request → github.com/repos/…/contents/n8n/prompts/XX.md
+     ↓
+Code Node (base64 decode)
+     ↓
+Claude API node (プロンプトを動的注入)
+```
+
+## WordPress MCP サーバー（開発用）
+
+Claude Code から WordPress を直接操作できる MCP サーバー。
+
+```bash
+cd mcp && npm install
+export WP_URL=http://localhost:8080
+export WP_USERNAME=admin
+export WP_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx"
+# Claude Code 再起動後、以下のように指示できる:
+# 「下書き記事の一覧を表示して」
+# 「このHTMLをWordPressの下書きとして投稿して」
+```
+
+### 利用可能ツール
+
+| ツール | 説明 |
+|---|---|
+| `wp_get_site_info` | サイト情報取得 |
+| `wp_list_posts` | 投稿一覧（status/検索でフィルター） |
+| `wp_get_post` | 投稿ID指定で詳細取得 |
+| `wp_create_post` | 新規投稿作成（デフォルト: draft） |
+| `wp_update_post` | 既存投稿更新 |
+| `wp_delete_post` | 投稿をゴミ箱へ |
+| `wp_list_categories` | カテゴリ一覧 |
+| `wp_list_tags` | タグ一覧 |
+| `wp_create_category` | 新規カテゴリ作成 |
+| `wp_create_tag` | 新規タグ作成 |
+
+## 認証設定
+
+### WordPress Application Password
+
+```
+WordPress管理画面 → ユーザー → プロフィール
+→「アプリケーションパスワード」セクション
+→ アプリ名を入力（例: n8n） → 「新しいアプリケーションパスワードを追加」
+→ 生成されたパスワードを .env の WP_APP_PASSWORD に設定
+```
+
+n8n での設定:
+```
+Credential Type: Header Auth
+Name: Authorization
+Value: Basic <base64(username:app_password)>
+
+# base64 エンコード（ターミナル）:
+echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
+```
+
+## 必要な環境変数（.env）
+
+| 変数 | 取得先 |
+|---|---|
+| `ANTHROPIC_API_KEY` | https://console.anthropic.com |
+| `GITHUB_TOKEN` | GitHub → Settings → Developer settings → PAT |
+| `YOUTUBE_API_KEY` | Google Cloud Console → YouTube Data API v3 |
+| `PERPLEXITY_API_KEY` | https://www.perplexity.ai/settings/api |
+| `WP_APP_PASSWORD` | WordPress 管理画面（サービス起動後に生成） |
+
+## 開発規約
+
+詳細は [CLAUDE.md](./CLAUDE.md) 参照。主な規則:
+
+- **要件先行**: `docs/requirements.md` を更新してからコードを実装
+- **英語コミット**: コミットメッセージ・PR・コメントは英語、チャットは日本語
+- **ハルシネーション禁止**: ファイル+行番号またはAPI出力を根拠として示す
+- **テスト済み確認**: 「設計したが動かない」は禁止。n8n 手動実行 → WP 下書き確認が最低ライン
+
+## フェーズロードマップ
+
+| フェーズ | 内容 | ステータス |
+|---|---|---|
+| Phase 0 | サンドボックス構築（Docker + n8n + WordPress） | 🔄 進行中 |
+| Phase 1 | コアパイプライン本番稼働（GitHub Trending + RSS） | ⏳ 待機中 |
+| Phase 2 | SNS拡張（YouTube・Threads・note） | ⏳ 待機中 |
+| Phase 3 | マネタイズ・ノウハウ記事化 | ⏳ 待機中 |
+
+## 関連ドキュメント
+
+- [docs/requirements.md](./docs/requirements.md) — 要件定義書（詳細設計）
+- [n8n/SETUP_GUIDE.md](./n8n/SETUP_GUIDE.md) — n8n セットアップ・エラー対応手順
+- [.claude/settings.json](./.claude/settings.json) — Claude Code MCP 設定
