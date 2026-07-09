@@ -1,0 +1,13 @@
+{
+  "name": "wordpress-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WordPress MCP server for Claude Code",
+  "main": "wordpress-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

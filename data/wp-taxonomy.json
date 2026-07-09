@@ -1,0 +1,93 @@
+{
+  "_comment": "WordPress initial taxonomy design for AIナビ site. Used by scripts/wp-init.sh.",
+  "categories": [
+    {
+      "name": "GitHubトレンド",
+      "slug": "github-trending",
+      "description": "GitHub上でトレンド入りしたAI・機械学習リポジトリの紹介と解説",
+      "source_workflow": "WF-01"
+    },
+    {
+      "name": "AI公式ニュース",
+      "slug": "ai-official-news",
+      "description": "OpenAI・Anthropic・Google・Metaなど主要AI企業の公式ブログ・発表情報",
+      "source_workflow": "WF-02"
+    },
+    {
+      "name": "YouTube動画まとめ",
+      "slug": "youtube-summary",
+      "description": "AI系YouTubeチャンネルの新着動画を日本語で要約・紹介",
+      "source_workflow": "WF-03"
+    },
+    {
+      "name": "SNSピックアップ",
+      "slug": "sns-pickup",
+      "description": "ThreadsなどSNSのAIインフルエンサー投稿からノウハウ・知見をまとめ",
+      "source_workflow": "WF-04"
+    },
+    {
+      "name": "noteクリエイター",
+      "slug": "note-creator",
+      "description": "noteに投稿されたAI活用・生成AI関連の注目記事を紹介",
+      "source_workflow": "WF-05"
+    },
+    {
+      "name": "週次トレンドレポート",
+      "slug": "weekly-trend-report",
+      "description": "毎週月曜日発行：1週間のAIトレンド・ニュースを包括的にまとめたレポート",
+      "source_workflow": "WF-06"
+    },
+    {
+      "name": "AI活用事例",
+      "slug": "ai-use-cases",
+      "description": "企業・個人によるAIツールの実践的な活用事例・成功事例",
+      "source_workflow": null
+    },
+    {
+      "name": "AIツールレビュー",
+      "slug": "ai-tool-review",
+      "description": "AIツール・サービスの機能・料金・使い勝手を比較・レビュー",
+      "source_workflow": null
+    }
+  ],
+  "tags": [
+    { "name": "ChatGPT", "slug": "chatgpt" },
+    { "name": "Claude", "slug": "claude" },
+    { "name": "Gemini", "slug": "gemini" },
+    { "name": "GPT-4", "slug": "gpt-4" },
+    { "name": "画像生成AI", "slug": "image-generation-ai" },
+    { "name": "Stable Diffusion", "slug": "stable-diffusion" },
+    { "name": "Midjourney", "slug": "midjourney" },
+    { "name": "プロンプトエンジニアリング", "slug": "prompt-engineering" },
+    { "name": "RAG", "slug": "rag" },
+    { "name": "LLM", "slug": "llm" },
+    { "name": "ファインチューニング", "slug": "fine-tuning" },
+    { "name": "エージェントAI", "slug": "agent-ai" },
+    { "name": "n8n", "slug": "n8n" },
+    { "name": "AI自動化", "slug": "ai-automation" },
+    { "name": "ノーコード", "slug": "no-code" },
+    { "name": "業務効率化", "slug": "business-efficiency" },
+    { "name": "Python", "slug": "python" },
+    { "name": "機械学習", "slug": "machine-learning" },
+    { "name": "OpenAI", "slug": "openai" },
+    { "name": "Anthropic", "slug": "anthropic" },
+    { "name": "Google AI", "slug": "google-ai" },
+    { "name": "Meta AI", "slug": "meta-ai" },
+    { "name": "オープンソース", "slug": "open-source" },
+    { "name": "GitHub", "slug": "github" },
+    { "name": "マルチモーダル", "slug": "multimodal" },
+    { "name": "音声AI", "slug": "voice-ai" },
+    { "name": "動画生成AI", "slug": "video-generation-ai" },
+    { "name": "コーディングAI", "slug": "coding-ai" },
+    { "name": "Perplexity", "slug": "perplexity" },
+    { "name": "生成AI", "slug": "generative-ai" }
+  ],
+  "workflow_category_map": {
+    "WF-01": "github-trending",
+    "WF-02": "ai-official-news",
+    "WF-03": "youtube-summary",
+    "WF-04": "sns-pickup",
+    "WF-05": "note-creator",
+    "WF-06": "weekly-trend-report"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "name": "01 GitHub AI Trending Daily",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 23 * * *" }]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "毎朝8時 (JST) トリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst dateStr = sevenDaysAgo.toISOString().split('T')[0];\nconst today = now.toISOString().split('T')[0];\nreturn [{ json: { searchDate: dateStr, todayDate: today, searchQuery: `topic:ai OR topic:llm OR topic:claude OR topic:openai OR topic:gpt OR topic:gemini stars:>50 created:>${dateStr}`, reportDate: now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Tokyo' }) } }];"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "検索パラメータ設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/search/repositories",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": false } } },
+        "queryParameters": { "parameters": [
+          { "name": "q", "value": "={{ $json.searchQuery }}" },
+          { "name": "sort", "value": "stars" },
+          { "name": "order", "value": "desc" },
+          { "name": "per_page", "value": "10" }
+        ] },
+        "headers": { "parameters": [
+          { "name": "Accept", "value": "application/vnd.github.v3+json" },
+          { "name": "User-Agent", "value": "AIナビ-n8n-bot/1.0" }
+        ] }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "GitHub APIでAIリポジトリ取得",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": { "httpHeaderAuth": { "id": "GITHUB_HEADER_CRED_ID", "name": "GitHub API Token" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst repos = items[0].json.items || [];\nconst reportDate = $('検索パラメータ設定').first().json.reportDate;\nif (repos.length === 0) return [{ json: { skip: true, reason: 'No repos found' } }];\nconst top5 = repos.slice(0, 5);\nreturn top5.map((repo, index) => ({ json: { rank: index + 1, name: repo.full_name, description: repo.description || '説明なし', stars: repo.stargazers_count, language: repo.language || '不明', url: repo.html_url, topics: (repo.topics || []).join(', '), created_at: repo.created_at, updated_at: repo.updated_at, forks: repo.forks_count, open_issues: repo.open_issues_count, reportDate } }));"
+      },
+      "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+      "name": "上位5件を整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '01-github-trending.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "p001wf01-aa00-4001-8001-000000000001",
+      "name": "プロンプト読込み (WF-01)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 3000,
+            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\n名前: ' + $json.name + '\\n説明: ' + $json.description + '\\nスター数: ' + $json.stars + '\\n言語: ' + ($json.language || '不明') + '\\nURL: ' + $json.url + '\\nトピック: ' + ($json.topics || '') + '\\nフォーク数: ' + $json.forks }}" }]
+          }
+        },
+        "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
+      },
+      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "name": "Claude APIで日本語記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeJson = $json.content[0].text;\nconst currentItem = $('上位5件を整形').item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\nreturn [{ json: { title, content: claudeJson, status: 'draft' } }];"
+      },
+      "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "title": "={{ $json.title }}", "content": "={{ $json.content }}", "status": "draft" } }
+      },
+      "id": "a7b8c9d0-e1f2-3456-abcd-567890123456",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300],
+      "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+    },
+    {
+      "parameters": {},
+      "id": "e001wf01-ee00-4001-8001-000000000001",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 600]
+    }
+  ],
+  "connections": {
+    "毎朝8時 (JST) トリガー": { "main": [[{ "node": "検索パラメータ設定", "type": "main", "index": 0 }]] },
+    "検索パラメータ設定": { "main": [[{ "node": "GitHub APIでAIリポジトリ取得", "type": "main", "index": 0 }]] },
+    "GitHub APIでAIリポジトリ取得": { "main": [[{ "node": "上位5件を整形", "type": "main", "index": 0 }]] },
+    "上位5件を整形": { "main": [[{ "node": "プロンプト読込み (WF-01)", "type": "main", "index": 0 }]] },
+    "プロンプト読込み (WF-01)": { "main": [[{ "node": "Claude APIで日本語記事生成", "type": "main", "index": 0 }]] },
+    "Claude APIで日本語記事生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
+    "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "GitHub" }, { "name": "AI情報収集" }],
+  "notes": "必要な認証情報:\n1. GitHub API Token (httpHeaderAuth): Authorization: token YOUR_GITHUB_TOKEN\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/01-github-trending.md から動的読込み。\n環境変数 GITHUB_TOKEN を n8n に設定するとプライベートリポジトリのプロンプトも取得可能。\nスケジュール: 毎日 23:00 UTC (= 翌08:00 JST)"
+}

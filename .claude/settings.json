@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "wordpress": {
+      "command": "node",
+      "args": ["mcp/wordpress-mcp.js"],
+      "env": {
+        "WP_URL": "${WP_URL:-http://localhost:8080}",
+        "WP_USERNAME": "${WP_USERNAME:-admin}",
+        "WP_APP_PASSWORD": "${WP_APP_PASSWORD:-}"
+      }
+    }
+  }
+}

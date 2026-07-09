@@ -1,0 +1,139 @@
+{
+  "name": "05 note AIクリエイター記事監視",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "aaaa1111-bbbb-2222-cccc-333344445555",
+      "name": "1時間ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const noteSources = [\n  { url: 'https://note.com/hashtag/生成AI/rss', label: 'note #生成AI' },\n  { url: 'https://note.com/hashtag/ChatGPT/rss', label: 'note #ChatGPT' },\n  { url: 'https://note.com/hashtag/Claude/rss', label: 'note #Claude' },\n  { url: 'https://note.com/hashtag/プロンプト/rss', label: 'note #プロンプト' },\n  { url: 'https://note.com/hashtag/AIツール/rss', label: 'note #AIツール' }\n];\nreturn noteSources.map(src => ({ json: src }));"
+      },
+      "id": "bbbb2222-cccc-3333-dddd-444455556666",
+      "name": "note監視ソース設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": { "url": "={{ $json.url }}" },
+      "id": "cccc3333-dddd-4444-eeee-555566667777",
+      "name": "note RSS取得",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const processedUrls = $getWorkflowStaticData('global').noteProcessedUrls || [];\nconst items = $input.all();\nconst newItems = [];\nfor (const item of items) {\n  const url = item.json.link || item.json.url;\n  if (!url) continue;\n  const pubDate = item.json.pubDate || item.json.isoDate;\n  if (pubDate && (Date.now() - new Date(pubDate).getTime()) > 60 * 60 * 1000) continue;\n  if (!processedUrls.includes(url)) {\n    newItems.push({ json: { title: item.json.title || 'タイトルなし', link: url, pubDate: item.json.pubDate || new Date().toISOString(), summary: item.json.contentSnippet || '', creator: item.json.creator || '不明' } });\n  }\n}\nconst allUrls = [...processedUrls, ...newItems.map(i => i.json.link)];\n$getWorkflowStaticData('global').noteProcessedUrls = allUrls.slice(-300);\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
+      },
+      "id": "dddd4444-eeee-5555-ffff-666677778888",
+      "name": "新記事フィルタリング",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": { "conditions": [{ "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }], "combinator": "and" }
+      },
+      "id": "eeee5555-ffff-6666-aaaa-777788889999",
+      "name": "新記事あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '05-note-monitor.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "p005wf05-aa00-4005-8005-000000000005",
+      "name": "プロンプト読込み (WF-05)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nタイトル: ' + $json.title + '\\nURL: ' + $json.link + '\\n著者: ' + $json.creator + '\\n要約: ' + ($json.summary || '').slice(0, 500) }}" }]
+          }
+        },
+        "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
+      },
+      "id": "ffff6666-aaaa-7777-bbbb-888899990000",
+      "name": "Claude APIで紹介記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180],
+      "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst noteData = $('新記事フィルタリング').item.json;\nreturn [{ json: { title: `【note】${noteData.title}`, content, status: 'draft' } }];"
+      },
+      "id": "aaaa7777-bbbb-8888-cccc-999900001111",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "title": "={{ $json.title }}", "content": "={{ $json.content }}", "status": "draft" } }
+      },
+      "id": "bbbb8888-cccc-9999-dddd-000011112222",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 180],
+      "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+    },
+    {
+      "parameters": {},
+      "id": "cccc9999-dddd-0000-eeee-111122223333",
+      "name": "新記事なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 420]
+    },
+    {
+      "parameters": {},
+      "id": "e005wf05-ee00-4005-8005-000000000005",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 600]
+    }
+  ],
+  "connections": {
+    "1時間ごとトリガー": { "main": [[{ "node": "note監視ソース設定", "type": "main", "index": 0 }]] },
+    "note監視ソース設定": { "main": [[{ "node": "note RSS取得", "type": "main", "index": 0 }]] },
+    "note RSS取得": { "main": [[{ "node": "新記事フィルタリング", "type": "main", "index": 0 }]] },
+    "新記事フィルタリング": { "main": [[{ "node": "新記事あり？", "type": "main", "index": 0 }]] },
+    "新記事あり？": { "main": [[{ "node": "プロンプト読込み (WF-05)", "type": "main", "index": 0 }], [{ "node": "新記事なし（スキップ）", "type": "main", "index": 0 }]] },
+    "プロンプト読込み (WF-05)": { "main": [[{ "node": "Claude APIで紹介記事生成", "type": "main", "index": 0 }]] },
+    "Claude APIで紹介記事生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
+    "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "note" }, { "name": "AI情報収集" }],
+  "notes": "必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/05-note-monitor.md から動的読込み。"
+}
