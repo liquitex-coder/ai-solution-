@@ -1,0 +1,153 @@
+{
+  "name": "03 YouTube AIチャンネル動画要約",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "wf03aa01-0000-4003-8003-000000000001",
+      "name": "1時間ごとトリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const channels = [\n  { channelId: 'UCbmNph6atAoGfqLoCL_duAg', name: 'Anthropic' },\n  { channelId: 'UCXZCJLdBC09xxGZ6gcdrc6A', name: 'OpenAI' },\n  { channelId: 'UCP4bf6IHJJQehibu6ai__cg', name: 'Google DeepMind' },\n  { channelId: 'UCJXGnMHMSqCaqMzLo8xs6mw', name: 'AI Explained' },\n  { channelId: 'UCNJ1Ymd5yFuUPtn21xtRbbw', name: 'Matt Wolfe' }\n];\nconst oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();\nreturn channels.map(ch => ({ json: { channelId: ch.channelId, channelName: ch.name, publishedAfter: oneHourAgo } }));"
+      },
+      "id": "wf03aa02-0000-4003-8003-000000000002",
+      "name": "YouTubeチャンネル設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "queryParameters": { "parameters": [
+          { "name": "part", "value": "snippet" },
+          { "name": "channelId", "value": "={{ $json.channelId }}" },
+          { "name": "publishedAfter", "value": "={{ $json.publishedAfter }}" },
+          { "name": "type", "value": "video" },
+          { "name": "order", "value": "date" },
+          { "name": "maxResults", "value": "5" }
+        ] }
+      },
+      "id": "wf03aa03-0000-4003-8003-000000000003",
+      "name": "YouTube Data API動画取得",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": { "httpHeaderAuth": { "id": "YOUTUBE_API_CRED_ID", "name": "YouTube Data API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const processedIds = $getWorkflowStaticData('global').processedVideoIds || [];\nconst items = $json.items || [];\nconst channelName = $('YouTubeチャンネル設定').item.json.channelName;\nconst newItems = [];\nfor (const item of items) {\n  const videoId = item.id?.videoId;\n  if (!videoId || processedIds.includes(videoId)) continue;\n  newItems.push({ json: {\n    videoId,\n    title: item.snippet?.title || 'タイトルなし',\n    channelTitle: item.snippet?.channelTitle || channelName,\n    description: (item.snippet?.description || '').slice(0, 500),\n    publishedAt: item.snippet?.publishedAt || '',\n    videoUrl: `https://www.youtube.com/watch?v=${videoId}`,\n    thumbnailUrl: item.snippet?.thumbnails?.high?.url || ''\n  } });\n}\nconst allIds = [...processedIds, ...newItems.map(i => i.json.videoId)];\n$getWorkflowStaticData('global').processedVideoIds = allIds.slice(-200);\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
+      },
+      "id": "wf03aa04-0000-4003-8003-000000000004",
+      "name": "新動画フィルタリング",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": { "conditions": [{ "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }], "combinator": "and" }
+      },
+      "id": "wf03aa05-0000-4003-8003-000000000005",
+      "name": "新動画あり？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '03-youtube-summary.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "p003wf03-aa00-4003-8003-000000000003",
+      "name": "プロンプト読込み (WF-03)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 2000,
+            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nタイトル: ' + $json.title + '\\nチャンネル: ' + $json.channelTitle + '\\n動画URL: ' + $json.videoUrl + '\\n公開日: ' + $json.publishedAt + '\\n概要: ' + $json.description }}" }]
+          }
+        },
+        "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
+      },
+      "id": "wf03aa07-0000-4003-8003-000000000007",
+      "name": "Claude APIで動画要約記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180],
+      "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst videoData = $('新動画フィルタリング').item.json;\nreturn [{ json: { title: `【YouTube要約】${videoData.title} - ${videoData.channelTitle}`, content, status: 'draft' } }];"
+      },
+      "id": "wf03aa08-0000-4003-8003-000000000008",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": { "contentType": "json", "jsonBody": { "title": "={{ $json.title }}", "content": "={{ $json.content }}", "status": "draft" } }
+      },
+      "id": "wf03aa09-0000-4003-8003-000000000009",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 180],
+      "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+    },
+    {
+      "parameters": {},
+      "id": "wf03aa10-0000-4003-8003-000000000010",
+      "name": "新動画なし（スキップ）",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 420]
+    },
+    {
+      "parameters": {},
+      "id": "e003wf03-ee00-4003-8003-000000000003",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 600]
+    }
+  ],
+  "connections": {
+    "1時間ごとトリガー": { "main": [[{ "node": "YouTubeチャンネル設定", "type": "main", "index": 0 }]] },
+    "YouTubeチャンネル設定": { "main": [[{ "node": "YouTube Data API動画取得", "type": "main", "index": 0 }]] },
+    "YouTube Data API動画取得": { "main": [[{ "node": "新動画フィルタリング", "type": "main", "index": 0 }]] },
+    "新動画フィルタリング": { "main": [[{ "node": "新動画あり？", "type": "main", "index": 0 }]] },
+    "新動画あり？": { "main": [[{ "node": "プロンプト読込み (WF-03)", "type": "main", "index": 0 }], [{ "node": "新動画なし（スキップ）", "type": "main", "index": 0 }]] },
+    "プロンプト読込み (WF-03)": { "main": [[{ "node": "Claude APIで動画要約記事生成", "type": "main", "index": 0 }]] },
+    "Claude APIで動画要約記事生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
+    "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "YouTube" }, { "name": "AI情報収集" }],
+  "notes": "必要な認証情報:\n1. YouTube Data API Key (httpHeaderAuth): key: YOUR_YOUTUBE_API_KEY (クエリパラメータ 'key' として渡す場合はヘッダー不要 — Google API Key 認証方式を選択)\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/03-youtube-summary.md から動的読込み。\nスケジュール: 1時間ごと"
+}

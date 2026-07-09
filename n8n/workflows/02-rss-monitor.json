@@ -2,16 +2,7 @@
   "name": "02 RSS Monitor - AI公式ブログ監視",
   "nodes": [
     {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 30
-            }
-          ]
-        }
-      },
+      "parameters": { "rule": { "interval": [{ "field": "minutes", "minutesInterval": 30 }] } },
       "id": "1a2b3c4d-5e6f-7890-1234-abcdef012345",
       "name": "30分ごとトリガー",
       "type": "n8n-nodes-base.scheduleTrigger",
@@ -59,11 +50,7 @@
       "position": [460, 580]
     },
     {
-      "parameters": {
-        "numberInputs": 5,
-        "mode": "passThrough",
-        "clashHandling": { "values": { "resolveClash": "preferInput1" } }
-      },
+      "parameters": { "numberInputs": 5, "mode": "passThrough", "clashHandling": { "values": { "resolveClash": "preferInput1" } } },
       "id": "7a8b9c0d-1e2f-3456-7890-012345678901",
       "name": "RSS結果を統合",
       "type": "n8n-nodes-base.merge",
@@ -72,7 +59,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const processedUrls = $getWorkflowStaticData('global').processedUrls || [];\nconst items = $input.all();\nconst newItems = [];\n\nfor (const item of items) {\n  const url = item.json.link || item.json.url || item.json.guid;\n  if (!url) continue;\n  const pubDate = item.json.pubDate || item.json.isoDate;\n  if (pubDate) {\n    const hoursOld = (Date.now() - new Date(pubDate).getTime()) / (1000 * 60 * 60);\n    if (hoursOld > 24) continue;\n  }\n  if (!processedUrls.includes(url)) {\n    newItems.push({ json: { title: item.json.title || 'タイトルなし', link: url, pubDate: item.json.pubDate || new Date().toISOString(), summary: item.json.contentSnippet || '', source: item.json.creator || '不明' } });\n  }\n}\n\nconst allUrls = [...processedUrls, ...newItems.map(i => i.json.link)];\n$getWorkflowStaticData('global').processedUrls = allUrls.slice(-500);\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
+        "jsCode": "const processedUrls = $getWorkflowStaticData('global').processedUrls || [];\nconst items = $input.all();\nconst newItems = [];\nfor (const item of items) {\n  const url = item.json.link || item.json.url || item.json.guid;\n  if (!url) continue;\n  const pubDate = item.json.pubDate || item.json.isoDate;\n  if (pubDate) {\n    const hoursOld = (Date.now() - new Date(pubDate).getTime()) / (1000 * 60 * 60);\n    if (hoursOld > 24) continue;\n  }\n  if (!processedUrls.includes(url)) {\n    newItems.push({ json: { title: item.json.title || 'タイトルなし', link: url, pubDate: item.json.pubDate || new Date().toISOString(), summary: item.json.contentSnippet || '', source: item.json.creator || '不明' } });\n  }\n}\nconst allUrls = [...processedUrls, ...newItems.map(i => i.json.link)];\n$getWorkflowStaticData('global').processedUrls = allUrls.slice(-500);\nreturn newItems.length > 0 ? newItems : [{ json: { skip: true } }];"
       },
       "id": "8b9c0d1e-2f3a-4567-8901-123456789012",
       "name": "新記事フィルタリング（重複除外）",
@@ -82,16 +69,23 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "conditions": [{ "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }],
-          "combinator": "and"
-        }
+        "conditions": { "conditions": [{ "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }], "combinator": "and" }
       },
       "id": "9c0d1e2f-3a4b-5678-9012-234567890123",
       "name": "新記事あり？",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [1140, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '02-rss-monitor.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "p002wf02-aa00-4002-8002-000000000002",
+      "name": "プロンプト読込み (WF-02)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 220]
     },
     {
       "parameters": {
@@ -104,7 +98,7 @@
           "jsonBody": {
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 2000,
-            "messages": [{ "role": "user", "content": "=AIナビのライターとして、記事「{{ $json.title }}」（{{ $json.link }}）をHTMLで解説してください。" }]
+            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nタイトル: ' + $json.title + '\\nURL: ' + $json.link + '\\n公開日: ' + $json.pubDate + '\\n要約: ' + ($json.summary || '').slice(0, 500) }}" }]
           }
         },
         "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
@@ -113,7 +107,7 @@
       "name": "Claude APIで日本語記事生成",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1360, 220],
+      "position": [1580, 220],
       "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
     },
     {
@@ -124,7 +118,7 @@
       "name": "WordPress投稿データ整形",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1580, 220]
+      "position": [1800, 220]
     },
     {
       "parameters": {
@@ -138,7 +132,7 @@
       "name": "WordPressに下書き投稿",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1800, 220],
+      "position": [2020, 220],
       "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
     },
     {
@@ -148,6 +142,14 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [1360, 460]
+    },
+    {
+      "parameters": {},
+      "id": "e002wf02-ee00-4002-8002-000000000002",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 600]
     }
   ],
   "connections": {
@@ -159,12 +161,13 @@
     "note AI RSS": { "main": [[{ "node": "RSS結果を統合", "type": "main", "index": 4 }]] },
     "RSS結果を統合": { "main": [[{ "node": "新記事フィルタリング（重複除外）", "type": "main", "index": 0 }]] },
     "新記事フィルタリング（重複除外）": { "main": [[{ "node": "新記事あり？", "type": "main", "index": 0 }]] },
-    "新記事あり？": { "main": [[{ "node": "Claude APIで日本語記事生成", "type": "main", "index": 0 }], [{ "node": "新記事なし（スキップ）", "type": "main", "index": 0 }]] },
+    "新記事あり？": { "main": [[{ "node": "プロンプト読込み (WF-02)", "type": "main", "index": 0 }], [{ "node": "新記事なし（スキップ）", "type": "main", "index": 0 }]] },
+    "プロンプト読込み (WF-02)": { "main": [[{ "node": "Claude APIで日本語記事生成", "type": "main", "index": 0 }]] },
     "Claude APIで日本語記事生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
     "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
   "tags": [{ "name": "RSS" }, { "name": "AI情報収集" }],
-  "notes": "必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nスケジュール: 30分ごと"
+  "notes": "必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/02-rss-monitor.md から動的読込み。\nスケジュール: 30分ごと"
 }
