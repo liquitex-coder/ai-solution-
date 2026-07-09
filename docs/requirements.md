@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 1.2  
+**バージョン**: 1.3  
 **最終更新**: 2026-07-09  
 **ステータス**: 設計中（ホスティング先未確定）
 
@@ -244,6 +244,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 | SEOプラグイン | Rank Math（無料） | Search Console連携 |
 | 画像生成（将来） | DALL-E 3 or Stable Diffusion | アイキャッチ自動生成 |
 | ローカル開発 | Docker Compose | サンドボックス |
+| 開発ツール | Claude Code + WordPress MCP | WordPress 直操作（§13参照） |
 
 ### WordPress 認証方式
 
@@ -285,6 +286,7 @@ Application Passwords は WordPress 管理画面 → ユーザー → プロフ�
 - [x] n8nワークフロー雛形作成（01〜06）
 - [x] n8n/prompts/ ディレクトリ作成（7ファイル）
 - [x] SETUP_GUIDE.md エラーハンドリング拡充
+- [x] MCP サーバー設定（Claude Code ↔ WordPress）
 - [ ] WordPress 初回セットアップ（管理画面・Application Password 発行）
 - [ ] エンドツーエンドサンドボックステスト（§7 チェックリスト全項目）
 
@@ -333,3 +335,83 @@ Application Passwords は WordPress 管理画面 → ユーザー → プロフ�
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
 | ドメイン | 未確定 | 要相談 |
 | Claude APIキー / OpenAI APIキー | 保有確認必要 | 要確認 |
+
+---
+
+## 13. 開発ツール（MCP サーバー）
+
+### 概要
+
+Claude Code から WordPress REST API を直接操作するための MCP（Model Context Protocol）サーバー。
+n8n ワークフローを経由せず、開発・デバッグ・コンテンツ確認を Claude Code 上で完結できる。
+
+```
+【Claude Code (開発時)】
+      ↓ MCP protocol (stdio)
+【wordpress-mcp.js】
+      ↓ HTTP + Basic Auth
+【WordPress REST API】
+  /wp-json/wp/v2/posts
+  /wp-json/wp/v2/categories
+  /wp-json/wp/v2/tags
+  /wp-json/wp/v2/media
+```
+
+### 構成ファイル
+
+| ファイル | 役割 |
+|---|---|
+| `.claude/settings.json` | Claude Code の MCP サーバー登録設定 |
+| `mcp/wordpress-mcp.js` | WordPress CRUD MCP サーバー本体（Node.js ESM） |
+| `mcp/package.json` | 依存パッケージ（`@modelcontextprotocol/sdk`） |
+
+### 提供ツール一覧
+
+| ツール名 | 説明 |
+|---|---|
+| `wp_get_site_info` | サイト情報（名前・URL・バージョン）取得 |
+| `wp_list_posts` | 投稿一覧（status・キーワード・カテゴリでフィルター） |
+| `wp_get_post` | 投稿 ID 指定で詳細取得 |
+| `wp_create_post` | 新規投稿作成（title・content・status・categories・tags） |
+| `wp_update_post` | 既存投稿の更新 |
+| `wp_delete_post` | 投稿をゴミ箱へ移動（force=true で完全削除） |
+| `wp_list_categories` | カテゴリ一覧取得 |
+| `wp_list_tags` | タグ一覧取得（キーワード検索可） |
+| `wp_create_category` | 新規カテゴリ作成 |
+| `wp_create_tag` | 新規タグ作成 |
+
+### セキュリティ考慮
+
+- 認証情報は **環境変数** で管理（`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`）
+- `.claude/settings.json` に資格情報をハードコードしない
+- MCP サーバーはローカルプロセスとして stdio 通信（外部ポート不使用）
+- 本番 WordPress への誤操作防止：`status: 'draft'` がデフォルト（明示しないと公開されない）
+
+### セットアップ手順
+
+```bash
+# 1. 依存パッケージインストール
+cd mcp && npm install
+
+# 2. 環境変数設定（.env からコピーして設定済みであれば不要）
+export WP_URL=http://localhost:8080
+export WP_USERNAME=admin
+export WP_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
+
+# 3. Claude Code を再起動（MCPサーバーが自動起動される）
+# .claude/settings.json の mcpServers が読み込まれる
+
+# 4. 動作確認（Claude Code から）
+# "WordPress のサイト情報を取得して" と指示するとMCPが使われる
+```
+
+### 利用例
+
+```
+ユーザー: 「下書きの記事を一覧表示して」
+Claude Code → wp_list_posts({ status: 'draft' }) → 記事一覧を返答
+
+ユーザー: 「このMarkdownをWordPressの下書きとして投稿して」
+Claude Code → wp_create_post({ title: '...', content: '<h2>...', status: 'draft' })
+             → 記事ID・URLを返答
+```
