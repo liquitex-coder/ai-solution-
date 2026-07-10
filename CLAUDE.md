@@ -56,8 +56,9 @@ AI content automation platform: n8n → Claude API → WordPress.
 初回のみ: `git config core.hooksPath .githooks`（以後は pre-push フックが下記を自動実行・失敗時 push 拒否）
 
 ```
-python3 scripts/check_wired.py
-python3 scripts/run_eval.py   # design-vs-wired gate（要件§21・必須）
+python3 scripts/check_wired.py   # design-vs-wired gate（要件§21・必須）
+python3 scripts/run_eval.py      # content-audit 回帰（要件§22・FP=0/FN=0）
+python3 scripts/ratchet_check.py # ラチェット提案（要件§23・Report-Only）
 # n8n workflow: 手動実行 → WP draft 作成を確認（実行ログ必須）
 # WordPress REST: 201 + post ID / Claude API: raw response をログ確認
 docker-compose up && curl -s -o /dev/null -w '%{http_code}' http://localhost:8080  # → 200
