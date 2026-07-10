@@ -105,6 +105,7 @@ PR description.
 
 | Artifact | Language |
 |---|---|
+| README.md | English primary; full Japanese version in `<details>` toggle |
 | Commit messages | English (imperative: `add`, `fix`, `update`) |
 | PR title | English |
 | PR body | English primary; Japanese in `<details>` toggle |
