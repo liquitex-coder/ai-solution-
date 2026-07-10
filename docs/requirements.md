@@ -784,3 +784,44 @@ WordPress 投稿
    外部ネットワーク不要のためネットワークポリシー下でも完走する）。
 3. **完了定義への組み込み**: 新機能は check_wired.py が検出できる形で本番パスに
    配線されるまで「完了」と報告しない（CLAUDE.md §A 絶対ルール）。
+
+---
+
+## 22. コンテンツ監査の評価セットと段階的ロールアウト
+
+> 背景: Auditor Gate（§21 W2）は導入時点で PASS→即公開だったが、判定精度を測る
+> 手段が無いまま自動公開するのは危険（ハーネス原則: 段階的ロールアウト）。
+> Claim-Security- の FR-SEC-26（FP=0 まで ACTIVE 化禁止）と同じ規律を適用する。
+
+### 22-1. 決定論的コンテンツ監査（scripts/content_audit.py）
+
+LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
+
+| ルール | 判定 |
+|---|---|
+| 誇大表現（禁止語リスト） | FAIL:HYPE |
+| blockquote 比率 > 40%（主従逆転） | FAIL:QUOTE_DOMINANCE |
+| blockquote あり・出所リンクなし | FAIL:NO_ATTRIBUTION |
+| 60字超の「」引用が blockquote 外（明瞭区別違反） | FAIL:UNMARKED_QUOTE |
+| 見出し（h2）が3未満 | FAIL:STRUCTURE |
+| 数値主張あり・ソースURLゼロ | UNVERIFIABLE:UNSOURCED_STATS |
+| 上記すべて非該当 | PASS |
+
+### 22-2. 評価セット（data/eval_set.json）
+
+- 正常系 / 境界 / 敵対的 の3区分・計50件以上。各件 expected verdict をラベル付け。
+- `scripts/run_eval.py` が混同行列を出力。**FP（PASS すべきものを block）= 0 かつ
+  FN（block すべきものを PASS）= 0 でなければ exit 1**。
+- 評価セットは push 前ゲート（§D）に含める — 監査ルール変更の回帰を常時検知。
+
+### 22-3. 段階的ロールアウト（CLAIM_AUDITOR_MODE）
+
+| モード | 動作 | 昇格条件 |
+|---|---|---|
+| `report_only`（既定） | 全件 draft + verdict をメタデータ記録 | — |
+| `canary` | PASS の約10%のみ自動 publish | 評価セット FP=0/FN=0 + 本番 verdict 30日分レビュー |
+| `full` | PASS を自動 publish | canary 30日で誤公開ゼロ + 人間署名（INV-R1） |
+
+- モードは n8n 環境変数 `CLAIM_AUDITOR_MODE` で制御。コード変更なしで昇格・降格。
+- FAIL / UNVERIFIABLE は全モードで draft（公開されない）。
+- §21 W7: 全ワークフローの Auditor Gate はモード対応であること（check_wired が強制）。
