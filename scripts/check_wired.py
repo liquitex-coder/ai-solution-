@@ -10,6 +10,7 @@ Checks:
   W4  WordPress post status goes through wp_status (no hardcoded 'publish')
   W5  every prompt file is referenced by >=1 workflow (or LIBRARY_ONLY)
   W6  no credential-looking literals inside workflow JSONs
+  W7  every Auditor Gate is CLAIM_AUDITOR_MODE aware (staged rollout)
 """
 
 from __future__ import annotations
@@ -102,6 +103,11 @@ def main() -> int:
             ok(f"W2 {name}: Auditor Gate present")
         else:
             fail(f"W2 {name}: no Auditor Gate node (CLAIM_AUDITOR_URL not found)")
+
+        if "CLAIM_AUDITOR_MODE" in blob:
+            ok(f"W7 {name}: gate is rollout-mode aware")
+        else:
+            fail(f"W7 {name}: Auditor Gate is not CLAIM_AUDITOR_MODE aware (§22-3)")
 
         if "00-copyright-transform.md" in blob:
             ok(f"W3 {name}: copyright prompt loaded")
