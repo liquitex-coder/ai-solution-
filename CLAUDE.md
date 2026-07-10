@@ -13,9 +13,11 @@ AI content automation platform: n8n → Claude API → WordPress.
 1. 認証情報・APIキーをコード・コミット・計画に含めない（環境変数のみ）。
 2. 証拠（ゲート出力）なしに「完了」と言わない。
 3. ローカルゲート未実行で push しない。タスク指定ブランチ以外に push しない。
-4. **Auditor gate 必須**: 全生成コンテンツは Claim-Auditor gate を通す。FAIL / UNVERIFIABLE は WordPress へ公開しない（INV-R2）。
-5. **著作権**: 引用5要件（主従・明瞭区別・必要性・出所明示・改変禁止）に違反する処理を書かない。`n8n/prompts/00-copyright-transform.md` を全WFで読み込む。
-6. 環境変数: `WP_URL` `WP_USERNAME` `WP_APP_PASSWORD` `GITHUB_TOKEN` `FAL_API_KEY` `GOOGLE_DRIVE_CREDENTIALS` `KIMI_API_KEY`。
+4. **設計＝配線まで**: 新機能は `scripts/check_wired.py` が検出できる形で本番パスに
+   配線されるまで「完了」ではない。意図的な未配線は LIBRARY_ONLY 登録（理由必須）。
+5. **Auditor gate 必須**: 全生成コンテンツは Claim-Auditor gate を通す。FAIL / UNVERIFIABLE は WordPress へ公開しない（INV-R2）。
+6. **著作権**: 引用5要件（主従・明瞭区別・必要性・出所明示・改変禁止）に違反する処理を書かない。`n8n/prompts/00-copyright-transform.md` を全WFで読み込む。
+7. 環境変数: `WP_URL` `WP_USERNAME` `WP_APP_PASSWORD` `GITHUB_TOKEN` `FAL_API_KEY` `GOOGLE_DRIVE_CREDENTIALS` `KIMI_API_KEY`。
 
 ---
 
@@ -52,6 +54,7 @@ AI content automation platform: n8n → Claude API → WordPress.
 ## D. Local Gates — push 前に必ず実行
 
 ```
+python3 scripts/check_wired.py   # design-vs-wired gate（要件§21・必須）
 # n8n workflow: 手動実行 → WP draft 作成を確認（実行ログ必須）
 # WordPress REST: 201 + post ID / Claude API: raw response をログ確認
 docker-compose up && curl -s -o /dev/null -w '%{http_code}' http://localhost:8080  # → 200
