@@ -53,6 +53,8 @@ AI content automation platform: n8n → Claude API → WordPress.
 
 ## D. Local Gates — push 前に必ず実行
 
+初回のみ: `git config core.hooksPath .githooks`（以後は pre-push フックが下記を自動実行・失敗時 push 拒否）
+
 ```
 python3 scripts/check_wired.py   # design-vs-wired gate（要件§21・必須）
 # n8n workflow: 手動実行 → WP draft 作成を確認（実行ログ必須）
