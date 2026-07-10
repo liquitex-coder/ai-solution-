@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.0  
+**バージョン**: 2.1  
 **最終更新**: 2026-07-10  
 **ステータス**: 設計中（ホスティング先未確定）
 
@@ -74,6 +74,7 @@
 | X (Twitter) | X API v2 | $100/月〜 | 収益化後 |
 | X スクレイピング | Apify | $49/月〜 | 収益化後 |
 | Instagram | Instagram Graph API | 無料枚あり | Phase 2 |
+| **中国語ソース（知乎/CSDN/B站/少数派）** | **RSS or スクレイピング** | **Kimi API年契約内** | **Phase 2（WF08）** |
 
 ---
 
@@ -84,16 +85,22 @@
 WF01: GitHub AI Trending ──────────┬
 WF02: RSS Monitor ────────────────┬
 WF03: YouTube新動画 ────────────┬
-WF04: Threadsインフルエンサー ───┬── claim-crew（記者エージェント）
-WF05: note監視 ───────────────┬
-WF06: 週次トレンドレポート ─────┬
-WF07: NoimosAI（Google Docs） ───┘
-                                    ↓
+WF04: Threadsインフルエンサー ───┬── 言語検出（claim-llm）
+WF05: note監視 ───────────────┬       ├─ ZH → Kimi API (moonshot-v1-128k)
+WF06: 週次トレンドレポート ─────┬       ├─ EN → Claude API
+WF07: NoimosAI（Google Docs） ───┤       └─ JA → Claude API
+WF08: ZHソース（知乎/CSDN/B站）─┘             ↓
+                                    著作権変換（00-copyright-transform）
+                                    要約 + 独自分析 + 出所明示
+                                         ↓
+                        【claim-crew（記者エージェント）】
+                        多角度取材・情報整理・補完
+                                         ↓
                         【claim-builder + councilループ】
                         N案生成→コンセンサス選択
-                                    ↓
+                                         ↓
                         【claim-llm】LLM抗象層
-                                    ↓
+                                         ↓
 ┌────────────────────────────────────────────────┐
 │        Claim-Auditor ゲート（全生成物必須）        │
 │  ✅ PASS        → 次工程へ                   │
@@ -126,14 +133,16 @@ WF07: NoimosAI（Google Docs） ───┘
 | 05 | note-monitor | 1時間ごと | note RSS監視→AI関連記事抽出→転載記事生成→Auditor→投稿 |
 | 06 | weekly-trend-report | 毎週月曜 | Perplexityでトレンド検索→週次まとめ記事生成→Auditor→投稿 |
 | **07** | **noimosai-google-docs** | **Google Drive新規ファイル** | **NoimosAI記事取得→Claude整形→Auditor→投稿** |
+| **08** | **zh-sources** | **スケジュール or RSS** | **知乎/CSDN/B站取得→Kimi ZH→JA変換→著作権変換→Auditor→投稿** |
 
 ### プロンプト管理
 
-Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Markdown ファイルとして Git 管理する。
+Claude API / Kimi API へ送るプロンプトは `n8n/prompts/` ディレクトリで Markdown ファイルとして Git 管理する。
 ワークフロー JSON へのハードコードは禁止。プロンプト変更は PR でレビューし、品質のPDCAを回す。
 
 | ファイル | 用途 |
 |---|---|
+| `n8n/prompts/00-copyright-transform.md` | **著作権コンプライアンス変換（全WF共通・最優先適用）** |
 | `n8n/prompts/article-base.md` | 全ワークフロー共通の記事フォーマット指示 |
 | `n8n/prompts/01-github-trending.md` | GitHubトレンド記事生成プロンプト |
 | `n8n/prompts/02-rss-summary.md` | RSSフィード要約プロンプト |
@@ -141,7 +150,8 @@ Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Mark
 | `n8n/prompts/04-threads-summary.md` | Threadsまとめプロンプト |
 | `n8n/prompts/05-note-summary.md` | note記事要約プロンプト |
 | `n8n/prompts/06-weekly-report.md` | 週次トレンドレポートプロンプト |
-| `n8n/prompts/07-noimosai-format.md` | NoimosAI記事整形プロンプト（新規） |
+| `n8n/prompts/07-noimosai-format.md` | NoimosAI記事整形プロンプト |
+| `n8n/prompts/08-kimi-zh.md` | **Kimi API ZH→JA変換プロンプト（WF08専用）** |
 
 ---
 
@@ -153,22 +163,24 @@ Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Mark
 
 | プロダクト | パイプライン内の役割 | 宣伝切り口 |
 |---|---|---|
-| **claim-auditor** | 全生成物のファクトチェックゲート | 「このメディアは全記事をAuditor検証済」 |
+| **claim-auditor** | 全生成物のファクトチェックゲート + 著作権コンプライアンスゲート | 「このメディアは全記事をAuditor検証済」 |
 | **claim-crew** | 記者エージェント（多角度取材・整理） | 「AIエージェントが假想記者として取材」 |
 | **claim-builder + council** | 記事品質向上（N案生成→コンセンサス選択） | 「複数Claudeの協議で記事を生成」 |
-| **claim-llm** | LLM抗象層（ネットワークポリシー制御） | 「LLM呼び出しを安全に制御」 |
+| **claim-llm** | LLM抗象層（言語検出・ルーティング・ネットワークポリシー制御） | 「LLM呼び出しを安全に制御」 |
 | **claim-security-** | APIエンドポイント保護・アドミッションサンドイッチ | 「AIシステムのセキュリティを定式化」 |
 | **claim-evolve** | プロンプト・パイプラインの継続改善 | 「記事品質が自律進化する仕組み」 |
 
 ### 5-2. Auditorゲートの詳細
 
-**大前提: 全ソースの全生成物に対してAuditorを通す。例外なし。**
+**大前提: 全ソースの全生成物に対してAuditorを通す。例外なし。GitHubコンテンツも含む。**
 
 | 生成物 | チェック対象 | 判定基準 |
 |---|---|---|
 | NoimosAI記事本文 | 事実主張・数値・固有名詞 | ソース確認可能か |
 | GitHubトレンド記事 | スター数・技術説明・トレンド予測 | GitHub API値と照合 |
 | RSS・ YouTube要約 | オリジナルソースとの整合性 | URL履歴と照合 |
+| ZH翻訳記事（Kimi経由） | 著作権5要件 + 翻訳ラベル | 著作権コンプライアンスチェッカー |
+| EN翻訳記事 | 著作権5要件 + 翻訳ラベル | 著作権コンプライアンスチェッカー |
 | Mermaid図解 | 図が本文と整合するか | 構造的一貫性 |
 | SEOメタ（タイトル/description） | 誤大表現・事実誤認 | 本文との整合性 |
 
@@ -181,16 +193,11 @@ Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Mark
 「セキュリティスキャン済み」→ claim-security-のバッジ
 ```
 
-**Claimプロダクト紹介ページ**をAIツールカタログに載れる：
-- 「claim-auditor — 記事の嫌正を検出するAIファクトチェッカー」
-- 「claim-crew — 自律取材するAI記者エージェント」
-- 「claim-security- — AIシステムを守るセキュリティエンジン」
-
 ---
 
-## 6. NoimosAI連携
+## 6. NoimosAI連携 + Kimi ZH連携
 
-### NoimosAIの役割：編集長（戦略脳）
+### 6-1. NoimosAIの役割：JA/EN編集長（戦略脳）
 
 ```
 NoimosAI
@@ -200,22 +207,36 @@ NoimosAI
 └── SNSエージェントで配信拡散
 ```
 
-### A：サイトのマーケティング自動化
+### 6-2. Kimiの役割：ZH編集長（中国語情報源処理）
 
-| エージェント | 役割 | 連携サービス |
+```
+Kimi（Moonshot AI / moonshot-v1-128k）
+├── 中国語ソース取得（知乎/CSDN/B站/少数派等）
+├── ZH→JA 翻訳+要約+著作権変換（全文翻訳禁止）
+├── 長文技術記事の一括処理（200K tokenコンテキスト）
+└── OpenAI互換API → n8n HTTP Requestノードで直接呼び出し
+```
+
+**n8n WF08 接続設定（HTTP Requestノード）**:
+```
+URL:    https://api.moonshot.cn/v1/chat/completions
+Method: POST
+Auth:   Bearer {{ $env.KIMI_API_KEY }}
+Body:   { "model": "moonshot-v1-128k", "messages": [...] }
+```
+
+### 6-3. LLM役割分担表
+
+| 層 | 担当 | 内容 |
 |---|---|---|
-| SEOエージェント | キーワード最適化・内部リンク改善 | Google Analytics・Search Console |
-| ソーシャルメディアエージェント | SNS自動投稿・スケジュール管理 | X・Instagram・TikTok・YouTube・Threads・note |
-| 競合分析エージェント | 競合AI情報サイトの動向監視 | 自動 |
-| 成長戦略エージェント | KPI設定・改善提案 | GA4・Search Console |
+| ZH編集長 | Kimi | ZHソース翻訳・要約・加工 |
+| JA/EN編集長 | NoimosAI | キーワード戦略・SEO設計・記事本文 |
+| 入稿担当 | Claude API | WordPress用整形・カテゴリ/タグ割り当て |
+| LLMルーティング | claim-llm | 言語検出→Kimi/Claude振り分け |
+| 質保証 | Claim-Auditor | 全記事の事実検証 + 著作権コンプライアンス |
+| 自動化 | n8n | 全体パイプライン制御 |
 
-### B：サイト内コンテンツとしてNoimosAIを紹介
-
-- AIツールカタログにNoimosAIを掲載（詳細ページ・使い方ガイド）
-- 「このサイト自体がNoimosAIで動いている」を差別化ポイントとして前面に出す
-- 連携手順をガイド記事化（ノウハウ販売コンテンツの一部にもなる）
-
-### C：ワークフロー07 — NoimosAI→Google Docs→n8n
+### 6-4. ワークフロー07 — NoimosAI→Google Docs→n8n
 
 ```
 NoimosAI（記事生成）
@@ -231,14 +252,21 @@ Claim-Auditorゲート
 WordPress（下書き）
 ```
 
-**役割分担の明確化**：
+### 6-5. ワークフロー08 — ZHソース→Kimi→n8n
 
-| 層 | 担当 | 内容 |
-|---|---|---|
-| 編集長 | NoimosAI | キーワード戦略・SEO設計・記事本文 |
-| 入稿担当 | Claude API | WordPress用整形・カテゴリ/タグ割り当て |
-| 質保証 | Claim-Auditor | 全記事の事実検証 |
-| 自動化 | n8n | 全体パイプライン制御 |
+```
+ZHソース（RSS or スクレイピング）
+    ↓ n8n WF08トリガー
+Kimi API（ZH→JA翻訳+要約）
+    ↓ プロンプト: 08-kimi-zh.md
+著作権変換（00-copyright-transform.md適用）
+    ↓
+Claude API（日本語品質仕上げ + 構造統一）← オプション
+    ↓
+Claim-Auditor（copyright_compliance: cross_lingual=ZH）
+    ↓ PASS
+WordPress（下書き）
+```
 
 ---
 
@@ -373,6 +401,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 | `WP_APP_PASSWORD` | WordPress Application Password（WP起動後に設定） |
 | `FAL_API_KEY` | fal.ai API キー（Flux.1アイキャッチ用） |
 | `GOOGLE_DRIVE_CREDENTIALS` | Google Drive API認証（WF07 NoimosAI用） |
+| **`KIMI_API_KEY`** | **Moonshot AI APIキー（WF08 ZHソース処理用）** |
 
 ### サンドボックスで検証できること
 
@@ -380,6 +409,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 - [ ] n8n が http://localhost:5678 で応答
 - [ ] ワークフロー01（GitHub AI Trending）手動実行 → Auditor PASS → WP下書き記事作成
 - [ ] ワークフロー02（RSS Monitor）手動実行 → Auditor → WP下書き
+- [ ] ワークフロー08（ZHソース）手動実行 → Kimi API → 著作権変換 → Auditor → WP下書き
 - [ ] Claude APIがJSON構造の記事を返す
 - [ ] Mermaid図解がWordPress本文に埋め込まれる
 - [ ] WordPress REST API POST `/wp-json/wp/v2/posts` → 201レスポンスと記事ID
@@ -396,11 +426,12 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 | テーマ | カスタムテーマ（Astra + Elementorまたはフルカスタム） | 要検討 |
 | オーケストレーター | n8n | セルフホスト or n8n.cloud |
 | コンテンツ生成AI | Claude API（Anthropic） | メイン（入稿・整形・Mermaid生成） |
+| **ZH言語処理** | **Kimi（Moonshot AI / moonshot-v1-128k）** | **ZHソース翻訳・加工（年契約済）** |
 | 戦略・SEO | NoimosAI | 編集長役（$99/月〜） |
 | **記者エージェント** | **claim-crew** | **多角度取材・整理** |
 | **コンテンツ品質** | **claim-builder + council** | **N案生成→コンセンサス選択** |
-| **ファクトチェックゲート** | **claim-auditor** | **全生成物必須** |
-| **LLM制御** | **claim-llm** | **ネットワークポリシー・抗象層** |
+| **ファクトチェックゲート** | **claim-auditor** | **全生成物必須（著作権コンプライアンス含む）** |
+| **LLM制御** | **claim-llm** | **言語検出・ルーティング・抗象層** |
 | **API保護** | **claim-security-** | **エンドポイントセキュリティ** |
 | **継続改善** | **claim-evolve** | **プロンプト・パイプライン自律進化** |
 | SEOプラグイン | Rank Math（無料） | Search Console連携 |
@@ -442,7 +473,8 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 - [x] n8n/prompts/ ディレクトリ作成（7ファイル）
 - [x] SETUP_GUIDE.md エラーハンドリング拡充
 - [x] MCP サーバー設定（Claude Code ↔ WordPress）
-- [ ] Claim-Auditorゲートをn8nに組み込み（WF01〜06）
+- [ ] 著作権コンプライアンスプロンプト作成（00-copyright-transform.md）
+- [ ] Claim-Auditorゲートをn8nに組み込み（WF01〜08）
 - [ ] Mermaid + Kroki.io図解自動入れ込み実装
 - [ ] WordPress 初回セットアップ（管理画面・Application Password 発行）
 - [ ] エンドツーエンドサンドボックステスト
@@ -452,6 +484,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 - [ ] GitHub Trendingワークフロー稼働（Auditorゲート付き）
 - [ ] 公式RSSワークフロー稼働
 - [ ] NoimosAI初期連携（WF07）
+- [ ] WF08稼働（知乎/CSDN/B站 → Kimi → JA記事）
 - [ ] Flux.1アイキャッチ実装
 - [ ] 英語SEOメタ並行生成
 
@@ -481,12 +514,13 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 |---|---|---|
 | `401 Unauthorized` | トークン・App Password 無効 | 再発行・再設定 |
 | `403 Forbidden` (GitHub) | API レート制限 | Conditional header / Wait ノード追加 |
-| `429 Too Many Requests` | Claude API レート制限 | Retry on Fail 設定 + 60秒待機 |
+| `429 Too Many Requests` | Claude / Kimi API レート制限 | Retry on Fail 設定 + 60秒待機 |
 | `529 Overloaded` (Claude) | Claude API 過負荷 | 指数バックオフ（Wait ノード） |
 | `410 Gone` (WordPress) | REST API エンドポイント変更 | WP バージョン確認・エンドポイント更新 |
-| Auditor FAIL | 事実誤認の投稿 | 人間レビューキューに转送（公開しない） |
+| Auditor FAIL | 事実誤認 or 著作権違反 | 人間レビューキューに転送（公開しない） |
 | n8n タイムアウト | 処理時間超過 | ワークフローを分割・非同期化 |
 | RSS 404 | RSS URL 変更 | 実際のサイトでURLを再確認 |
+| Kimi API エラー | ZHソース取得失敗 | WF08 Retry on Fail + フォールバック処理 |
 
 ---
 
@@ -498,8 +532,9 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 | n8n運用方式（セルフホスト or クラウド） | 未確定 | ホスティング決定後 |
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
 | ドメイン | 未確定 | 要相談 |
-| Higgsfield APIアクセス | 要確認 | コスト確認後 |
+| Higgsfield APIアクセス・コスト | 要確認 | Phase 2開始前 |
 | claim-auditorのn8n組み込み方法 | HTTP API or CLI | 要設計 |
+| ZHソースのスクレイピング方法 | RSS or Apify | WF08実装時に決定 |
 
 ---
 
@@ -551,3 +586,94 @@ n8n ワークフローを経由せず、開発・デバッグ・コンテンツ�
 - `.claude/settings.json` に資格情報をハードコードしない
 - MCP サーバーはローカルプロセスとして stdio 通信（外部ポート不使用）
 - 本番 WordPress への誤操作防止：`status: 'draft'` がデフォルト（明示しないと公開されない）
+
+---
+
+## 17. 著作権コンプライアンス（Auditorプラグイン）
+
+### 17-1. 引用5要件（著作権法32条）と Auditor マッピング
+
+> 引用は著作権法32条の特例。5要件を**すべて**満たして初めて成立する。
+
+| 引用5要件 | Auditorチェック | 実装方法 | LLM-free |
+|---|---|---|---|
+| ①主従関係：自コンテンツが「主」 | 生成字数 / 引用字数 > 2.0 | 字数カウント | ✅ |
+| ②明瞭区別：blockquoteで分ける | `<blockquote>` または `>` が記事内に存在 | 正規表現 | ✅ |
+| ③必要性：なければ説明が成立しない | 独自の `##` 見出しブロック ≥ 3 | 構造チェック | ✅ |
+| ④出所明示：タイトル+媒体名+URL | 記事内に原文URLが存在する | URL検出 | ✅ |
+| ⑤改変禁止：引用部分を書き換えない | 同言語のみ: blockquote内テキストと原文の類似度 > 0.85 | difflib | ✅ |
+
+**全5条件クリア → PASS / 1つでも欠ければ FAIL**
+
+### 17-2. 4シナリオ別ルール
+
+| シナリオ | 著作権上の位置づけ | ⑤改変禁止 | 追加要件 |
+|---|---|---|---|
+| **JA → JA**（国内記事要約） | 引用（32条） | difflib類似度チェック | — |
+| **EN → JA**（英語記事翻訳+加工） | 翻案（27条）+ 引用 | 免除（翻訳≠改変） | 翻訳ラベル必須 |
+| **ZH → JA**（Kimi翻訳+加工） | 翻案（27条）+ ベルヌ条約 | 免除 | 翻訳ラベル必須 |
+| **JA → EN**（自社記事の英語展開） | 自著翻訳（問題なし） | 不適用 | Phase 2のみ |
+
+> **海外ソース注意**: ベルヌ条約（170カ国加盟）により海外記事も日本の著作権法で保護される。「英語・中国語だから大丈夫」は誤り。
+
+### 17-3. 翻訳シナリオ（cross-lingual）の追加チェック
+
+文字列比較は異言語間で無意味なため、代替判定を使用する：
+
+```python
+# claim-auditor copyright_compliance checker (cross-lingual)
+def check_cross_lingual(source_url, generated_text, source_lang):
+    checks = {
+        # 必須条件（両方クリアで PASS）
+        "translation_label": (
+            "本記事は" in generated_text and "翻訳" in generated_text
+        ) or (
+            "This article" in generated_text and "translated" in generated_text
+        ),
+        "source_url_present": source_url in generated_text,
+
+        # 補完条件（いずれか1つ）
+        "own_sections": generated_text.count("##") >= 3,
+        "volume_ratio": len(generated_text) >= len(source_text_estimate) * 0.5,
+    }
+    required = checks["translation_label"] and checks["source_url_present"]
+    optional = checks["own_sections"] or checks["volume_ratio"]
+    return "PASS" if (required and optional) else "FAIL"
+```
+
+### 17-4. 出典表示の正しい形式
+
+| ソース種別 | 表示形式 |
+|---|---|
+| ウェブ記事 | `記事タイトル、サイト名、URL` |
+| 書籍 | `著者名『書名』出版社（発行年）、ページ` |
+| 中国語メディア | `標題、媒体名（知乎/CSDN等）、URL` |
+| 英語メディア | `Title, Publication name, URL` |
+
+URLだけでは不十分（記事内容が特定できない）。タイトル+媒体名+URLの3点セットが必要。
+
+### 17-5. 著作権コンプライアンス変換プロンプト（全WF共通）
+
+`n8n/prompts/00-copyright-transform.md` で管理。全ワークフローのClaude/Kimiプロンプトに先頭適用する。
+
+**コアルール（必須）**:
+1. 原文の直接引用は全体の **30%以内**
+2. 引用箇所は必ず `<blockquote>` タグで囲む
+3. 独自の分析・新情報・見解を **50%以上** 含める
+4. 記事末尾に出典明記（タイトル・媒体名・URL）
+5. 引用部分の内容を書き換えない（翻訳は除く）
+
+**翻訳記事の場合（追加ルール）**:
+- 冒頭必須: `※本記事は[URL]を翻訳・加工したものです（原文言語: EN/ZH）`
+- 全文翻訳は禁止 — 要約+独自分析に変換すること
+- 翻訳精度より独自観点の充実を優先する
+
+### 17-6. SNS投稿での引用に関する注意
+
+> SNSは構造的に引用が成立しにくい媒体（文字数制限・画像中心のUI）。
+
+- スクリーンショット投稿は原則NG（著作権侵害リスク）
+- 最も安全: リンクのみ貼って自分の意見を書く（リンク掲載は複製にあたらない）
+- 画像引用は「必要性」のハードルが特に高い → 原則は文章で説明する
+
+**n8nのThreads/SNS投稿ワークフロー（WF04）でも同じルールを適用する。**
