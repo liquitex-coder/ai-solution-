@@ -2,12 +2,24 @@
   "name": "04 Threads AIインフルエンサー監視",
   "nodes": [
     {
-      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 3 }] } },
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
       "id": "1122aabb-ccdd-eeff-0011-223344556677",
       "name": "3時間ごとトリガー",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -17,7 +29,10 @@
       "name": "対象アカウント設定",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -25,18 +40,37 @@
         "url": "=https://graph.threads.net/v1.0/{{ $json.userId }}/threads",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "queryParameters": { "parameters": [
-          { "name": "fields", "value": "id,text,timestamp,permalink,media_type" },
-          { "name": "since", "value": "={{ $json.since }}" },
-          { "name": "limit", "value": "10" }
-        ] }
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,text,timestamp,permalink,media_type"
+            },
+            {
+              "name": "since",
+              "value": "={{ $json.since }}"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        }
       },
       "id": "3344ccdd-eeff-0011-2233-445566778899",
       "name": "Threads API投稿取得",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300],
-      "credentials": { "httpHeaderAuth": { "id": "THREADS_API_CRED_ID", "name": "Threads API Token" } }
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "THREADS_API_CRED_ID",
+          "name": "Threads API Token"
+        }
+      }
     },
     {
       "parameters": {
@@ -46,27 +80,48 @@
       "name": "AI関連投稿をフィルタリング",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
-        "conditions": { "conditions": [{ "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }], "combinator": "and" }
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
       },
       "id": "5566eeff-0011-2233-4455-667788990011",
       "name": "AI投稿あり？",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1120, 300]
+      "position": [
+        1120,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '04-threads-influencer.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) {\n    const data = await res.json();\n    promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst BASE = 'https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/';\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nasync function fetchPrompt(file) {\n  try {\n    const res = await fetch(BASE + file, { headers });\n    if (!res.ok) return '';\n    const data = await res.json();\n    return Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  } catch(e) { return ''; }\n}\nconst [copyright, wfPrompt] = await Promise.all([\n  fetchPrompt('00-copyright-transform.md'),\n  fetchPrompt('04-threads-influencer.md')\n]);\nreturn [{ json: { ...$json, promptContent: copyright + '\\n\\n---\\n\\n' + wfPrompt } }];"
       },
       "id": "p004wf04-aa00-4004-8004-000000000004",
       "name": "プロンプト読込み (WF-04)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 180]
+      "position": [
+        1340,
+        180
+      ]
     },
     {
       "parameters": {
@@ -79,27 +134,50 @@
           "jsonBody": {
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 2000,
-            "messages": [{ "role": "user", "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nユーザー名: @' + $json.username + '\\n投稿数: ' + $json.postCount + '件\\n\\n投稿内容:\\n' + $json.postsText }}" }]
+            "messages": [
+              {
+                "role": "user",
+                "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nユーザー名: @' + $json.username + '\\n投稿数: ' + $json.postCount + '件\\n\\n投稿内容:\\n' + $json.postsText }}"
+              }
+            ]
           }
         },
-        "headers": { "parameters": [{ "name": "anthropic-version", "value": "2023-06-01" }] }
+        "headers": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        }
       },
       "id": "6677ff00-1122-3344-5566-778899001122",
       "name": "Claude APIでまとめ記事生成",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 180],
-      "credentials": { "httpHeaderAuth": { "id": "CLAUDE_API_CRED_ID", "name": "Claude API Key" } }
+      "position": [
+        1560,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst threadsData = $('AI関連投稿をフィルタリング').item.json;\nreturn [{ json: { title: `【Threads】@${threadsData.username}のAIノウハウまとめ（${threadsData.postCount}件）`, content, status: 'draft' } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst threadsData = $('AI関連投稿をフィルタリング').item.json;\nconst firstPermalink = (threadsData.posts && threadsData.posts[0]) ? (threadsData.posts[0].permalink || '') : '';\nreturn [{ json: { title: `【Threads】@${threadsData.username}のAIノウハウまとめ（${threadsData.postCount}件）`, content, wp_status: 'draft', source_url: firstPermalink } }];"
       },
       "id": "7788aa11-2233-4455-6677-889900112233",
       "name": "WordPress投稿データ整形",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1780, 180]
+      "position": [
+        1780,
+        180
+      ]
     },
     {
       "parameters": {
@@ -107,14 +185,29 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": { "contentType": "json", "jsonBody": { "title": "={{ $json.title }}", "content": "={{ $json.content }}", "status": "draft" } }
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "={{ $json.wp_status }}"
+          }
+        }
       },
       "id": "8899bb22-3344-5566-7788-990011223344",
       "name": "WordPressに下書き投稿",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2000, 180],
-      "credentials": { "httpHeaderAuth": { "id": "WORDPRESS_APP_PASSWORD_CRED_ID", "name": "WordPress App Password" } }
+      "position": [
+        2220,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_APP_PASSWORD_CRED_ID",
+          "name": "WordPress App Password"
+        }
+      }
     },
     {
       "parameters": {},
@@ -122,7 +215,10 @@
       "name": "AI投稿なし（スキップ）",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1340, 420]
+      "position": [
+        1340,
+        420
+      ]
     },
     {
       "parameters": {},
@@ -130,21 +226,144 @@
       "name": "エラートリガー",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [240, 600]
+      "position": [
+        240,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Auditor Gate — graceful degrade (INV-R2: LLM-free verdict)\nconst auditorUrl = $env.CLAIM_AUDITOR_URL || '';\nconst content = $json.content || '';\nconst sourceUrl = $json.source_url || '';\nif (!auditorUrl) {\n  return [{ json: { ...$json, verdict: 'SKIP', wp_status: 'draft',\n    audit_note: 'CLAIM_AUDITOR_URL未設定 → 下書き保存' } }];\n}\ntry {\n  const res = await fetch(`${auditorUrl}/audit`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      content,\n      source_urls: sourceUrl ? [sourceUrl] : [],\n      skill_ref: '04-threads-influencer'\n    })\n  });\n  if (!res.ok) {\n    return [{ json: { ...$json, verdict: 'UNVERIFIABLE', wp_status: 'draft',\n      audit_note: `Auditor HTTP ${res.status}` } }];\n  }\n  const result = await res.json();\n  return [{ json: { ...$json, ...result,\n    wp_status: result.verdict === 'PASS' ? 'publish' : 'draft' } }];\n} catch(e) {\n  return [{ json: { ...$json, verdict: 'UNVERIFIABLE', wp_status: 'draft',\n    audit_note: e.message } }];\n}"
+      },
+      "id": "ag04wf04-aa00-4004-8004-000000000010",
+      "name": "Auditor Gate (WF-04)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        180
+      ]
     }
   ],
   "connections": {
-    "3時間ごとトリガー": { "main": [[{ "node": "対象アカウント設定", "type": "main", "index": 0 }]] },
-    "対象アカウント設定": { "main": [[{ "node": "Threads API投稿取得", "type": "main", "index": 0 }]] },
-    "Threads API投稿取得": { "main": [[{ "node": "AI関連投稿をフィルタリング", "type": "main", "index": 0 }]] },
-    "AI関連投稿をフィルタリング": { "main": [[{ "node": "AI投稿あり？", "type": "main", "index": 0 }]] },
-    "AI投稿あり？": { "main": [[{ "node": "プロンプト読込み (WF-04)", "type": "main", "index": 0 }], [{ "node": "AI投稿なし（スキップ）", "type": "main", "index": 0 }]] },
-    "プロンプト読込み (WF-04)": { "main": [[{ "node": "Claude APIでまとめ記事生成", "type": "main", "index": 0 }]] },
-    "Claude APIでまとめ記事生成": { "main": [[{ "node": "WordPress投稿データ整形", "type": "main", "index": 0 }]] },
-    "WordPress投稿データ整形": { "main": [[{ "node": "WordPressに下書き投稿", "type": "main", "index": 0 }]] }
+    "3時間ごとトリガー": {
+      "main": [
+        [
+          {
+            "node": "対象アカウント設定",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "対象アカウント設定": {
+      "main": [
+        [
+          {
+            "node": "Threads API投稿取得",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Threads API投稿取得": {
+      "main": [
+        [
+          {
+            "node": "AI関連投稿をフィルタリング",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI関連投稿をフィルタリング": {
+      "main": [
+        [
+          {
+            "node": "AI投稿あり？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI投稿あり？": {
+      "main": [
+        [
+          {
+            "node": "プロンプト読込み (WF-04)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI投稿なし（スキップ）",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "プロンプト読込み (WF-04)": {
+      "main": [
+        [
+          {
+            "node": "Claude APIでまとめ記事生成",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude APIでまとめ記事生成": {
+      "main": [
+        [
+          {
+            "node": "WordPress投稿データ整形",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [
+          {
+            "node": "Auditor Gate (WF-04)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auditor Gate (WF-04)": {
+      "main": [
+        [
+          {
+            "node": "WordPressに下書き投稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "Threads" }, { "name": "AI情報収集" }],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Threads"
+    },
+    {
+      "name": "AI情報収集"
+    }
+  ],
   "notes": "必要な認証情報:\n1. Threads API Token (httpHeaderAuth): Authorization: Bearer YOUR_THREADS_ACCESS_TOKEN\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/04-threads-influencer.md から動的読込み。"
 }

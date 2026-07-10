@@ -1,0 +1,233 @@
+{
+  "name": "07 NoimosAI記事ライター（手動トリガー）",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "wf07aa01-0000-4007-8007-000000000001",
+      "name": "手動トリガー",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: topic, angle, keywords (set by caller or defaults)\nconst topic = $json.topic || 'AI最新動向';\nconst angle = $json.angle || '実務活用';\nconst keywords = $json.keywords || 'AI,自動化,Claude';\nreturn [{ json: { topic, angle, keywords, requestedAt: new Date().toISOString() } }];"
+      },
+      "id": "wf07aa02-0000-4007-8007-000000000002",
+      "name": "記事パラメータ設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst BASE = 'https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/';\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nasync function fetchPrompt(file) {\n  try {\n    const res = await fetch(BASE + file, { headers });\n    if (!res.ok) return '';\n    const data = await res.json();\n    return Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  } catch(e) { return ''; }\n}\nconst [copyright, wfPrompt] = await Promise.all([\n  fetchPrompt('00-copyright-transform.md'),\n  fetchPrompt('article-base.md')\n]);\nreturn [{ json: { ...$json, promptContent: copyright + '\\n\\n---\\n\\n' + wfPrompt } }];"
+      },
+      "id": "p007wf07-aa00-4007-8007-000000000007",
+      "name": "プロンプト読込み (WF-07)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-sonnet-5",
+            "max_tokens": 4000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "={{ $json.promptContent + '\\n\\n【記事パラメータ】\\nトピック: ' + $json.topic + '\\n切り口: ' + $json.angle + '\\nキーワード: ' + $json.keywords }}"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        }
+      },
+      "id": "wf07aa04-0000-4007-8007-000000000004",
+      "name": "Claude APIで記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst params = $('記事パラメータ設定').item.json;\nreturn [{ json: { title: `【AI解説】${params.topic} — ${params.angle}`, content, wp_status: 'draft', source_url: '' } }];"
+      },
+      "id": "wf07aa05-0000-4007-8007-000000000005",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Auditor Gate — graceful degrade (INV-R2: LLM-free verdict)\nconst auditorUrl = $env.CLAIM_AUDITOR_URL || '';\nconst content = $json.content || '';\nconst sourceUrl = $json.source_url || '';\nif (!auditorUrl) {\n  return [{ json: { ...$json, verdict: 'SKIP', wp_status: 'draft',\n    audit_note: 'CLAIM_AUDITOR_URL未設定 → 下書き保存' } }];\n}\ntry {\n  const res = await fetch(`${auditorUrl}/audit`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      content,\n      source_urls: sourceUrl ? [sourceUrl] : [],\n      skill_ref: '07-article-writer'\n    })\n  });\n  if (!res.ok) {\n    return [{ json: { ...$json, verdict: 'UNVERIFIABLE', wp_status: 'draft',\n      audit_note: `Auditor HTTP ${res.status}` } }];\n  }\n  const result = await res.json();\n  return [{ json: { ...$json, ...result,\n    wp_status: result.verdict === 'PASS' ? 'publish' : 'draft' } }];\n} catch(e) {\n  return [{ json: { ...$json, verdict: 'UNVERIFIABLE', wp_status: 'draft',\n    audit_note: e.message } }];\n}"
+      },
+      "id": "ag07wf07-aa00-4007-8007-000000000010",
+      "name": "Auditor Gate (WF-07)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "={{ $json.wp_status }}"
+          }
+        }
+      },
+      "id": "wf07aa06-0000-4007-8007-000000000006",
+      "name": "WordPressに投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_APP_PASSWORD_CRED_ID",
+          "name": "WordPress App Password"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "e007wf07-ee00-4007-8007-000000000007",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "手動トリガー": {
+      "main": [
+        [
+          {
+            "node": "記事パラメータ設定",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "記事パラメータ設定": {
+      "main": [
+        [
+          {
+            "node": "プロンプト読込み (WF-07)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "プロンプト読込み (WF-07)": {
+      "main": [
+        [
+          {
+            "node": "Claude APIで記事生成",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude APIで記事生成": {
+      "main": [
+        [
+          {
+            "node": "WordPress投稿データ整形",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [
+          {
+            "node": "Auditor Gate (WF-07)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auditor Gate (WF-07)": {
+      "main": [
+        [
+          {
+            "node": "WordPressに投稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "記事生成"
+    },
+    {
+      "name": "Claude"
+    }
+  ],
+  "notes": "NoimosAI記事ライター — 手動またはWebhookで起動。\n入力: topic (トピック), angle (切り口), keywords (キーワード)\nプロンプト: n8n/prompts/article-base.md + 00-copyright-transform.md\nAuditor Gate: CLAIM_AUDITOR_URL が未設定の場合は下書き保存。\n必要な認証情報:\n1. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n2. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)"
+}
