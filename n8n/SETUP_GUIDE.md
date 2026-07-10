@@ -361,6 +361,7 @@ docker compose down && docker compose up -d
 - Application Password の Base64 エンコードを再生成して試す
 - WordPress.com の REST API エンドポイント URL を再確認
 - n8n Credentials の値が正しく保存されているか確認
+- **セルフホスト WP で REST API が 404 になる場合**: 管理画面 → 設定 → パーマリンク → 「投稿名」等に変更して「変更を保存」（「基本」設定では REST API ルーティングが機能しない）
 
 ### Claude APIでエラーが出る
 
@@ -383,6 +384,6 @@ docker compose down && docker compose up -d
 
 ### n8n のワークフローが自動実行されない
 
-- ワークフローの „Active” スイッチが ON か確認
+- ワークフローの „Active" スイッチが ON か確認
 - n8n クラウドのプランが有効か確認（トライアル期限切れ）
 - Executions タブでエラーログを確認
