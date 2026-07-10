@@ -3,6 +3,8 @@
 AI content automation platform: n8n → Claude API → WordPress.
 Automates article generation from GitHub trending, RSS, YouTube, Threads, note.
 
+**このパイプライン自体が Claim Platform の実動デモ・宣伝媒体。**
+
 **Chat language**: 日本語
 **GitHub language** (commits, PRs, code comments): English primary
 
@@ -12,7 +14,7 @@ Automates article generation from GitHub trending, RSS, YouTube, Threads, note.
 
 - **証拠なしに「完了」と言わない** — a passing test output or API response is required.
 - **Cite before you claim.** Before asserting that something works, point to the file + line or API response.
-- **Forbidden phrases without proof**: “should work”, “it’s probably”, “I believe it’s configured”.
+- **Forbidden phrases without proof**: "should work", "it's probably", "I believe it's configured".
 - **Cross-check against `docs/requirements.md`** before any design decision — if the requirement is not there, add it first.
 - **When uncertain**, say so explicitly and list what needs verification.
 
@@ -96,7 +98,7 @@ Claude-Session: https://claude.ai/code/session_01HnkrZxy1ErLnP4eJwgm9Nx
 
 ---
 
-## 5. Test Discipline — No “Designed but not running”
+## 5. Test Discipline — No "Designed but not running"
 
 ```
 実装 → テスト設計（実装と同時）→ テスト実行 → 出力確認 → DONE
@@ -110,8 +112,8 @@ Claude-Session: https://claude.ai/code/session_01HnkrZxy1ErLnP4eJwgm9Nx
 | GitHub API | Returned JSON contains expected `full_name` / `stargazers_count` |
 | docker-compose | `docker-compose up` + `curl http://localhost:8080` returns 200 |
 
-- **Never report “done” without test output.** Paste n8n execution log or API response.
-- **Forbidden**: “実装しました。動くはずです” — no test output → not done.
+- **Never report "done" without test output.** Paste n8n execution log or API response.
+- **Forbidden**: "実装しました。動くはずです" — no test output → not done.
 - Pushing n8n workflow JSON without a manual test run is forbidden.
 
 ---
@@ -133,15 +135,80 @@ Claude-Session: https://claude.ai/code/session_01HnkrZxy1ErLnP4eJwgm9Nx
 ## 7. Architecture Snapshot
 
 ```
-Sources (GitHub API, RSS, YouTube, Threads, note)
-  └─→ n8n (orchestrator)
-        └─→ Claude API (article generation)
-              └─→ WordPress REST API (auto-post as draft)
-                    └─→ NoimosAI (SEO + SNS distribution)
+Sources: GitHub API / RSS / YouTube / Threads / note / NoimosAI (Google Docs)
+  └─→ n8n WF01-07 (orchestrator)
+        ├─→ claim-crew       (journalist agents — multi-angle gather & synthesize)
+        ├─→ claim-builder    (N independent proposals)
+        │     └─→ council loop (consensus selection → correlated-error reduction)
+        ├─→ claim-llm        (LLM abstraction + NetworkPolicy control)
+        ├─→ Claim-Auditor gate  ← ALL generated content passes here (INV-R2)
+        │     ├─ PASS        → visuals + claim-security- → WordPress draft
+        │     ├─ FAIL        → human review queue
+        │     └─ UNVERIFIABLE→ draft + flag
+        ├─→ Visuals
+        │     ├─ 80% Mermaid + Kroki.io  (free, diagrams)
+        │     ├─ 15% Flux.1 / fal.ai     (~¥1/image, featured image)
+        │     └─  5% Higgsfield           (EN video — YouTube Shorts / TikTok)
+        ├─→ claim-security-  (API admission sandwich, deterministic verdict)
+        └─→ WordPress REST API (draft)
+              └─→ Human approval → publish
+                    └─→ claim-evolve (continuous prompt self-improvement)
 ```
 
 WordPress: `liquitex929aa21393-eyqci.wordpress.com`
 n8n cloud: `liquitex-coder.app.n8n.cloud`
 
 **Security**: no hardcoded credentials in committed files — use env vars
-(`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`, `GITHUB_TOKEN`).
+(`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`, `GITHUB_TOKEN`, `FAL_API_KEY`, `GOOGLE_DRIVE_CREDENTIALS`).
+
+---
+
+## 8. 言語戦略 (Language Strategy)
+
+| コンテンツ種別 | 言語 | フェーズ |
+|---|---|---|
+| 記事本文 | **日本語**（メイン） | Phase 1〜 |
+| SEOメタデータ (title / description / slug / alt) | **英語** | Phase 1 — 全記事 |
+| 英語全文翻訳 | 英語（高価値記事のみ） | Phase 2（アクセスデータで需要確認後） |
+| Higgsfield 動画キャプション | 英語 | Phase 2 |
+| WordPress カテゴリ / タグ | 日本語（メイン）+ 英語スラグ | Phase 1〜 |
+
+### Phase 1 — EN SEO メタデータ（全記事）
+Claude API プロンプトで以下を英語生成：
+- `post_title` (英語版 SEO タイトル → Yoast SEO `_yoast_wpseo_title`)
+- `meta_description` 英語 (`_yoast_wpseo_metadesc`)
+- `slug` (英語、ハイフン区切り)
+- 画像 `alt` テキスト (英語)
+
+### Phase 2 — EN 全文翻訳
+- アクセス解析でEN流入需要を確認してから着手。
+- Higgsfield 動画は Phase 2 の EN SNS チャネル向け（YouTube Shorts / TikTok / Instagram）。
+- 動画は高価値記事の5%のみ生成（コスト管理）。
+
+---
+
+## 9. Claim Platform 連携戦略
+
+**コアコンセプト**: このパイプラインを動かすことで Claim Platform の各製品を実際に使い、
+その事実を記事のバッジ・メタデータとして自然に露出する。「宣伝のための宣伝」ではなく
+**動いている証拠** を見せる。
+
+### 各製品の役割と記事内プロモーション
+
+| 製品 | パイプライン内の役割 | 記事内での露出 |
+|---|---|---|
+| **claim-auditor** | 全生成物のハルシネーション検証ゲート（必須） | `Auditor 検証済み` バッジを全記事フッターに表示 |
+| **claim-crew** | 記者エージェント群 — 多角的取材・情報整理 | 記事クレジットに「AI記者エージェントが取材・整理」 |
+| **claim-builder + council** | N案生成 → コンセンサス選択で品質向上 | 記事メタに「複数AIの議論で生成・選択」 |
+| **claim-security-** | API エンドポイント保護・アドミッションサンドイッチ | フッターに「セキュリティスキャン済み」バッジ |
+| **claim-llm** | LLM抽象化レイヤー + NetworkPolicy 制御 | 内部のみ（露出不要） |
+| **claim-evolve** | プロンプト自己改善ループ | 必要に応じて「継続改善中」として言及 |
+
+### Auditor ゲートは全コンテンツに必須
+`全ての生成物に対して Auditor を適用は大前提`（GitHub コンテンツも含む）。
+FAIL または UNVERIFIABLE の場合、WordPress への投稿は行わない。
+
+### バッジ実装ガイドライン
+- WordPress 記事本文の末尾に HTML スニペットとして挿入（n8n HTTP Request ノードで付与）。
+- バッジはリンクとして claim 製品の GitHub/紹介ページに誘導する（Phase 2 で追加）。
+- 過剰な宣伝文は避け、`検証済み` の事実のみ短く記載する。
