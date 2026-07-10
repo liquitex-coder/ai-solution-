@@ -825,3 +825,29 @@ LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
 - モードは n8n 環境変数 `CLAIM_AUDITOR_MODE` で制御。コード変更なしで昇格・降格。
 - FAIL / UNVERIFIABLE は全モードで draft（公開されない）。
 - §21 W7: 全ワークフローの Auditor Gate はモード対応であること（check_wired が強制）。
+
+---
+
+## 23. ラチェット自動化（Phase R0: Report-Only 提案器）
+
+> ハーネス原則「ラチェット」の仕組み化。CLAUDE.md §C への追記を人間の記憶に
+> 頼らず、記憶層（§19）の Auditor FAIL 蓄積から**機械的に提案**する。
+> 段階的ロールアウト（§22-3 と同じ規律）で、Phase R0 は提案のみ・変更しない。
+
+### 23-1. 仕様（scripts/ratchet_check.py）
+
+1. 入力: 記憶層 DB（`data/memory.db`、§19 の facts 層）。
+2. 直近30日の `verdict='FAIL'` を `(skill_ref, fail_reason)` で集計。
+3. 同一組合せが **閾値（既定3回）以上** → ラチェット提案を生成:
+   - CLAUDE.md §C への追記案（1行、日本語）
+   - 対応するプロンプトファイル（`n8n/prompts/` の skill_ref 対応ファイル）の見直し提案
+4. 出力: Markdown（提案なしなら "no proposals"）。exit 0（Report-Only・変更しない）。
+   `--strict` 指定時のみ提案ありで exit 3（将来 CI で昇格する時に使用）。
+
+### 23-2. ロールアウト計画
+
+| Phase | 動作 | 昇格条件 |
+|---|---|---|
+| **R0（現在）** | 提案を出力するのみ | — |
+| R1 | 提案を Draft PR として自動起票（人間レビュー・署名で merge） | R0 の提案品質を人間が30日評価 |
+| R2 | claim-evolve の gate（改善∧無退行）を通した自動 merge | INV-R1 の再検討が必要なため当面凍結 |
