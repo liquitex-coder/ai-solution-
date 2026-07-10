@@ -10,6 +10,55 @@ Automates article generation from GitHub trending, RSS, YouTube, Threads, note.
 
 ---
 
+## 0. セッション開始の標準フロー（全プロダクト共通）
+
+**どのリポジトリ・プロダクトを触る場合でも、必ずこの順番で進める。順序は変えない。**
+
+```
+① CLAUDE.md 確認
+       ↓
+② Auditor 自己適用（要件・設計の主張を事前検証）
+       ↓
+③ 要件定義書（docs/requirements.md）更新・確認
+       ↓
+④ ロードマップ作成（T-NN タスク一覧を PR description に記載）
+       ↓
+⑤ TaskCreate でタスク登録 → in_progress → completed
+```
+
+### ① CLAUDE.md 確認
+
+セッション冒頭で必ず当ファイルを読む。前回セッションからの変更があればそれを反映した状態で作業する。
+
+### ② Auditor 自己適用
+
+Claim-Auditor はコンテンツのファクトチェックだけでなく、**設計・計画の主張にも適用する**。
+実装を始める前に、計画内の主張を以下の基準で自己検証する:
+
+| チェック項目 | 判定基準 |
+|---|---|
+| 実装対象は「実装 ∧ テスト ∧ 本番呼び出し」が証明できる形か | PASS / FAIL |
+| 要件定義書に存在しない機能を実装しようとしていないか | PASS / FAIL |
+| 「動くはず」「たぶん大丈夫」「おそらく」の表現が計画に含まれていないか | PASS / FAIL |
+| 認証情報・APIキーがハードコードされた計画になっていないか | PASS / FAIL |
+| 著作権・引用ルールに違反するコンテンツ処理が含まれていないか | PASS / FAIL |
+
+**1つでも FAIL → ③ 要件定義書の更新に戻る。すべて PASS になってから実装へ進む。**
+
+### ③ 要件定義書
+
+`docs/requirements.md` を更新してから実装する（§2 参照）。要件なしにコードを書き始めない。
+
+### ④ ロードマップ
+
+PR description に `T-01`, `T-02` ... の形式でタスクを列挙する（§3 参照）。
+
+### ⑤ TaskCreate
+
+各タスクを TaskCreate ツールで登録し、`in_progress` → `completed` を追跡する（§3 参照）。
+
+---
+
 ## 1. Anti-Hallucination
 
 - **証拠なしに「完了」と言わない** — a passing test output or API response is required.
@@ -126,6 +175,7 @@ Claude-Session: https://claude.ai/code/session_01HnkrZxy1ErLnP4eJwgm9Nx
 | `n8n/SETUP_GUIDE.md` | Operator runbook for credentials & workflow import |
 | `n8n/workflows/*.json` | n8n workflow definitions (import via n8n UI) |
 | `n8n/prompts/*.md` | Prompt templates (loaded dynamically at runtime) |
+| `n8n/prompts/00-copyright-transform.md` | Copyright compliance rules — applied to ALL workflows |
 | `docker-compose.yml` | Local sandbox (WP + n8n + MySQL) |
 | `data/wp-taxonomy.json` | WordPress category/tag design |
 | `scripts/wp-init.sh` | WordPress auto-initialization script |
@@ -135,31 +185,37 @@ Claude-Session: https://claude.ai/code/session_01HnkrZxy1ErLnP4eJwgm9Nx
 ## 7. Architecture Snapshot
 
 ```
-Sources: GitHub API / RSS / YouTube / Threads / note / NoimosAI (Google Docs)
-  └─→ n8n WF01-07 (orchestrator)
-        ├─→ claim-crew       (journalist agents — multi-angle gather & synthesize)
+Sources: GitHub API / RSS / YouTube / Threads / note / NoimosAI (Google Docs) / ZH (Kimi)
+  └─→ n8n WF01-08 (orchestrator)
+        ├─→ 言語検出 + LLMルーティング (claim-llm)
+        │     ├─ ZH → Kimi API (moonshot-v1-128k)
+        │     ├─ EN → Claude API
+        │     └─ JA → Claude API
+        ├─→ 著作権変換 (00-copyright-transform.md)
+        ├─→ claim-crew       (journalist agents — gather & synthesize)
         ├─→ claim-builder    (N independent proposals)
-        │     └─→ council loop (consensus selection → correlated-error reduction)
-        ├─→ claim-llm        (LLM abstraction + NetworkPolicy control)
+        │     └─→ council loop (consensus selection)
+        ├─→ claim-llm        (LLM abstraction + NetworkPolicy)
         ├─→ Claim-Auditor gate  ← ALL generated content passes here (INV-R2)
         │     ├─ PASS        → visuals + claim-security- → WordPress draft
         │     ├─ FAIL        → human review queue
         │     └─ UNVERIFIABLE→ draft + flag
         ├─→ Visuals
-        │     ├─ 80% Mermaid + Kroki.io  (free, diagrams)
-        │     ├─ 15% Flux.1 / fal.ai     (~¥1/image, featured image)
-        │     └─  5% Higgsfield           (EN video — YouTube Shorts / TikTok)
-        ├─→ claim-security-  (API admission sandwich, deterministic verdict)
+        │     ├─ 80% Mermaid + Kroki.io  (free)
+        │     ├─ 15% Flux.1 / fal.ai     (~¥1/image)
+        │     └─  5% Higgsfield           (EN video)
+        ├─→ claim-security-  (API admission sandwich)
         └─→ WordPress REST API (draft)
               └─→ Human approval → publish
-                    └─→ claim-evolve (continuous prompt self-improvement)
+                    └─→ claim-evolve (continuous improvement)
 ```
 
 WordPress: `liquitex929aa21393-eyqci.wordpress.com`
 n8n cloud: `liquitex-coder.app.n8n.cloud`
 
-**Security**: no hardcoded credentials in committed files — use env vars
-(`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`, `GITHUB_TOKEN`, `FAL_API_KEY`, `GOOGLE_DRIVE_CREDENTIALS`).
+**Security**: no hardcoded credentials — use env vars
+(`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`, `GITHUB_TOKEN`,
+ `FAL_API_KEY`, `GOOGLE_DRIVE_CREDENTIALS`, `KIMI_API_KEY`).
 
 ---
 
@@ -169,46 +225,25 @@ n8n cloud: `liquitex-coder.app.n8n.cloud`
 |---|---|---|
 | 記事本文 | **日本語**（メイン） | Phase 1〜 |
 | SEOメタデータ (title / description / slug / alt) | **英語** | Phase 1 — 全記事 |
-| 英語全文翻訳 | 英語（高価値記事のみ） | Phase 2（アクセスデータで需要確認後） |
+| 英語全文翻訳 | 英語（高価値記事のみ） | Phase 2 |
 | Higgsfield 動画キャプション | 英語 | Phase 2 |
-| WordPress カテゴリ / タグ | 日本語（メイン）+ 英語スラグ | Phase 1〜 |
-
-### Phase 1 — EN SEO メタデータ（全記事）
-Claude API プロンプトで以下を英語生成：
-- `post_title` (英語版 SEO タイトル → Yoast SEO `_yoast_wpseo_title`)
-- `meta_description` 英語 (`_yoast_wpseo_metadesc`)
-- `slug` (英語、ハイフン区切り)
-- 画像 `alt` テキスト (英語)
-
-### Phase 2 — EN 全文翻訳
-- アクセス解析でEN流入需要を確認してから着手。
-- Higgsfield 動画は Phase 2 の EN SNS チャネル向け（YouTube Shorts / TikTok / Instagram）。
-- 動画は高価値記事の5%のみ生成（コスト管理）。
+| ZH→JA 翻訳記事（Kimi） | 日本語（翻訳ラベル付き） | Phase 2 |
 
 ---
 
 ## 9. Claim Platform 連携戦略
 
 **コアコンセプト**: このパイプラインを動かすことで Claim Platform の各製品を実際に使い、
-その事実を記事のバッジ・メタデータとして自然に露出する。「宣伝のための宣伝」ではなく
-**動いている証拠** を見せる。
-
-### 各製品の役割と記事内プロモーション
+その事実を記事のバッジ・メタデータとして自然に露出する。動いている証拠を見せる。
 
 | 製品 | パイプライン内の役割 | 記事内での露出 |
 |---|---|---|
-| **claim-auditor** | 全生成物のハルシネーション検証ゲート（必須） | `Auditor 検証済み` バッジを全記事フッターに表示 |
-| **claim-crew** | 記者エージェント群 — 多角的取材・情報整理 | 記事クレジットに「AI記者エージェントが取材・整理」 |
-| **claim-builder + council** | N案生成 → コンセンサス選択で品質向上 | 記事メタに「複数AIの議論で生成・選択」 |
-| **claim-security-** | API エンドポイント保護・アドミッションサンドイッチ | フッターに「セキュリティスキャン済み」バッジ |
-| **claim-llm** | LLM抽象化レイヤー + NetworkPolicy 制御 | 内部のみ（露出不要） |
-| **claim-evolve** | プロンプト自己改善ループ | 必要に応じて「継続改善中」として言及 |
+| **claim-auditor** | 全生成物のゲート（コンテンツ + 著作権 + 設計主張） | `Auditor 検証済み` バッジ |
+| **claim-crew** | 記者エージェント群 | 記事クレジットに「AI記者エージェントが取材」 |
+| **claim-builder + council** | N案生成 → コンセンサス選択 | 「複数AIの議論で生成・選択」 |
+| **claim-security-** | API エンドポイント保護 | 「セキュリティスキャン済み」バッジ |
+| **claim-llm** | 言語検出・LLMルーティング | 内部のみ |
+| **claim-evolve** | プロンプト自己改善ループ | 必要に応じて言及 |
 
-### Auditor ゲートは全コンテンツに必須
-`全ての生成物に対して Auditor を適用は大前提`（GitHub コンテンツも含む）。
+**Auditor ゲートは全コンテンツに必須**（GitHub コンテンツも含む）。
 FAIL または UNVERIFIABLE の場合、WordPress への投稿は行わない。
-
-### バッジ実装ガイドライン
-- WordPress 記事本文の末尾に HTML スニペットとして挿入（n8n HTTP Request ノードで付与）。
-- バッジはリンクとして claim 製品の GitHub/紹介ページに誘導する（Phase 2 で追加）。
-- 過剰な宣伝文は避け、`検証済み` の事実のみ短く記載する。
