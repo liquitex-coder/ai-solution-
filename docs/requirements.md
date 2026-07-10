@@ -752,3 +752,35 @@ WordPress 投稿
 | mvanhorn/last30days-skill | MIT | アイデア採用（9媒体横断・確度スコア設計） |
 
 **ポリシー**: コードは使用せずアイデアのみ採用（著作権の対象外）。コードを使用する場合はLICENSEファイルを `third_party/` に格納してクレジット表示する。
+
+---
+
+## 21. 配線ゲート（design-vs-wired）— 「設計したが動いていない」の必須防止
+
+> 背景: 本プロジェクトでは「設計・文書・プロンプトは存在するが、どの本番パスからも
+> 呼ばれていない」状態が繰り返し発生した（例: 00-copyright-transform.md 未配線、
+> WF06 の Auditor ゲートなし自動公開、WF07/08 のワークフロー未作成）。
+> 以後、これは人手の監査ではなく決定論的ゲートで機械的に防ぐ（**必須**）。
+
+### 21-1. ゲート仕様（scripts/check_wired.py）
+
+| # | チェック | FAIL条件 |
+|---|---|---|
+| W1 | requirements の WF一覧（WF01〜09）に対応する `n8n/workflows/*.json` が存在 | 対応JSONなし |
+| W2 | 全ワークフローに Auditor Gate ノードが存在（`CLAIM_AUDITOR_URL` 参照で判定） | ゲートなしWF |
+| W3 | 全ワークフローのプロンプト読込みが `00-copyright-transform.md` を含む | 著作権プロンプト未読込 |
+| W4 | WordPress 投稿の `status` はゲート出力（`wp_status`）経由 | `'publish'` ハードコード |
+| W5 | `n8n/prompts/*.md` は少なくとも1つのWFから参照される | 未参照（LIBRARY_ONLY 登録を除く） |
+| W6 | ワークフローJSONに認証情報らしきリテラルが含まれない | 秘密情報パターン検出 |
+
+- **LIBRARY_ONLY レジストリ**: 意図的に未配線のファイルはスクリプト内のレジストリに
+  理由コメント付きで明示登録する。登録なしの未配線は FAIL。
+- 終了コード: 全PASS=0 / FAILあり=1。出力は項目毎に PASS/FAIL を列挙。
+
+### 21-2. 運用（必須化）
+
+1. **ローカル**: push 前ゲート（CLAUDE.md §D）に組み込み。FAIL のまま push 禁止。
+2. **CI**: `.github/workflows/wired-check.yml` が全 PR で実行（pure-stdlib・
+   外部ネットワーク不要のためネットワークポリシー下でも完走する）。
+3. **完了定義への組み込み**: 新機能は check_wired.py が検出できる形で本番パスに
+   配線されるまで「完了」と報告しない（CLAUDE.md §A 絶対ルール）。
