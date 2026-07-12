@@ -921,3 +921,58 @@ WordPress.com本番サイトに対して実行し、エラーなしで完走す�
 `scripts/wp-init.sh`（bash版）と同一の分岐ロジック（WP_BEARER_TOKEN + WP_SITE
 優先、WP_APP_PASSWORD へフォールバック）を実装しており、これで両スクリプトとも
 実運用で検証済みとなった。
+
+---
+
+## 25. n8n cloud API 経由デプロイ自動化（Proプラン、実運用）
+
+### 25-1. 背景
+
+n8n cloud の公開API（`/api/v1/*`）は無料トライアルでは無効化されており、
+Proプラン以降で有効。ユーザーがProへアップグレードしAPIキーを発行したため、
+手動UIインポート（9本のワークフロー + 7種のCredential手動作成・紐付け）を
+スクリプト化する。ハーネス原則の「段階的ロールアウト」に従い、**ワークフローの
+Active化はスクリプトでは行わず、人間が手動実行で確認してからONにする**
+（SETUP_GUIDE Step 5 の既存フローを維持）。
+
+### 25-2. スクリプト仕様（scripts/n8n_deploy.ps1）
+
+1. 認証: n8n公開APIは `X-N8N-API-KEY` ヘッダー（`Authorization: Bearer` ではない）。
+2. Credential作成（`POST /api/v1/credentials`）— 環境変数が設定されている分のみ、
+   冪等（既存同名Credentialがあれば `[SKIP]`）:
+
+   | Credential名 | ヘッダー名 | 環境変数 | 値のprefix | 必須 |
+   |---|---|---|---|---|
+   | Claude API Key | `x-api-key` | `ANTHROPIC_API_KEY` | なし | 必須 |
+   | WordPress App Password | `Authorization` | `WP_BEARER_TOKEN` | `Bearer ` | 必須 |
+   | GitHub API Token | `Authorization` | `GITHUB_TOKEN` | `token ` | 任意（WF01） |
+   | Perplexity API Key | `Authorization` | `PERPLEXITY_API_KEY` | `Bearer ` | 任意（WF06） |
+   | Kimi API Key | `Authorization` | `KIMI_API_KEY` | `Bearer ` | 任意（WF08） |
+   | Threads API Token | `Authorization` | `THREADS_ACCESS_TOKEN` | `Bearer ` | 任意（WF04） |
+   | YouTube Data API Key | `key`（既知の不整合、25-4参照） | `YOUTUBE_API_KEY` | なし | 任意（WF03/09） |
+
+3. ワークフロー作成（`POST /api/v1/workflows`）— `n8n/workflows/*.json` を読み、
+   `name`/`nodes`/`connections`/`settings` のみ送信（`active`/`tags`/`notes` は
+   n8n API のスキーマ外のため除去）。各ノードの `credentials.*.id`
+   プレースホルダーを、作成済みCredentialの実IDへ書き換える。
+   同名ワークフローが既に存在すれば `[SKIP]`（冪等）。
+4. **Active化はしない** — 作成後は人間が n8n UI で手動実行 → WordPress下書き
+   確認 → Active ON、という既存フロー（SETUP_GUIDE Step 5）に委ねる。
+
+### 25-3. 環境変数（n8n Environments、API対象外）
+
+`GITHUB_TOKEN` は Credential ではなく、各WFの「プロンプト読込み」Code ノードが
+`$env.GITHUB_TOKEN` として直接参照する（GitHub Contents APIからプロンプトを
+取得するため）。これは n8n の Environments/Variables 機能で設定するもので、
+本スクリプトのCredential作成とは別系統。Proプランで対応するUIから手動設定が必要
+（`n8n/SETUP_GUIDE.md` に手順追記）。
+
+### 25-4. 既知の不整合（要修正・別タスク）
+
+`03-youtube-summary.json` の「YouTube Data API動画取得」ノードは
+`genericAuthType: httpHeaderAuth` で配線されているが、Google の YouTube Data API
+はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求する。現状のヘッダー
+認証では実際には認証が通らない可能性が高い（`SETUP_GUIDE.md` 旧記述との齟齬も
+未解消のまま残っていた）。本タスクでは配線済みの形（Header Auth）に合わせて
+Credential だけ作成するが、WF03/WF09 の実行時に401/403が出た場合はこの不整合が
+原因である可能性が高く、ノードを `httpQueryAuth` に変更する別タスクが必要。
