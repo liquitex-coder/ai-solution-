@@ -1,0 +1,24 @@
+{
+  "rawSource": {
+    "events": [
+      {
+        "title": "OpenAI が新モデル o-next を発表",
+        "url": "https://example.com/o-next",
+        "source": "OpenAI Blog",
+        "publishedAt": "2026-07-12T09:00:00Z"
+      }
+    ]
+  },
+  "claudeResponse": {
+    "id": "msg_fixture_10",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "<h2>【速報】OpenAI が新モデル o-next を発表</h2><p>2026年7月12日、OpenAI が新モデル「o-next」を公式ブログで発表しました。詳細は追って解説記事でお伝えします。</p><p>出典: OpenAI Blog</p>"
+      }
+    ],
+    "stop_reason": "end_turn"
+  }
+}

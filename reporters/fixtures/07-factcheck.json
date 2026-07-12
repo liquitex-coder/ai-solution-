@@ -1,0 +1,25 @@
+{
+  "rawSource": {
+    "claims": [
+      {
+        "text": "新AIモデルXは推論速度がGPT-4の10倍",
+        "source": "example-startup blog",
+        "url": "https://example.com/x",
+        "verdict": "MISLEADING",
+        "evidence": "10倍は特定の短文プロンプト・キャッシュ有効時のみ。標準ベンチでは約1.4倍。"
+      }
+    ]
+  },
+  "claudeResponse": {
+    "id": "msg_fixture_07",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "<h2>「新AIモデルXはGPT-4の10倍速い」は本当か？</h2><p>結論から言うと、この主張は<strong>誤解を招く表現</strong>です。</p><h3>主張</h3><p>ある企業ブログが「推論速度がGPT-4の10倍」と発表しました。</p><h3>検証結果: MISLEADING（誤解を招く）</h3><p>10倍という数字は、短文プロンプトかつキャッシュ有効時の限定条件でのみ成立します。標準的なベンチマークでは約1.4倍にとどまります。</p><h3>読者への注意点</h3><p>速度比較の数字を見たら、必ず測定条件を確認しましょう。</p>"
+      }
+    ],
+    "stop_reason": "end_turn"
+  }
+}

@@ -1,0 +1,33 @@
+name: reporters-gate
+
+# Runs the No-Dead-Reporter gate (docs/requirements.md §15) on every push/PR
+# that touches the reporter framework. The framework has ZERO runtime deps, so
+# there is no `npm install` step — the job cannot fail at dependency setup.
+
+on:
+  push:
+    paths:
+      - 'reporters/**'
+      - 'scripts/check_reporters.mjs'
+      - 'n8n/prompts/**'
+      - 'package.json'
+      - '.github/workflows/reporters.yml'
+  pull_request:
+    paths:
+      - 'reporters/**'
+      - 'scripts/check_reporters.mjs'
+      - 'n8n/prompts/**'
+      - 'package.json'
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Unit tests (node --test)
+        run: node --test reporters/*.test.mjs
+      - name: No-Dead-Reporter gate
+        run: node scripts/check_reporters.mjs

@@ -1,0 +1,22 @@
+{
+  "rawSource": {
+    "topic": "RAG（検索拡張生成）とは何か、初心者向けに徹底解説",
+    "internalLinks": [
+      { "title": "LLMとは何か", "url": "/what-is-llm" },
+      { "title": "ベクトルデータベース入門", "url": "/vector-db-intro" }
+    ],
+    "sources": ["https://example.com/rag-paper"]
+  },
+  "claudeResponse": {
+    "id": "msg_fixture_13",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "<h2>RAG（検索拡張生成）とは？ 初心者向けに徹底解説</h2><p>RAG（検索拡張生成）は、LLM（大規模言語モデル）に外部知識を組み合わせる仕組みです。まず<a href=\"/what-is-llm\">LLMとは何か</a>を押さえると理解が早まります。</p><h3>RAGの仕組み</h3><p>質問に関連する文書を検索し、その内容をLLMに渡して回答させます。検索には<a href=\"/vector-db-intro\">ベクトルデータベース</a>がよく使われます。</p><h3>なぜ注目されるのか</h3><p>最新情報や社内文書に基づいた回答が可能になり、ハルシネーション（もっともらしい誤り）を減らせます。</p><h3>まとめ</h3><p>RAGは「検索」と「生成」を組み合わせることで、LLMを実務で使えるレベルに引き上げる基盤技術です。</p>"
+      }
+    ],
+    "stop_reason": "end_turn"
+  }
+}

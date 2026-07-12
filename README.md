@@ -174,6 +174,33 @@ echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
 - **ハルシネーション禁止**: ファイル+行番号またはAPI出力を根拠として示す
 - **テスト済み確認**: 「設計したが動かない」は禁止。n8n 手動実行 → WP 下書き確認が最低ライン
 
+## 記者フレームワーク（reporters/）— 「動かない記者」を作らない仕組み
+
+新しいAI記者（WF-07〜13）は、n8n JSON にロジックを埋め込まず、**外部依存ゼロの純関数モジュール**として実装する。全記者はマージ前に**ドライラン検証ゲート**を必ず通る（詳細は [docs/requirements.md §15](./docs/requirements.md)）。
+
+```
+reporters/
+├── core.mjs            # 共通ヘルパー（Claude リクエスト / WP ペイロード生成）
+├── validators.mjs      # 記事ルールの機械検証（article-base.md を強制）
+├── registry.mjs        # 全記者の単一ソース（native 07-13 + legacy 01-06）
+├── dryrun.mjs          # フィクスチャで全段を実行（HTTP なし）
+├── run.mjs             # CLI ドライラン
+├── reporters/NN-*.mjs  # 各記者モジュール（normalize/buildClaudeRequest/parseArticle/buildWpPayload）
+└── fixtures/NN-*.json  # 各記者の固定入力（{ rawSource, claudeResponse }）
+```
+
+### ローカル検証（プッシュ前・APIキー不要）
+
+```bash
+npm test                       # node --test（記者の単体テスト + 全記者ドライラン）
+npm run check:reporters        # No-Dead-Reporter ゲート（1件でも動かなければ exit 1）
+npm run reporters:dry-run      # 全 native 記者のドラフト生成を確認
+node reporters/run.mjs --id 07 --json  # 単一記者の WP ペイロードを表示
+```
+
+> ⚠️ **記者を1本追加するたびに** ゲート対象が増える。フィクスチャ＋プロンプト＋登録が揃い、
+> `check:reporters` が green になるまで DONE にしない（DoD は docs §15-9）。CI（`.github/workflows/reporters.yml`）でも同じゲートが走る。
+
 ## フェーズロードマップ
 
 | フェーズ | 内容 | ステータス |
