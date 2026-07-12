@@ -147,7 +147,24 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 
 ## Step 3: n8n.cloudへのワークフローインポート
 
-### インポート手順
+### 自動インポート（Proプラン以降・推奨、要件§25）
+
+無料トライアルではn8n公開APIが無効（`Upgrade to use API`と表示される）。Pro
+プラン以降で `Settings → n8n API` からAPIキーを発行できる。発行後:
+
+```powershell
+$env:N8N_API_KEY = "発行したAPIキー"
+$env:ANTHROPIC_API_KEY = "..."
+$env:WP_BEARER_TOKEN = "..."
+# 任意: GITHUB_TOKEN, PERPLEXITY_API_KEY, KIMI_API_KEY, THREADS_ACCESS_TOKEN, YOUTUBE_API_KEY
+powershell -ExecutionPolicy Bypass -File scripts/n8n_deploy.ps1
+```
+
+Credential作成（環境変数が設定されている分のみ・冪等）とワークフロー9本の
+インポートを自動実行する。**Active化は行わない**（Step 5で手動確認してから
+ONにする、既存の段階的ロールアウト方針を維持）。
+
+### 手動インポート手順（トライアル中 or APIを使わない場合）
 
 1. `liquitex-coder.app.n8n.cloud` にログイン
 2. 左メニュー「Workflows」→ 右上「Add workflow」
@@ -157,10 +174,13 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 ```
 n8n/workflows/01-github-ai-trending-daily.json
 n8n/workflows/02-rss-monitor.json
-n8n/workflows/03-youtube-new-video.json
+n8n/workflows/03-youtube-summary.json
 n8n/workflows/04-threads-influencer.json
 n8n/workflows/05-note-monitor.json
 n8n/workflows/06-weekly-trend-report.json
+n8n/workflows/07-article-writer.json
+n8n/workflows/08-kimi-zh.json
+n8n/workflows/09-multi-source-research.json
 ```
 
 ---
@@ -219,6 +239,15 @@ n8n/workflows/06-weekly-trend-report.json
 3. **Name**: `Authorization`
 4. **Value**: `Bearer YOUR_PERPLEXITY_API_KEY`
 5. 保存
+
+### GITHUB_TOKEN（Credentialではなく環境変数、要件§25-3）
+
+各WFの「プロンプト読込み」Codeノードは `$env.GITHUB_TOKEN` を直接参照して
+GitHub Contents APIからプロンプトを取得する。これはCredentialではなく
+n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外・別途手動設定）:
+
+1. n8n左メニュー「Settings」→「Environments」（Proプラン以降）
+2. 変数名 `GITHUB_TOKEN`、値に GitHub Personal Access Token（`public_repo` スコープ）を設定
 
 ---
 
