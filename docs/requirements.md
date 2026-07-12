@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 1.4  
+**バージョン**: 1.5  
 **最終更新**: 2026-07-12  
 **ステータス**: 設計中（ホスティング先未確定）
 
@@ -507,3 +507,88 @@ Claim-Auditor ファミリーの強みである **証拠主義・反ハルシネ
 
 > ⚠️ 本節は **提案（未確定）**。実装着手前に §10 実装フェーズへ正式に取り込み、各記者ごとに
 > Test-Before-Ship の検証項目（§4）を定義してから WF JSON / プロンプトを作成すること。
+
+---
+
+## 15. 「動かない記者」を作らない仕組み（No-Dead-Reporter 設計）
+
+### 15-1. 問題定義
+
+記者を増やすほど「書いたが一度も動かしていない記者」が混入する。原因は、記者の実ロジック
+（ソース正規化・プロンプト整形・記事パース・WP ペイロード生成）が **n8n ワークフロー JSON の
+Code ノード内に埋め込まれ、単体で実行・検証できない**こと。これは §4「設計したが動かない」の禁止事項そのもの。
+
+### 15-2. 設計原則
+
+> **記者ロジックは n8n JSON から切り出し、外部依存ゼロで実行できる純関数モジュールにする。**
+> **全記者はマージ前に「ドライラン検証ゲート」を必ず通す。ゲートを通らない記者はマージ不可。**
+
+これにより「動かない記者が存在しえない」状態を構造的に保証する（Claim-Auditor の
+`check_wired` / `check_active_witnessed` と同一思想）。
+
+### 15-3. 記者コントラクト（共通インターフェース）
+
+各記者は `reporters/reporters/NN-slug.mjs` に、以下の**純関数**を持つモジュールとして実装する。
+外部 I/O（HTTP・API キー・n8n）は一切含めない。
+
+| メンバ | 型 | 責務 |
+|---|---|---|
+| `id` / `slug` / `title` / `category` / `model` / `trigger` | メタ | 記者の識別・分類 |
+| `normalize(rawSource)` | 純関数 | 収集した生データ → 正規化アイテム配列 |
+| `buildClaudeRequest({items, prompt, model})` | 純関数 | 正規化アイテム＋プロンプト → Claude API リクエスト body |
+| `parseArticle(claudeResponse)` | 純関数 | Claude レスポンス → `{ title, html }` |
+| `buildWpPayload(article, opts)` | 純関数 | 記事 → WordPress REST ペイロード（既定 `status: draft`） |
+
+### 15-4. フィクスチャとドライラン
+
+各記者は `reporters/fixtures/NN-slug.json` に **`{ rawSource, claudeResponse }`** の固定入力を持つ。
+ドライランハーネス（`reporters/run.mjs`）は HTTP を一切呼ばず、フィクスチャを使って
+`normalize → buildClaudeRequest → parseArticle → buildWpPayload` の全段を実行し、
+生成された WP ペイロードを検証する。→ **外部APIキー不要・ネットワーク不要で「実際に動く」ことを証明**。
+
+### 15-5. 記事ルールの機械検証（validators）
+
+`reporters/validators.mjs` が §4・`article-base.md` のルールをコードで強制する。
+
+| 検証 | 内容 |
+|---|---|
+| `assertArticleHtml(html)` | 先頭が `<h2` / 禁止タグ（`html`,`body`,`script`,`style`）なし / コードフェンスなし / 非空 |
+| `assertWpPayload(p)` | `status` 既定 `draft` / `title` 非空 / `content` が `assertArticleHtml` を通過 |
+| 禁止フレーズ検査 | 「おそらく」「かもしれません」等（`article-base.md`）を含まない |
+
+### 15-6. ゲート（マージ阻止）
+
+`scripts/check_reporters.mjs` が **レジストリ（`reporters/registry.mjs`）の全記者**について次を検査し、
+1件でも失敗すれば **exit 1**（＝マージ不可）。
+
+| 記者種別 | witness（証拠）要件 |
+|---|---|
+| native（07〜13） | プロンプトファイル存在 ＋ フィクスチャ存在 ＋ **ドライラン全段成功** ＋ ペイロードが validators 通過 |
+| n8n（01〜06） | ワークフロー JSON が parse 可能 ＋ Claude ノードと WP ノードを含む ＋ 参照プロンプトが存在 |
+
+### 15-7. テストと CI
+
+- 単体テスト: `node --test`（`reporters/*.test.mjs`）。**ランタイム依存パッケージゼロ**（Node 標準のみ）→ `npm install` 不要で必ず走る。
+- CI: `.github/workflows/reporters.yml` が push/PR で `node --test` とゲートを実行。ネットワーク不使用のため設定段階で落ちない。
+- ローカルゲート（プッシュ前）:
+  ```bash
+  node --test reporters
+  node scripts/check_reporters.mjs
+  ```
+
+### 15-8. 本番（n8n）との整合
+
+n8n の Code ノードは、このテスト済みモジュールと**同一ロジック**を用いる（コピー元＝テスト済みソース）。
+将来的には `reporters/` からワークフロー JSON を生成し、テスト済みロジックと本番実行のドリフトを排除する
+（`docs` で追跡）。当面は「Code ノードの中身は必ず対応モジュールから転記する」を規約とする。
+
+### 15-9. 記者追加時のチェックリスト（DoD）
+
+新記者は次を**すべて**満たすまで DONE にしない:
+
+- [ ] `reporters/reporters/NN-slug.mjs` 実装（コントラクト準拠・I/Oなし）
+- [ ] `reporters/fixtures/NN-slug.json` 追加
+- [ ] `n8n/prompts/NN-slug.md` 追加
+- [ ] `reporters/registry.mjs` に登録
+- [ ] `node --test reporters` green（出力を PR に貼る）
+- [ ] `node scripts/check_reporters.mjs` green（出力を PR に貼る）
