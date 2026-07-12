@@ -905,3 +905,19 @@ n8n 側は WordPress ノードの credential を `httpHeaderAuth` の
   Application Password を再発行してもこのトークンには影響しない。
 - `blog_id`/`blog_url` が `token` レスポンスで空（global scope）でも問題ない —
   同一ユーザーが所有する全サイトに有効なトークンとして機能することを確認済み。
+
+### 24-5. wp-init 実行検証（2026-07-12・実機・Windows PowerShell）
+
+`scripts/wp-init.ps1`（WSL bash不在環境向けのPowerShell移植版）を、実際の
+WordPress.com本番サイトに対して実行し、エラーなしで完走することを確認した:
+
+```
+[OK] Authentication verified. (liquitex929aa21393)
+--- Creating categories --- ： 8件すべて [CREATED]
+--- Creating tags ---       ：30件すべて [CREATED]
+=== Initialization complete ===
+```
+
+`scripts/wp-init.sh`（bash版）と同一の分岐ロジック（WP_BEARER_TOKEN + WP_SITE
+優先、WP_APP_PASSWORD へフォールバック）を実装しており、これで両スクリプトとも
+実運用で検証済みとなった。
