@@ -967,12 +967,13 @@ Active化はスクリプトでは行わず、人間が手動実行で確認し�
 本スクリプトのCredential作成とは別系統。Proプランで対応するUIから手動設定が必要
 （`n8n/SETUP_GUIDE.md` に手順追記）。
 
-### 25-4. 既知の不整合（要修正・別タスク）
+### 25-4. 既知の不整合（解消済み・2026-07-12）
 
 `03-youtube-summary.json` の「YouTube Data API動画取得」ノードは
-`genericAuthType: httpHeaderAuth` で配線されているが、Google の YouTube Data API
-はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求する。現状のヘッダー
-認証では実際には認証が通らない可能性が高い（`SETUP_GUIDE.md` 旧記述との齟齬も
-未解消のまま残っていた）。本タスクでは配線済みの形（Header Auth）に合わせて
-Credential だけ作成するが、WF03/WF09 の実行時に401/403が出た場合はこの不整合が
-原因である可能性が高く、ノードを `httpQueryAuth` に変更する別タスクが必要。
+`genericAuthType: httpHeaderAuth` で配線されていたが、Google の YouTube Data API
+はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求するため認証が通らない
+不整合があった。ノードを `genericAuthType: httpQueryAuth` に修正し、
+`scripts/n8n_deploy.ps1` の YouTube Credential定義も対応する型（`httpQueryAuth`）で
+作成するよう修正した。`09-multi-source-research.json` は元々Codeノード内で
+`fetch()` に直接クエリパラメータとして `key=${YOUTUBE_API_KEY}` を付与しており、
+この不整合の対象外だった。

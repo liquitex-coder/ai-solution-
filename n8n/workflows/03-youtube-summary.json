@@ -39,7 +39,7 @@
         "method": "GET",
         "url": "https://www.googleapis.com/youtube/v3/search",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpQueryAuth",
         "queryParameters": {
           "parameters": [
             {
@@ -78,7 +78,7 @@
         300
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "httpQueryAuth": {
           "id": "YOUTUBE_API_CRED_ID",
           "name": "YouTube Data API Key"
         }
