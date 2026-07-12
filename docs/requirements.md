@@ -375,7 +375,8 @@ docker-compose up -d
 | `GITHUB_TOKEN` | GitHub Personal Access Token |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 キー |
 | `PERPLEXITY_API_KEY` | Perplexity API キー |
-| `WP_APP_PASSWORD` | WordPress Application Password |
+| `WP_APP_PASSWORD` | WordPress Application Password（ローカルサンドボックス / Basic認証用） |
+| `WP_BEARER_TOKEN` | WordPress.com OAuth2 access_token（本番 / Bearer認証用。§24参照） |
 | `FAL_API_KEY` | fal.ai API キー（Flux.1アイキャッチ用） |
 | `GOOGLE_DRIVE_CREDENTIALS` | Google Drive API認証（WF07用） |
 
@@ -851,3 +852,56 @@ LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
 | **R0（現在）** | 提案を出力するのみ | — |
 | R1 | 提案を Draft PR として自動起票（人間レビュー・署名で merge） | R0 の提案品質を人間が30日評価 |
 | R2 | claim-evolve の gate（改善∧無退行）を通した自動 merge | INV-R1 の再検討が必要なため当面凍結 |
+
+---
+
+## 24. WordPress.com 認証方式（実運用で確定・2026-07-12）
+
+### 24-1. 背景
+
+`docker-compose.yml` のローカルサンドボックス（自己ホスト型 WordPress）は
+Application Password + Basic認証で動作する（WordPress 5.6+の標準機能）。
+
+しかし本番の投稿先（`liquitex929aa21393-eyqci.wordpress.com`、カスタムドメイン
+`aiguide.blog` にマッピング済み）は **WordPress.com ホスト型**であり、二段階認証を
+有効化した状態では `wp/v2` REST API が Basic認証（Application Password直用）を
+`401 invalid_token` で拒否することを実運用で確認した。WordPress.com は
+**OAuth2 password grant で取得した Bearer トークン**を要求する。
+
+### 24-2. 認証フロー（本番・1回限りのセットアップ）
+
+```
+① wordpress.com/me/security で二段階認証を有効化
+② 同ページに出現する Application Passwords で1つ発行（24文字）
+③ developer.wordpress.com/apps/new/ で OAuth2 アプリを登録
+      → Client ID / Client Secret を取得
+④ oauth2/token に password grant でリクエスト
+      （client_id, client_secret, grant_type=password,
+        username, password=②のApplication Password, blog_url）
+      → access_token を取得（無期限・原則失効しない）
+⑤ access_token を WP_BEARER_TOKEN として保管
+```
+
+`wp/v2/sites/{blog}/posts` へは `Authorization: Bearer {access_token}` で投稿可能
+（`201`・下書き作成を実運用で確認済み、post id 44 で検証・削除済み）。
+
+### 24-3. 環境変数とスクリプトの対応
+
+| 環境 | 認証方式 | 使用する環境変数 |
+|---|---|---|
+| ローカルサンドボックス（自己ホスト） | Basic（Application Password） | `WP_USERNAME` + `WP_APP_PASSWORD` |
+| 本番（WordPress.com） | Bearer（OAuth2 access_token） | `WP_BEARER_TOKEN` |
+
+`scripts/wp-init.sh` は `WP_BEARER_TOKEN` が設定されていれば Bearer を、
+未設定なら従来どおり Basic を使う（後方互換・自動判定、追加フラグ不要）。
+n8n 側は WordPress ノードの credential を `httpHeaderAuth` の
+`Authorization: Bearer {{ $env.WP_BEARER_TOKEN 相当の値 }}` に設定する
+（credential の値自体はn8n UIでの手動設定であり、ワークフローJSONは変更不要 —
+既存の `httpHeaderAuth` credential 型のまま、ヘッダー値だけ差し替える）。
+
+### 24-4. 既知の制約
+
+- OAuth2 access_token は WordPress.com 側の失効操作（アプリのRevoke）まで有効。
+  Application Password を再発行してもこのトークンには影響しない。
+- `blog_id`/`blog_url` が `token` レスポンスで空（global scope）でも問題ない —
+  同一ユーザーが所有する全サイトに有効なトークンとして機能することを確認済み。
