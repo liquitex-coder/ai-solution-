@@ -1,12 +1,14 @@
 // WF-11 Reader Q&A reporter.
 // Turns a reader-submitted question (UGC) into an answer article.
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '11',
   slug: 'reader-qa',
   title: '読者Q&A記者',
-  category: '読者Q&A',
+  category: categoryNameFor('WF-11'),
+  categorySlug: categorySlugFor('WF-11'),
   model: 'claude-haiku-4-5-20251001',
   trigger: 'on-submit',
 };
@@ -38,6 +40,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['Q&A', '初心者'],
     reporterId: meta.id,
   });

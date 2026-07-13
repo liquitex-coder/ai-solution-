@@ -2,12 +2,14 @@
 // Extracts hype claims and reports a verdict. The verdict itself is intended to
 // come from Claim-Auditor's LLM-free engine (INV-R2); the LLM only drafts prose.
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '07',
   slug: 'factcheck',
   title: 'ファクトチェック記者',
-  category: 'ファクトチェック',
+  category: categoryNameFor('WF-07'),
+  categorySlug: categorySlugFor('WF-07'),
   model: 'claude-sonnet-5',
   trigger: 'daily',
 };
@@ -41,6 +43,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['ファクトチェック', '検証'],
     reporterId: meta.id,
   });
