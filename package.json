@@ -9,6 +9,7 @@
     "check:reporters": "node scripts/check_reporters.mjs",
     "reporters:dry-run": "node reporters/run.mjs",
     "gen:n8n": "node scripts/gen_n8n.mjs",
+    "e2e": "node scripts/e2e_smoke.mjs",
     "gate": "npm test && npm run check:reporters"
   },
   "engines": {

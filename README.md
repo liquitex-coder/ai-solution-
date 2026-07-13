@@ -199,6 +199,22 @@ npm run gen:n8n                # モジュールから WF-07-13 の n8n JSON を
 node reporters/run.mjs --id 07 --json  # 単一記者の WP ペイロードを表示
 ```
 
+### E2E スモーク（実クレデンシャル疎通）
+
+オフライン検証とは別に、**実 Claude → 実 WordPress 投稿（201）** を確認するスクリプト。
+
+```bash
+# キーが揃った環境で: 実Claude生成 → 実WP投稿 → 201/記事ID を確認
+ANTHROPIC_API_KEY=... WP_URL=... WP_USERNAME=... WP_APP_PASSWORD=... \
+  npm run e2e -- --id 07
+
+npm run e2e -- --id 07 --offline   # Claudeはフィクスチャ・WPだけ実投稿
+```
+
+- 認証情報が未設定なら「何が必要か」を表示して安全にSKIP（偽の成功を出さない）。
+- WP 投稿シーム（`reporters/wp_client.mjs`）は**モックHTTPサーバに対する実ソケットのテスト**を持つ
+  （`reporters/wp_client.test.mjs` → 201/ID・認証・下書き既定を検証）。WordPress イメージ不要。
+
 ### 本番 n8n JSON はモジュールから生成する（手書き禁止）
 
 `n8n/workflows/07-13.json` は `scripts/gen_n8n.mjs` が記者モジュールの関数を**そのままインライン展開**して
