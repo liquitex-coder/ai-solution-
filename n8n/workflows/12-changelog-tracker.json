@@ -1,0 +1,233 @@
+{
+  "name": "12 アップデート追跡記者",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf12node00-0000-4000-8000-000000000000",
+      "name": "トリガー（daily）",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Example input so a manual run produces a real draft. Replace with your real source.\nreturn [{ json: { rawSource: {\"release\":{\"tool\":\"example-editor\",\"version\":\"v3.2.0\",\"notes\":\"- Added inline AI autocomplete\\n- Faster startup (about 30% quicker)\\n- Fixed crash when opening large files\",\"url\":\"https://example.com/releases/v3.2.0\"}} } }];"
+      },
+      "id": "wf12node01-0000-4000-8000-000000000000",
+      "name": "ソース入力（例データ・要差し替え）",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst PROMPT_FILE = '12-changelog-tracker.md';\nconst promptUrl = `https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/${PROMPT_FILE}`;\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nlet promptContent = '';\ntry {\n  const res = await fetch(promptUrl, { headers });\n  if (res.ok) { const data = await res.json(); promptContent = Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8'); }\n} catch (e) { promptContent = '<!-- prompt fetch failed -->'; }\nreturn [{ json: { ...$json, promptContent } }];"
+      },
+      "id": "wf12node02-0000-4000-8000-000000000000",
+      "name": "プロンプト読込み (WF-12)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AUTO-GENERATED from reporters/reporters/12-changelog-tracker.mjs — do not edit; run \"npm run gen:n8n\"\nconst meta = {\"id\":\"12\",\"slug\":\"changelog-tracker\",\"title\":\"アップデート追跡記者\",\"category\":\"アップデート\",\"model\":\"claude-haiku-4-5-20251001\",\"trigger\":\"daily\"};\nfunction baseClaudeRequest({ model, system, user, maxTokens = 2048 }) {\n  if (!model) throw new Error('model is required');\n  if (!user) throw new Error('user content is required');\n  return {\n    model,\n    max_tokens: maxTokens,\n    system: system || '',\n    messages: [{ role: 'user', content: user }],\n  };\n}\nfunction normalize(raw) {\n  if (!raw || !raw.release) {\n    throw new Error('changelog-tracker: rawSource.release is required');\n  }\n  const r = raw.release;\n  if (!r.tool || !r.version || !r.notes) {\n    throw new Error('changelog-tracker: release needs {tool, version, notes}');\n  }\n  return [{\n    tool: String(r.tool).trim(),\n    version: String(r.version).trim(),\n    notes: String(r.notes).trim(),\n    url: r.url || null,\n  }];\n}\nfunction buildClaudeRequest({ items, prompt, model }) {\n  const r = items[0];\n  const user = `${prompt}\\n\\n## リリースノート（${r.tool} ${r.version}）\\n${r.notes}`;\n  return baseClaudeRequest({ model: model || meta.model, system: prompt, user });\n}\nconst rawSource = $json.rawSource;\nconst prompt = $json.promptContent || '';\nconst items = normalize(rawSource);\nconst claudeBody = buildClaudeRequest({ items, prompt, model: meta.model });\nreturn [{ json: { claudeBody } }];"
+      },
+      "id": "wf12node03-0000-4000-8000-000000000000",
+      "name": "リクエスト生成 (normalize+buildClaudeRequest)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": "={{ $json.claudeBody }}"
+        },
+        "headers": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        }
+      },
+      "id": "wf12node04-0000-4000-8000-000000000000",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AUTO-GENERATED from reporters/reporters/12-changelog-tracker.mjs — do not edit; run \"npm run gen:n8n\"\nconst meta = {\"id\":\"12\",\"slug\":\"changelog-tracker\",\"title\":\"アップデート追跡記者\",\"category\":\"アップデート\",\"model\":\"claude-haiku-4-5-20251001\",\"trigger\":\"daily\"};\nconst FORBIDDEN_TAGS = [\"html\",\"body\",\"head\",\"script\",\"style\",\"doctype\"];\nconst FORBIDDEN_PHRASES = [\"おそらく\",\"かもしれません\",\"と思われます\",\"と思います\"];\nfunction extractText(claudeResponse) {\n  if (!claudeResponse || !Array.isArray(claudeResponse.content)) {\n    throw new Error('claudeResponse.content must be an array');\n  }\n  return claudeResponse.content\n    .filter((block) => block && block.type === 'text' && typeof block.text === 'string')\n    .map((block) => block.text)\n    .join('')\n    .trim();\n}\nfunction titleFromH2(html) {\n  const match = /<h2[^>]*>([\\s\\S]*?)<\\/h2>/i.exec(html || '');\n  if (!match) return '';\n  return match[1].replace(/<[^>]+>/g, '').trim();\n}\nfunction baseWpPayload({ title, html, category, tags = [], status = 'draft', reporterId }) {\n  return {\n    title,\n    content: html,\n    status,\n    categoryName: category || null,\n    tagNames: tags,\n    meta: { generated_by: 'ai-reporter', reporter_id: reporterId || null },\n  };\n}\nfunction assertArticleHtml(html) {\n  if (typeof html !== 'string' || html.trim().length === 0) {\n    throw new Error('article html is empty');\n  }\n  const body = html.trim();\n  if (!/^<h2[\\s>]/i.test(body)) {\n    throw new Error('article must start with an <h2> tag');\n  }\n  if (body.includes('```')) {\n    throw new Error('article must not contain markdown code fences (```)');\n  }\n  for (const tag of FORBIDDEN_TAGS) {\n    if (new RegExp(`<${tag}[\\\\s>/]`, 'i').test(body)) {\n      throw new Error(`article must not contain a <${tag}> tag`);\n    }\n  }\n  for (const phrase of FORBIDDEN_PHRASES) {\n    if (body.includes(phrase)) {\n      throw new Error(`article contains forbidden phrase: ${phrase}`);\n    }\n  }\n  return true;\n}\nfunction assertWpPayload(payload) {\n  if (!payload || typeof payload !== 'object') {\n    throw new Error('wp payload must be an object');\n  }\n  if (typeof payload.title !== 'string' || payload.title.trim().length === 0) {\n    throw new Error('wp payload title is empty');\n  }\n  if (payload.status !== 'draft' && payload.status !== 'publish') {\n    throw new Error(`wp payload status must be draft|publish, got: ${payload.status}`);\n  }\n  // Safe-by-default: anything not explicitly 'publish' must be a draft.\n  assertArticleHtml(payload.content);\n  return true;\n}\nfunction parseArticle(claudeResponse) {\n  const html = extractText(claudeResponse);\n  return { title: titleFromH2(html) || 'アップデート情報', html };\n}\nfunction buildWpPayload(article, opts = {}) {\n  return baseWpPayload({\n    title: article.title,\n    html: article.html,\n    category: meta.category,\n    tags: opts.tags || ['アップデート', 'リリース'],\n    reporterId: meta.id,\n  });\n}\nconst claudeResponse = $json;\nconst article = parseArticle(claudeResponse);\nconst wpPayload = buildWpPayload(article);\nassertWpPayload(wpPayload); // reject malformed article before posting\nreturn [{ json: wpPayload }];"
+      },
+      "id": "wf12node05-0000-4000-8000-000000000000",
+      "name": "記事生成 (parseArticle+buildWpPayload+validate)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "={{ $json.status }}"
+          }
+        }
+      },
+      "id": "wf12node06-0000-4000-8000-000000000000",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_APP_PASSWORD_CRED_ID",
+          "name": "WordPress App Password"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "wf12node09-0000-4000-8000-000000000000",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "トリガー（daily）": {
+      "main": [
+        [
+          {
+            "node": "ソース入力（例データ・要差し替え）",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ソース入力（例データ・要差し替え）": {
+      "main": [
+        [
+          {
+            "node": "プロンプト読込み (WF-12)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "プロンプト読込み (WF-12)": {
+      "main": [
+        [
+          {
+            "node": "リクエスト生成 (normalize+buildClaudeRequest)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "リクエスト生成 (normalize+buildClaudeRequest)": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "記事生成 (parseArticle+buildWpPayload+validate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "記事生成 (parseArticle+buildWpPayload+validate)": {
+      "main": [
+        [
+          {
+            "node": "WordPressに下書き投稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "AI記者"
+    },
+    {
+      "name": "アップデート"
+    }
+  ],
+  "notes": "AUTO-GENERATED from reporters/reporters/12-changelog-tracker.mjs. Do not edit Code nodes by hand — edit the module and run \"npm run gen:n8n\".\n\nRequired credentials: Claude API Key (httpHeaderAuth: x-api-key), WordPress App Password (httpHeaderAuth: Authorization Basic).\nPrompt is loaded from n8n/prompts/12-changelog-tracker.md at runtime.\nThe \"ソース入力\" node holds example data so a manual run yields a real draft; replace it with your real source."
+}

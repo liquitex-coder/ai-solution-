@@ -9,14 +9,18 @@ on:
     paths:
       - 'reporters/**'
       - 'scripts/check_reporters.mjs'
+      - 'scripts/gen_n8n.mjs'
       - 'n8n/prompts/**'
+      - 'n8n/workflows/**'
       - 'package.json'
       - '.github/workflows/reporters.yml'
   pull_request:
     paths:
       - 'reporters/**'
       - 'scripts/check_reporters.mjs'
+      - 'scripts/gen_n8n.mjs'
       - 'n8n/prompts/**'
+      - 'n8n/workflows/**'
       - 'package.json'
 
 jobs:

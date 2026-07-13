@@ -8,6 +8,7 @@
     "test": "node --test reporters/*.test.mjs",
     "check:reporters": "node scripts/check_reporters.mjs",
     "reporters:dry-run": "node reporters/run.mjs",
+    "gen:n8n": "node scripts/gen_n8n.mjs",
     "gate": "npm test && npm run check:reporters"
   },
   "engines": {

@@ -192,11 +192,19 @@ reporters/
 ### ローカル検証（プッシュ前・APIキー不要）
 
 ```bash
-npm test                       # node --test（記者の単体テスト + 全記者ドライラン）
+npm test                       # node --test（単体 + ドライラン + 生成JSONの鮮度/実行一致）
 npm run check:reporters        # No-Dead-Reporter ゲート（1件でも動かなければ exit 1）
 npm run reporters:dry-run      # 全 native 記者のドラフト生成を確認
+npm run gen:n8n                # モジュールから WF-07-13 の n8n JSON を再生成
 node reporters/run.mjs --id 07 --json  # 単一記者の WP ペイロードを表示
 ```
+
+### 本番 n8n JSON はモジュールから生成する（手書き禁止）
+
+`n8n/workflows/07-13.json` は `scripts/gen_n8n.mjs` が記者モジュールの関数を**そのままインライン展開**して
+生成する。Code ノードを手で編集しない。モジュールを変更したら `npm run gen:n8n` を実行する（忘れると
+`node --test` の鮮度テストが落ちる）。生成物の Code ノードは `node:vm` で実行され、モジュールのドライラン結果と
+一致することも検証される（ドリフト排除＋実行証明、docs §15-8）。
 
 > ⚠️ **記者を1本追加するたびに** ゲート対象が増える。フィクスチャ＋プロンプト＋登録が揃い、
 > `check:reporters` が green になるまで DONE にしない（DoD は docs §15-9）。CI（`.github/workflows/reporters.yml`）でも同じゲートが走る。
