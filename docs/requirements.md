@@ -1,7 +1,7 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 1.3  
-**最終更新**: 2026-07-09  
+**バージョン**: 1.7  
+**最終更新**: 2026-07-12  
 **ステータス**: 設計中（ホスティング先未確定）
 
 ---
@@ -415,3 +415,220 @@ Claude Code → wp_list_posts({ status: 'draft' }) → 記事一覧を返答
 Claude Code → wp_create_post({ title: '...', content: '<h2>...', status: 'draft' })
              → 記事ID・URLを返答
 ```
+
+---
+
+## 14. AI記者 拡張ユースケース（提案）
+
+### 背景と方針
+
+現行の AI 記者（WF-01〜06）はいずれも **収集 → 要約・翻訳 → 投稿** の「アグリゲーション型」であり、
+一次情報を日本語に噛み砕いて流すことに主眼がある。差別化のため、次フェーズでは
+Claim-Auditor ファミリーの強みである **証拠主義・反ハルシネーション（INV-R1 / INV-R2）** を
+記事品質に転用した「新しい使い方の AI 記者」を追加する。
+
+- **単なる転載メディアとの決別**: 検証・実体験・比較という「一次的な付加価値」を持つ記事を自動生成する。
+- **クロスリポジトリ連携**: 判定が必要なユースケース（ファクトチェック）は Claim-Auditor の
+  LLM-free 判定エンジン（INV-R2）を上流プロポーザーとして利用し、真偽判定そのものは決定論的に行う。
+- **安全既定の踏襲**: 追加ワークフローもすべて `status: draft` 投稿を既定とし、人間レビューを挟む（INV-R1）。
+
+### 追加ワークフロー一覧（WF-07〜13）
+
+| # | 記者名 | トリガー | 入力ソース | 出力 | モデル案 |
+|---|---|---|---|---|---|
+| 07 | **ファクトチェック記者** | イベント/日次 | RSS・SNSの誇大表現クレーム | 検証記事（真偽判定つき） | sonnet-5 |
+| 08 | **体験レビュー記者** | 週次 | ツールカタログ + サンドボックス実行 | 再現手順つきハンズオンレビュー | sonnet-5 |
+| 09 | **比較記者** | オンデマンド/週次 | 既存カタログエントリ2件以上 | 比較表つき「〇〇 vs △△」記事 | haiku |
+| 10 | **速報記者** | 5分ごと | 主要ソース横断（RSS+SNS） | 「速報」バッジつき短報 | haiku |
+| 11 | **読者Q&A記者** | フォーム受信時 | 読者質問（UGC） | 質問回答記事 | haiku |
+| 12 | **アップデート追跡記者** | 日次 | 主要ツールのchangelog/リリースノート | 「何が変わり、なぜ重要か」記事 | haiku |
+| 13 | **深掘り解説記者** | 週次 | トレンドトピック + 内部記事群 | 内部リンク配置つきピラー長文 | sonnet-5 |
+
+### 本命3案（優先度: 高）
+
+#### WF-07 ファクトチェック記者（検証記者）
+
+- **目的**: AIツールの誇大な宣伝文句（例「〇〇はGPTを超えた」「10倍速い」）を検出し、実際に検証して記事化する。
+- **差別化**: Claim-Auditor の判定エンジンを流用 → 真偽判定は **LLM-free で決定論的（INV-R2）**。LLMは
+  クレーム抽出・記事文面生成という上流プロポーザーに限定する。
+- **フロー案**:
+  ```
+  RSS/SNS収集 → Claude API（クレーム抽出: claim / 主張元 / 検証可能な条件）
+    → Claim-Auditor 判定（is_ears / verdict: 決定論）
+    → Claude API（判定結果を根拠に日本語検証記事を生成）
+    → WordPress 下書き投稿（カテゴリ: ファクトチェック）
+  ```
+- **必須検証（Test-Before-Ship）**: Claim-Auditor 判定APIが verdict を返すこと、記事本文に
+  「主張 / 検証条件 / 判定 / 根拠」の4要素が含まれること。
+
+#### WF-08 体験レビュー記者（ハンズオン記者）
+
+- **目的**: 収集して終わりにせず、**API/サンドボックスで実際に動かした結果**を証拠として添付したレビューを生成する。
+- **差別化**: CLAUDE.md の「証拠なしに完了と言わない」思想を記事品質にそのまま適用。実出力・スクショを掲載。
+- **必須検証**: レビュー対象ツールの実行ログ（API レスポンス or サンドボックス出力）が記事に紐づくこと。
+
+#### WF-09 比較記者（〇〇 vs △△）
+
+- **目的**: ツールカタログの既存エントリを2件以上組み合わせ、比較表つき記事を自動生成する。
+- **差別化**: 「Claude vs ChatGPT」等の比較クエリはSEO流入が非常に強い。新規収集ゼロで既存資産から量産可能（低コスト高リターン）。
+- **必須検証**: 比較表の各行が実カタログエントリのフィールドに由来すること（捏造フィールド禁止）。
+
+### 追加4案（優先度: 中）
+
+| # | 記者名 | 狙い | 補足 |
+|---|---|---|---|
+| 10 | 速報記者 | 鮮度・回遊率 | 主要発表をリアルタイム検知し「速報」バッジで即投稿。後追いで正式記事に昇格。 |
+| 11 | 読者Q&A記者 | エンゲージメント・UGC | 読者質問を記事化。将来のUGCプロンプト投稿機能（Phase 3）と接続。 |
+| 12 | アップデート追跡記者 | 継続流入 | 主要ツールのchangelogを監視し差分を解説。バージョン別に記事が積み上がる。 |
+| 13 | 深掘り解説記者 | SEOピラー | トレンドを長文解説化し内部リンクを自動配置。回遊とドメイン権威を強化。 |
+
+### プロンプト管理
+
+追加記者のプロンプトも §4 の規約に従い `n8n/prompts/` に Markdown で Git 管理する（JSONハードコード禁止）。
+
+| ファイル（予定） | 用途 |
+|---|---|
+| `n8n/prompts/07-factcheck.md` | ファクトチェック記者（クレーム抽出 + 記事生成の2段） |
+| `n8n/prompts/08-hands-on-review.md` | 体験レビュー記者 |
+| `n8n/prompts/09-comparison.md` | 比較記者 |
+| `n8n/prompts/10-breaking-news.md` | 速報記者 |
+| `n8n/prompts/11-reader-qa.md` | 読者Q&A記者 |
+| `n8n/prompts/12-changelog-tracker.md` | アップデート追跡記者 |
+| `n8n/prompts/13-deep-dive.md` | 深掘り解説記者 |
+
+### 実装フェーズへの割り当て（案）
+
+| フェーズ | 追加記者 | 前提 |
+|---|---|---|
+| Phase 1.5 | WF-09 比較記者 | カタログ整備（既存資産で完結、収集不要のため最優先） |
+| Phase 2 | WF-10 速報 / WF-12 アップデート追跡 | 収集パイプライン安定後 |
+| Phase 2.5 | WF-07 ファクトチェック / WF-08 体験レビュー | Claim-Auditor 判定API連携・サンドボックス実行基盤 |
+| Phase 3 | WF-11 読者Q&A / WF-13 深掘り解説 | UGC受付・内部リンク基盤 |
+
+> ⚠️ 本節は **提案（未確定）**。実装着手前に §10 実装フェーズへ正式に取り込み、各記者ごとに
+> Test-Before-Ship の検証項目（§4）を定義してから WF JSON / プロンプトを作成すること。
+
+---
+
+## 15. 「動かない記者」を作らない仕組み（No-Dead-Reporter 設計）
+
+### 15-1. 問題定義
+
+記者を増やすほど「書いたが一度も動かしていない記者」が混入する。原因は、記者の実ロジック
+（ソース正規化・プロンプト整形・記事パース・WP ペイロード生成）が **n8n ワークフロー JSON の
+Code ノード内に埋め込まれ、単体で実行・検証できない**こと。これは §4「設計したが動かない」の禁止事項そのもの。
+
+### 15-2. 設計原則
+
+> **記者ロジックは n8n JSON から切り出し、外部依存ゼロで実行できる純関数モジュールにする。**
+> **全記者はマージ前に「ドライラン検証ゲート」を必ず通す。ゲートを通らない記者はマージ不可。**
+
+これにより「動かない記者が存在しえない」状態を構造的に保証する（Claim-Auditor の
+`check_wired` / `check_active_witnessed` と同一思想）。
+
+### 15-3. 記者コントラクト（共通インターフェース）
+
+各記者は `reporters/reporters/NN-slug.mjs` に、以下の**純関数**を持つモジュールとして実装する。
+外部 I/O（HTTP・API キー・n8n）は一切含めない。
+
+| メンバ | 型 | 責務 |
+|---|---|---|
+| `id` / `slug` / `title` / `category` / `model` / `trigger` | メタ | 記者の識別・分類 |
+| `normalize(rawSource)` | 純関数 | 収集した生データ → 正規化アイテム配列 |
+| `buildClaudeRequest({items, prompt, model})` | 純関数 | 正規化アイテム＋プロンプト → Claude API リクエスト body |
+| `parseArticle(claudeResponse)` | 純関数 | Claude レスポンス → `{ title, html }` |
+| `buildWpPayload(article, opts)` | 純関数 | 記事 → WordPress REST ペイロード（既定 `status: draft`） |
+
+### 15-4. フィクスチャとドライラン
+
+各記者は `reporters/fixtures/NN-slug.json` に **`{ rawSource, claudeResponse }`** の固定入力を持つ。
+ドライランハーネス（`reporters/run.mjs`）は HTTP を一切呼ばず、フィクスチャを使って
+`normalize → buildClaudeRequest → parseArticle → buildWpPayload` の全段を実行し、
+生成された WP ペイロードを検証する。→ **外部APIキー不要・ネットワーク不要で「実際に動く」ことを証明**。
+
+### 15-5. 記事ルールの機械検証（validators）
+
+`reporters/validators.mjs` が §4・`article-base.md` のルールをコードで強制する。
+
+| 検証 | 内容 |
+|---|---|
+| `assertArticleHtml(html)` | 先頭が `<h2` / 禁止タグ（`html`,`body`,`script`,`style`）なし / コードフェンスなし / 非空 |
+| `assertWpPayload(p)` | `status` 既定 `draft` / `title` 非空 / `content` が `assertArticleHtml` を通過 |
+| 禁止フレーズ検査 | 「おそらく」「かもしれません」等（`article-base.md`）を含まない |
+
+### 15-6. ゲート（マージ阻止）
+
+`scripts/check_reporters.mjs` が **レジストリ（`reporters/registry.mjs`）の全記者**について次を検査し、
+1件でも失敗すれば **exit 1**（＝マージ不可）。
+
+| 記者種別 | witness（証拠）要件 |
+|---|---|
+| native（07〜13） | プロンプトファイル存在 ＋ フィクスチャ存在 ＋ **ドライラン全段成功** ＋ ペイロードが validators 通過 |
+| n8n（01〜06） | ワークフロー JSON が parse 可能 ＋ Claude ノードと WP ノードを含む ＋ 参照プロンプトが存在 |
+
+### 15-7. テストと CI
+
+- 単体テスト: `node --test`（`reporters/*.test.mjs`）。**ランタイム依存パッケージゼロ**（Node 標準のみ）→ `npm install` 不要で必ず走る。
+- CI: `.github/workflows/reporters.yml` が push/PR で `node --test` とゲートを実行。ネットワーク不使用のため設定段階で落ちない。
+- ローカルゲート（プッシュ前）:
+  ```bash
+  node --test reporters
+  node scripts/check_reporters.mjs
+  ```
+
+### 15-8. 本番（n8n）との整合 — JSON はモジュールから生成する
+
+n8n の Code ノードは、テスト済みモジュールと**同一ロジック**でなければならない。手書き転記はドリフトの温床
+なので、**ワークフロー JSON は `scripts/gen_n8n.mjs` がモジュールから自動生成する**。
+
+- 生成器は各記者モジュールの関数を `Function.prototype.toString()` で取得し、Code ノードへ**そのままインライン
+  展開**する（`normalize` / `buildClaudeRequest` / `parseArticle` / `buildWpPayload` ＋ 依存する共通ヘルパ・
+  validators）。→ Code ノードの中身 ＝ テスト済みソースそのもの。
+- 生成される 7 ノード構成: トリガー → ソース入力（フィクスチャ例入り）→ プロンプト読込み → リクエスト生成
+  （`normalize`+`buildClaudeRequest`）→ Claude API → 記事生成（`parseArticle`+`buildWpPayload`+`assertWpPayload`）
+  → WordPress 下書き投稿 → エラートリガー。
+- ソース入力ノードにフィクスチャの `rawSource` を例として埋め込むため、n8n で**手動実行するとそのまま WP 下書き
+  が生成**される（§4「manual execute → WP draft」を満たす）。
+- 記事生成ノードは投稿前に `assertWpPayload` を実行する。壊れた記事は**投稿されずにワークフローが失敗**する
+  （fail-closed）。
+
+**鮮度ゲート**: `reporters/generated.test.mjs` が「モジュールから再生成した JSON」＝「ディスク上の JSON」を検証。
+モジュールを変更して `npm run gen:n8n` を忘れると**テストが落ちる**。さらに生成された Code ノードのコードを
+`node:vm` で実行し、モジュールのドライラン結果と一致することを確認する（本番コードが実際に動く証拠）。
+
+```bash
+npm run gen:n8n     # モジュールから WF-07〜13 の JSON を生成（決定論的）
+node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
+```
+
+### 15-10. E2E スモーク（実クレデンシャル疎通）
+
+オフライン検証（§15-4〜15-8）は「ロジックが動く」ことを保証するが、**実 Claude API 呼び出し**と
+**実 WordPress 投稿（201）** は別レイヤ。これを `scripts/e2e_smoke.mjs` で検証する。
+
+| モード | Claude | WordPress | 用途 |
+|---|---|---|---|
+| `--offline`（既定でキー無しなら自動） | フィクスチャ応答 | 実POST（WP_URL） | WP 投稿シームだけ確認 |
+| 実行（キーあり） | 実API | 実POST | 完全な E2E 疎通 |
+
+- WP 投稿は `reporters/wp_client.mjs` の `postDraft()` が担当（Basic 認証・`status: draft` 既定）。
+- `postDraft()` は**モックHTTPサーバに対する実ソケットのテスト**を持つ（`reporters/wp_client.test.mjs`）。
+  → WordPress イメージが無くても、ペイロード→HTTP POST→201/ID 解釈のシームを検証できる。
+- 必要な環境変数: `ANTHROPIC_API_KEY`（実Claude時）, `WP_URL` または `WP_POSTS_URL`, `WP_USERNAME`,
+  `WP_APP_PASSWORD`。未設定時はスキップ理由を明示して exit 0（安全）。
+
+> ⚠️ 本番の完全 E2E（実キー・実WP）は、APIキーと WordPress ホスティングが揃った環境で
+> `node scripts/e2e_smoke.mjs` を実行して確認する（§4 の「201 レスポンスと記事ID」を満たす）。
+> サンドボックス内では組織のegressポリシーで WordPress/n8n イメージを取得できないため、
+> WP シームはモックサーバ実ソケットテストで代替検証する。
+
+### 15-9. 記者追加時のチェックリスト（DoD）
+
+新記者は次を**すべて**満たすまで DONE にしない:
+
+- [ ] `reporters/reporters/NN-slug.mjs` 実装（コントラクト準拠・I/Oなし）
+- [ ] `reporters/fixtures/NN-slug.json` 追加
+- [ ] `n8n/prompts/NN-slug.md` 追加
+- [ ] `reporters/registry.mjs` に登録
+- [ ] `node --test reporters` green（出力を PR に貼る）
+- [ ] `node scripts/check_reporters.mjs` green（出力を PR に貼る）

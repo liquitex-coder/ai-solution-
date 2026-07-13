@@ -174,6 +174,57 @@ echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
 - **ハルシネーション禁止**: ファイル+行番号またはAPI出力を根拠として示す
 - **テスト済み確認**: 「設計したが動かない」は禁止。n8n 手動実行 → WP 下書き確認が最低ライン
 
+## 記者フレームワーク（reporters/）— 「動かない記者」を作らない仕組み
+
+新しいAI記者（WF-07〜13）は、n8n JSON にロジックを埋め込まず、**外部依存ゼロの純関数モジュール**として実装する。全記者はマージ前に**ドライラン検証ゲート**を必ず通る（詳細は [docs/requirements.md §15](./docs/requirements.md)）。
+
+```
+reporters/
+├── core.mjs            # 共通ヘルパー（Claude リクエスト / WP ペイロード生成）
+├── validators.mjs      # 記事ルールの機械検証（article-base.md を強制）
+├── registry.mjs        # 全記者の単一ソース（native 07-13 + legacy 01-06）
+├── dryrun.mjs          # フィクスチャで全段を実行（HTTP なし）
+├── run.mjs             # CLI ドライラン
+├── reporters/NN-*.mjs  # 各記者モジュール（normalize/buildClaudeRequest/parseArticle/buildWpPayload）
+└── fixtures/NN-*.json  # 各記者の固定入力（{ rawSource, claudeResponse }）
+```
+
+### ローカル検証（プッシュ前・APIキー不要）
+
+```bash
+npm test                       # node --test（単体 + ドライラン + 生成JSONの鮮度/実行一致）
+npm run check:reporters        # No-Dead-Reporter ゲート（1件でも動かなければ exit 1）
+npm run reporters:dry-run      # 全 native 記者のドラフト生成を確認
+npm run gen:n8n                # モジュールから WF-07-13 の n8n JSON を再生成
+node reporters/run.mjs --id 07 --json  # 単一記者の WP ペイロードを表示
+```
+
+### E2E スモーク（実クレデンシャル疎通）
+
+オフライン検証とは別に、**実 Claude → 実 WordPress 投稿（201）** を確認するスクリプト。
+
+```bash
+# キーが揃った環境で: 実Claude生成 → 実WP投稿 → 201/記事ID を確認
+ANTHROPIC_API_KEY=... WP_URL=... WP_USERNAME=... WP_APP_PASSWORD=... \
+  npm run e2e -- --id 07
+
+npm run e2e -- --id 07 --offline   # Claudeはフィクスチャ・WPだけ実投稿
+```
+
+- 認証情報が未設定なら「何が必要か」を表示して安全にSKIP（偽の成功を出さない）。
+- WP 投稿シーム（`reporters/wp_client.mjs`）は**モックHTTPサーバに対する実ソケットのテスト**を持つ
+  （`reporters/wp_client.test.mjs` → 201/ID・認証・下書き既定を検証）。WordPress イメージ不要。
+
+### 本番 n8n JSON はモジュールから生成する（手書き禁止）
+
+`n8n/workflows/07-13.json` は `scripts/gen_n8n.mjs` が記者モジュールの関数を**そのままインライン展開**して
+生成する。Code ノードを手で編集しない。モジュールを変更したら `npm run gen:n8n` を実行する（忘れると
+`node --test` の鮮度テストが落ちる）。生成物の Code ノードは `node:vm` で実行され、モジュールのドライラン結果と
+一致することも検証される（ドリフト排除＋実行証明、docs §15-8）。
+
+> ⚠️ **記者を1本追加するたびに** ゲート対象が増える。フィクスチャ＋プロンプト＋登録が揃い、
+> `check:reporters` が green になるまで DONE にしない（DoD は docs §15-9）。CI（`.github/workflows/reporters.yml`）でも同じゲートが走る。
+
 ## フェーズロードマップ
 
 | フェーズ | 内容 | ステータス |

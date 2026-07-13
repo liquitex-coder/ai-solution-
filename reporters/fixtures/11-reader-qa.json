@@ -1,0 +1,20 @@
+{
+  "rawSource": {
+    "question": {
+      "text": "ChatGPTとClaude、初心者はどちらから始めるのがおすすめですか？",
+      "author": "AI初心者さん"
+    }
+  },
+  "claudeResponse": {
+    "id": "msg_fixture_11",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "<h2>初心者はChatGPTとClaudeどちらから始める？ 読者質問に回答</h2><p>「AI初心者さん」からいただいた質問にお答えします。</p><h3>結論</h3><p>まずは無料で使えるどちらか一方を触ってみるのがおすすめです。日本語のやり取りが多いなら Claude、画像生成も試したいなら ChatGPT が入りやすいでしょう。</p><h3>迷ったときの選び方</h3><p>両方に無料枠があるので、同じ質問を投げて回答の相性を比べてみてください。</p>"
+      }
+    ],
+    "stop_reason": "end_turn"
+  }
+}
