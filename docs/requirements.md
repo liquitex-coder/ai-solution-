@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 1.6  
+**バージョン**: 1.7  
 **最終更新**: 2026-07-12  
 **ステータス**: 設計中（ホスティング先未確定）
 
@@ -600,6 +600,27 @@ n8n の Code ノードは、テスト済みモジュールと**同一ロジッ�
 npm run gen:n8n     # モジュールから WF-07〜13 の JSON を生成（決定論的）
 node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 ```
+
+### 15-10. E2E スモーク（実クレデンシャル疎通）
+
+オフライン検証（§15-4〜15-8）は「ロジックが動く」ことを保証するが、**実 Claude API 呼び出し**と
+**実 WordPress 投稿（201）** は別レイヤ。これを `scripts/e2e_smoke.mjs` で検証する。
+
+| モード | Claude | WordPress | 用途 |
+|---|---|---|---|
+| `--offline`（既定でキー無しなら自動） | フィクスチャ応答 | 実POST（WP_URL） | WP 投稿シームだけ確認 |
+| 実行（キーあり） | 実API | 実POST | 完全な E2E 疎通 |
+
+- WP 投稿は `reporters/wp_client.mjs` の `postDraft()` が担当（Basic 認証・`status: draft` 既定）。
+- `postDraft()` は**モックHTTPサーバに対する実ソケットのテスト**を持つ（`reporters/wp_client.test.mjs`）。
+  → WordPress イメージが無くても、ペイロード→HTTP POST→201/ID 解釈のシームを検証できる。
+- 必要な環境変数: `ANTHROPIC_API_KEY`（実Claude時）, `WP_URL` または `WP_POSTS_URL`, `WP_USERNAME`,
+  `WP_APP_PASSWORD`。未設定時はスキップ理由を明示して exit 0（安全）。
+
+> ⚠️ 本番の完全 E2E（実キー・実WP）は、APIキーと WordPress ホスティングが揃った環境で
+> `node scripts/e2e_smoke.mjs` を実行して確認する（§4 の「201 レスポンスと記事ID」を満たす）。
+> サンドボックス内では組織のegressポリシーで WordPress/n8n イメージを取得できないため、
+> WP シームはモックサーバ実ソケットテストで代替検証する。
 
 ### 15-9. 記者追加時のチェックリスト（DoD）
 
