@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 1.5  
+**バージョン**: 1.6  
 **最終更新**: 2026-07-12  
 **ステータス**: 設計中（ホスティング先未確定）
 
@@ -576,11 +576,30 @@ Code ノード内に埋め込まれ、単体で実行・検証できない**こ�
   node scripts/check_reporters.mjs
   ```
 
-### 15-8. 本番（n8n）との整合
+### 15-8. 本番（n8n）との整合 — JSON はモジュールから生成する
 
-n8n の Code ノードは、このテスト済みモジュールと**同一ロジック**を用いる（コピー元＝テスト済みソース）。
-将来的には `reporters/` からワークフロー JSON を生成し、テスト済みロジックと本番実行のドリフトを排除する
-（`docs` で追跡）。当面は「Code ノードの中身は必ず対応モジュールから転記する」を規約とする。
+n8n の Code ノードは、テスト済みモジュールと**同一ロジック**でなければならない。手書き転記はドリフトの温床
+なので、**ワークフロー JSON は `scripts/gen_n8n.mjs` がモジュールから自動生成する**。
+
+- 生成器は各記者モジュールの関数を `Function.prototype.toString()` で取得し、Code ノードへ**そのままインライン
+  展開**する（`normalize` / `buildClaudeRequest` / `parseArticle` / `buildWpPayload` ＋ 依存する共通ヘルパ・
+  validators）。→ Code ノードの中身 ＝ テスト済みソースそのもの。
+- 生成される 7 ノード構成: トリガー → ソース入力（フィクスチャ例入り）→ プロンプト読込み → リクエスト生成
+  （`normalize`+`buildClaudeRequest`）→ Claude API → 記事生成（`parseArticle`+`buildWpPayload`+`assertWpPayload`）
+  → WordPress 下書き投稿 → エラートリガー。
+- ソース入力ノードにフィクスチャの `rawSource` を例として埋め込むため、n8n で**手動実行するとそのまま WP 下書き
+  が生成**される（§4「manual execute → WP draft」を満たす）。
+- 記事生成ノードは投稿前に `assertWpPayload` を実行する。壊れた記事は**投稿されずにワークフローが失敗**する
+  （fail-closed）。
+
+**鮮度ゲート**: `reporters/generated.test.mjs` が「モジュールから再生成した JSON」＝「ディスク上の JSON」を検証。
+モジュールを変更して `npm run gen:n8n` を忘れると**テストが落ちる**。さらに生成された Code ノードのコードを
+`node:vm` で実行し、モジュールのドライラン結果と一致することを確認する（本番コードが実際に動く証拠）。
+
+```bash
+npm run gen:n8n     # モジュールから WF-07〜13 の JSON を生成（決定論的）
+node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
+```
 
 ### 15-9. 記者追加時のチェックリスト（DoD）
 

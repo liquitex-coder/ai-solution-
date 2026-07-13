@@ -3,10 +3,11 @@
 // gate instead of silently shipping. Pure, dependency-free.
 
 // Structural tags that must never appear in article body HTML.
-const FORBIDDEN_TAGS = ['html', 'body', 'head', 'script', 'style', 'doctype'];
+// Exported so the n8n code generator can inline the exact same list.
+export const FORBIDDEN_TAGS = ['html', 'body', 'head', 'script', 'style', 'doctype'];
 
 // Low-confidence phrases banned by article-base.md ("使用禁止フレーズ").
-const FORBIDDEN_PHRASES = ['おそらく', 'かもしれません', 'と思われます', 'と思います'];
+export const FORBIDDEN_PHRASES = ['おそらく', 'かもしれません', 'と思われます', 'と思います'];
 
 /**
  * Assert that a string is valid article-body HTML per article-base.md.
