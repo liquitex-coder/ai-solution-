@@ -9,6 +9,7 @@ on:
     paths:
       - 'reporters/**'
       - 'scripts/check_reporters.mjs'
+      - 'scripts/check_quality_baseline.mjs'
       - 'scripts/gen_n8n.mjs'
       - 'n8n/prompts/**'
       - 'n8n/workflows/**'
@@ -18,6 +19,7 @@ on:
     paths:
       - 'reporters/**'
       - 'scripts/check_reporters.mjs'
+      - 'scripts/check_quality_baseline.mjs'
       - 'scripts/gen_n8n.mjs'
       - 'n8n/prompts/**'
       - 'n8n/workflows/**'
@@ -35,3 +37,5 @@ jobs:
         run: node --test reporters/*.test.mjs
       - name: No-Dead-Reporter gate
         run: node scripts/check_reporters.mjs
+      - name: Quality regression gate
+        run: node scripts/check_quality_baseline.mjs
