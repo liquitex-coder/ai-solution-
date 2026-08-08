@@ -108,7 +108,9 @@ Sources (GitHub API, RSS, YouTube, Threads, note)
   └─→ n8n (orchestrator)
         └─→ Claude API (article generation)
               └─→ WordPress REST API (auto-post as draft)
-                    └─→ NoimosAI (SEO + SNS distribution)
+                    └─→ Distribution/analytics layer
+                        (SEO: Rank Math + Search Console; SNS: deferred/self-built.
+                         NoimosAI is NOT used — see docs/requirements.md §5)
 ```
 
 WordPress: `liquitex929aa21393-eyqci.wordpress.com`  

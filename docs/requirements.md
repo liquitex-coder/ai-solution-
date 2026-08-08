@@ -1,8 +1,8 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.0  
-**最終更新**: 2026-08-07  
-**ステータス**: 設計中（"実演する"ショーケース §19 / 動画パイプライン §20 追加）
+**バージョン**: 2.1  
+**最終更新**: 2026-08-08  
+**ステータス**: 設計中（**NoimosAI を今回スコープ外に決定** — §5 配信レイヤを更新）
 
 ---
 
@@ -34,7 +34,7 @@
 | 使い方ガイド | ステップバイステップのHowToガイド | 自動生成 |
 | **組み合わせレシピ** | **Claude × ツール/MCP/API の実演レシピ（動画＋再現手順＋実出力）**（§19） | 自動 + 実演 |
 | **動画デモ** | **画面録画・ショート動画で「できること」を見せる**（§20） | 自動 + 手動 |
-| 連携・自動化 | NoimosAI連携・Makeセn8n統合手順 | 手動 |
+| 連携・自動化 | n8n 統合手順・外部連携（SNS配信は後日/別途決定・§5） | 手動 |
 | AIニュース | 最新アップデート・リリース情報 | 全自動 |
 | GitHubトレンド | 今日の注目AIリポジトリ | 全自動（毎朝） |
 | プロンプト集 | コピーして使えるプロンプトテンプレート | 自動 + UGC（将来） |
@@ -105,11 +105,10 @@
                                    【WordPress REST API】
                                    自動投稿（下書き or 即公開）
                                             ↓
-                                   【NoimosAI】
-                                   ├── SEOエージェント（Search Console連携）
-                                   ├── SNSエージェント（X・Instagram・TikTok・note・Threads）
-                                   ├── 競合分析エージェント
-                                   └── 週次レポート自動生成
+                                   【配信・計測レイヤ】※NoimosAI 不使用（§5）
+                                   ├── SEO（Rank Math ＋ Search Console）
+                                   ├── SNS配信（後日・自前化 / 別途決定）
+                                   └── 週次レポート（WF-06）
 ```
 
 ### n8nワークフロー一覧
@@ -140,30 +139,37 @@ Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Mark
 
 ---
 
-## 5. NoimosAI連携（A+B両方）
+## 5. 配信・マーケティング自動化（NoimosAI は今回不使用）
 
-### A：サイトのマーケティング自動化
+> **決定（2026-08-08）**: **NoimosAI（外部SaaS）は今回スコープから外す**。
+> 理由: (1) 外部SaaSであり本体コードに統合できない、(2) SNS配信は既存/自前で代替可能で重複、
+> (3) 送信前の人間承認（INV-R1）を外部SaaSの自動投稿に依存できない。
+> → **SNS配信は「後日・自前化 or 別途決定」**とし、当面は **WordPress への下書き生成までを本線**とする。
+> 旧「NoimosAI連携（A: マーケ自動化 / B: 商材紹介）」は破棄。SEO/計測は下記の SaaS 非依存手段で賄う。
 
-| エージェント | 役割 | 連携サービス |
+### 5-1. 当面の配信・計測（WordPress ネイティブ・SaaS非依存）
+
+| 役割 | 手段 | 状態 |
 |---|---|---|
-| SEOエージェント | キーワード最適化・内部リンク改善 | Google Analytics・Search Console |
-| ソーシャルメディアエージェント | SNS自動投稿・スケジュール管理 | X・Instagram・TikTok・YouTube・Threads・note |
-| 競合分析エージェント | 競合AI情報サイトの動向監視 | 自動 |
-| 成長戦略エージェント | KPI設定・改善提案 | GA4・Search Console |
+| SEO最適化・Sitemap | Rank Math（§9） | 採用 |
+| 検索計測 | Google Search Console | 採用 |
+| アクセス計測 | GA4 | 採用 |
+| 新記事の配信トリガー | `/feed`（WordPress標準RSS） | 採用（メルマガ §16 M7 の起点） |
 
-### B：サイト内コンテンツとしてNoimosAIを紹介
+### 5-2. SNS配信（後日・自前化）
 
-- AIツールカタログにNoimosAIを欲載（詳細ページ・使い方ガイド）
-- 「このサイト自体がNoimosAIで動いている」を差別化ポイントとして前面に出す
-- 連携手順をガイド記事化（ノウハウ販売コンテンツの一部にもなる）
+- SNS自動投稿（X・Threads・YouTube・TikTok・note・Instagram）は **後日**実装（§3「SNS API 後日」方針と整合）。
+- 実装時は **送信をデフォルトOFF・下書き/ドライラン既定**（`reporters/wp_client.mjs` の `status:draft`、
+  `scripts/e2e_smoke.mjs` の `--offline` と同型）にし、**人間承認を挟んでから送信**（INV-R1）。
+- 方式（各SNSの直API か 中間サービス Typefully/Pencil 等か）は **未確定**。着手前に本節へ追記して確定する。
 
-### NoimosAI用エンドポイント（WordPressサイト側）
+### 5-3. WordPress 側エンドポイント（配信・計測用・SaaS非依存）
 
 | エンドポイント | 用途 |
 |---|---|
-| `/feed` (WordPress標準RSS) | 新記事の自動検知・SNS配信トリガー |
-| `/sitemap.xml` | Google Search Console・SEOエージェント用 |
-| `/wp-json/wp/v2/posts` | NoimosAI WordPressプラグイン連携 |
+| `/feed`（WordPress標準RSS） | 新記事の自動検知・配信/メルマガのトリガー |
+| `/sitemap.xml` | Google Search Console・SEO 用 |
+| `/wp-json/wp/v2/posts` | パイプラインからの投稿（Application Password・§13） |
 
 ---
 
@@ -235,8 +241,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 - [ ] ワークフロー02（RSS Monitor）手動実行 → WP下書き記事作成
 - [ ] Claude API がJSON構造の記事を返す
 - [ ] WordPress REST API POST `/wp-json/wp/v2/posts` → 201レスポンスと記事ID
-- [ ] NoimosAI WordPress連携テスト
-- [ ] RSS / Sitemapの出力確認
+- [ ] RSS / Sitemapの出力確認（`/feed`・`/sitemap.xml`）
 
 ---
 
@@ -249,7 +254,7 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 | オーケストレーター | n8n | セルフホスト or n8n.cloud |
 | コンテンツ生成AI | Claude API（Anthropic） | メイン |
 | コンテンツ生成AI | OpenAI GPT API | サブ・比較用 |
-| マーケティング自動化 | NoimosAI | $99/月〜 |
+| マーケティング自動化 | （NoimosAI は今回不使用・§5）SNS配信は後日・自前化 | — |
 | SEOプラグイン | Rank Math（無料） | Search Console連携 |
 | 画像生成（将来） | DALL-E 3 or Stable Diffusion | アイキャッチ自動生成 |
 | ローカル開発 | Docker Compose | サンドボックス |
@@ -303,13 +308,13 @@ Application Passwords は WordPress 管理画面 → ユーザー → プロフ�
 - [ ] 本番WordPressセットアップ
 - [ ] GitHub Trendingワークフロー稼働
 - [ ] 公式RSSワークフロー稼働
-- [ ] NoimosAI初期連携
+- [ ] 配信・計測レイヤ稼働（Rank Math ＋ Search Console ＋ GA4 ＋ `/feed`・§5）
 
 ### Phase 2：SNS拡張
 - [ ] YouTube APIワークフロー追加
 - [ ] Threads APIワークフロー追加
 - [ ] note RSSワークフロー追加
-- [ ] NoimosAI SNSエージェント全連携
+- [ ] SNS配信の自前実装（後日・API取得後・§5-2）
 
 ### Phase 3：マネタイズ・ノウハウ化
 - [ ] このサイト構築プロセスの記事化
@@ -675,7 +680,7 @@ node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 | M3 | **ディスプレイ広告** | インプレッション/クリック | 全記事の枠 | Phase 1.5 | トラフィック依存・低単価 |
 | M4 | **情報商材/ノウハウ販売** | 単発購入（既存 §1・§10） | 「このサイトの作り方」記事群 | Phase 3 | 陳腐化・サポート負荷 |
 | M5 | **有料会員（サブスク）** | 月額 | 限定プロンプト集・先行速報(WF-10) | Phase 3 | 継続コンテンツ供給 |
-| M6 | **リード送客/代理店** | 紹介手数料・代理店マージン | NoimosAI・SaaS紹介(§5) | Phase 2 | 送客品質・成約計測 |
+| M6 | **リード送客/代理店** | 紹介手数料・代理店マージン | 各 AI SaaS 紹介（NoimosAI は今回不使用） | Phase 2 | 送客品質・成約計測 |
 | M7 | **ニュースレター/スポンサー枠** | 号あたり掲載料 | メルマガ（WordPress `/feed`起点） | Phase 2.5 | 読者基盤の規模 |
 | M8 | **データ/トレンドAPI提供** | B2B利用料 | 収集パイプラインの二次利用 | Phase 3+ | 一次ソース規約・提供責任 |
 
@@ -711,8 +716,8 @@ node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 - **課金基盤**: 未確定（WordPress会員プラグイン / 外部（Stripe, note メンバーシップ））。
 
 #### M6. リード送客・代理店（B2B）
-- **形態**: NoimosAI（§5, $99/月〜）や各SaaSへの送客紹介料、または**代理店契約**でマージンを取る（アフィリの上位版）。
-- **強み**: 「このサイト自体が NoimosAI で動く」実例（§5-B）が最強の営業素材。導入ガイド記事＝送客導線。
+- **形態**: 各 AI SaaS への送客紹介料、または**代理店契約**でマージンを取る（アフィリの上位版）。※NoimosAI は今回不使用（§5）。
+- **強み**: 実際に使って検証したツールの**導入ガイド記事**が送客導線（§19 レシピと連動＝実演の証拠が説得力）。
 - **計測**: UTM + 成約フックの計測設計が必須（未確定）。
 
 #### M7. ニュースレター／スポンサー枠
@@ -788,7 +793,7 @@ node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 | **G2** | 実疎通（初ドラフト） | シーム証明 | 実キーで `e2e_smoke.mjs` 実行 → 実Claude生成 → 実WP **201＋記事ID**（§15-10） | G0（キー・WP） |
 | **G3** | 本番インフラ稼働 | 常時稼働 | 本番WP（テーマ・§9プラグイン・§data taxonomy投入・App Password）＋ n8n本番に全WF投入＋プロンプトGitHub取得配線（README §プロンプト管理） | G2 |
 | **G4** | 編集安全体制 | 信頼の担保 | 人間レビューキュー（`draft`承認フロー・INV-R1）＋ 開示ゲート G1–G5（§16-4）＋ 法務ページ（プライバシー/運営者情報/免責）＋ ステマ規制テンプレ法務レビュー | G3 |
-| **G5** | 流通・計測 | 見つかる/測れる | Sitemap＋Search Console登録＋Rank Math＋GA4計測＋ NoimosAI初期連携（§5）＋ `/feed` 稼働 | G3 |
+| **G5** | 流通・計測 | 見つかる/測れる | Sitemap＋Search Console登録＋Rank Math＋GA4計測＋ `/feed` 稼働（SNS配信は後日・自前化・§5） | G3 |
 | **G6** | 自走運用 | 回り出す | 全WFが cron 稼働＋ n8n エラーワークフロー＋アラート＋運用Runbook（§11・SETUP_GUIDE）＋ **§18 品質ループ稼働** | G4,G5 |
 
 ### 17-2. ゲート別・必要要素の内訳
@@ -811,7 +816,7 @@ node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 **G5 流通・計測（"届ける/測る"）**
 - SEO: Sitemap（Rank Math）、Search Console 登録、内部リンク（WF-13）。
 - 計測: GA4 設置、収益/信頼KPI（§16-6）のダッシュボード。
-- 配信: NoimosAI 連携（§5）、`/feed` からのSNS/メルマガ配信トリガー。
+- 配信: `/feed` を起点に、SNS配信は後日・自前化（NoimosAI 不使用・§5）。
 
 **G6 自走運用（"回り続ける"）**
 - 全WF cron 稼働（毎朝/30分/1時間/週次…§4-2）。
