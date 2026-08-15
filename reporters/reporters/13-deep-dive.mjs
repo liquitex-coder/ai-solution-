@@ -1,12 +1,14 @@
 // WF-13 Deep-dive reporter (SEO pillar content).
 // Long-form explainer that weaves in internal links to existing articles.
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '13',
   slug: 'deep-dive',
   title: '深掘り解説記者',
-  category: '深掘り解説',
+  category: categoryNameFor('WF-13'),
+  categorySlug: categorySlugFor('WF-13'),
   model: 'claude-sonnet-5',
   trigger: 'weekly',
 };
@@ -40,6 +42,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['解説', 'まとめ'],
     reporterId: meta.id,
   });

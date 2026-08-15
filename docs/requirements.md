@@ -1,8 +1,8 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.1  
-**最終更新**: 2026-08-08  
-**ステータス**: 設計中（**NoimosAI を今回スコープ外に決定** — §5 配信レイヤを更新）
+**バージョン**: 2.2  
+**最終更新**: 2026-08-15  
+**ステータス**: 設計中（§15-11 カテゴリ統合を統合 / NoimosAI スコープ外 / ホスティング確定を §12 に反映）
 
 ---
 
@@ -344,11 +344,11 @@ Application Passwords は WordPress 管理画面 → ユーザー → プロフ�
 
 | 項目 | ステータス | 確認予定 |
 |---|---|---|
-| WordPressホスティング先 | **未確定** | オーナー確認後 |
-| n8n運用方式（セルフホスト or クラウド） | 未確定 | ホスティング決定後 |
+| WordPressホスティング先 | **確定** — WordPress.com（`liquitex929aa21393-eyqci.wordpress.com`、CLAUDE.md §6 と整合） | 済（2026-08-15 反映） |
+| n8n運用方式（セルフホスト or クラウド） | **確定** — n8n cloud（`liquitex-coder.app.n8n.cloud`） | 済（2026-08-15 反映） |
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
-| ドメイン | 未確定 | 要相談 |
-| Claude APIキー / OpenAI APIキー | 保有確認必要 | 要確認 |
+| ドメイン | 未確定（当面は WordPress.com サブドメインで運用） | 要相談 |
+| Claude APIキー / OpenAI APIキー | 保有確認必要（**G2 実疎通の前提** — §17） | 要確認 |
 | SNS/動画 API 取得（YouTube・Threads・X 等） | **後日**（キー取得後に配線） | オーナー確認後 |
 | 動画ホスティング（YouTube一次 or 自前） | 提案: YouTube埋め込み（§20-4） | 要確認 |
 | 動画制作の自動化度（手動→半自動→自動） | 段階導入（§20-3 Stage A→C） | 要検討 |
@@ -650,6 +650,51 @@ node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
 - [ ] `reporters/registry.mjs` に登録
 - [ ] `node --test reporters` green（出力を PR に貼る）
 - [ ] `node scripts/check_reporters.mjs` green（出力を PR に貼る）
+
+### 15-11. カテゴリー統合（唯一の正 = `data/wp-taxonomy.json`）
+
+**問題**: 新記者7本（WF-07〜13）の `category` 名が、実際に WordPress へ作成される正式カテゴリ一覧
+（`data/wp-taxonomy.json`、`scripts/wp-init.sh` が作成）と1つも一致していなかった。さらに
+`wp-taxonomy.json` には未使用のプレースホルダー2枠（`AI活用事例`／`AIツールレビュー`、
+`source_workflow: null`）があり、WF-08（体験レビュー）・WF-09（比較記者）と意味的に重複していた。
+加えて `reporters/wp_client.mjs` の `postDraft()` は `categoryName` を WordPress へ一切送信しておらず、
+名前を揃えても投稿にカテゴリが付かない状態だった。
+
+**対応方針（統合）**:
+
+| 旧 | 新 | 対応記者 |
+|---|---|---|
+| `AI活用事例`（未使用） | `体験レビュー` (`hands-on-review`) | WF-08 |
+| `AIツールレビュー`（未使用） | `ツール比較` (`comparison`) | WF-09 |
+| （新規） | `ファクトチェック` (`factcheck`) | WF-07 |
+| （新規） | `AI速報` (`breaking-news`) — 「AI公式ニュース」と紛れないよう命名 | WF-10 |
+| （新規） | `読者Q&A` (`reader-qa`) | WF-11 |
+| （新規） | `アップデート情報` (`changelog-tracker`) | WF-12 |
+| （新規） | `深掘り解説` (`deep-dive`) | WF-13 |
+
+結果、カテゴリは重複・未使用ゼロの **13個（WF-01〜13 各1対1）** に整理。
+
+**唯一の正とドリフト排除**:
+
+- `data/wp-taxonomy.json` の `categories[].source_workflow`（`"WF-07"` 等）を**唯一の正**とする。
+- `reporters/categories.mjs` が `data/wp-taxonomy.json` を読み込み、`categoryNameFor(workflowId)` /
+  `categorySlugFor(workflowId)` を提供する。各記者モジュールは**モジュール読込み時**にこれを呼んで
+  `meta.category` / `meta.categorySlug` を確定する（`buildWpPayload` 関数本体は `meta.*` を参照するだけ
+  ＝ `Function.toString()` でインライン展開しても外部 import を必要としない。§15-8 の生成器と両立）。
+- `scripts/check_reporters.mjs` に **カテゴリ整合ゲート**を追加: 全 native/legacy 記者が
+  `data/wp-taxonomy.json` に**1対1**で対応し、未使用プレースホルダー・重複が無いことを検査。
+  違反があれば exit 1（マージ不可）。
+
+**投稿時のカテゴリ付与（バグ修正）**:
+
+- `reporters/wp_client.mjs` に `resolveCategoryId()` を追加。`postDraft()` は `payload.categorySlug` が
+  あれば投稿先の `/categories?slug=...` を実 GET してIDを解決し、`categories: [id]` を付けて POST する。
+  スラッグが WordPress 側に存在しない場合は「`wp-init.sh` を先に実行せよ」という明確なエラーで失敗する
+  （fail-closed。カテゴリ無し投稿を黙って許さない）。
+
+> ⚠️ **既知の残課題**: レガシー記者（WF-01〜06、手書き n8n JSON）の WordPress 投稿ノードも同様に
+> カテゴリを一切送信していない（本節で見つかった同種のバグ）。今回は native 記者（07〜13、
+> モジュールから生成）のみ修正した。レガシー6本の JSON 手動修正は別タスクとして扱う。
 
 ---
 

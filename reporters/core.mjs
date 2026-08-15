@@ -49,14 +49,17 @@ export function baseClaudeRequest({ model, system, user, maxTokens = 2048 }) {
 /**
  * Build a WordPress REST payload. Default status is 'draft' — a reporter must
  * opt in explicitly to publish (INV: safe by default).
- * @param {{title: string, html: string, category?: string, tags?: string[], status?: string, reporterId?: string}} opts
+ * categorySlug is the WordPress-stable identifier wp_client.mjs resolves to a
+ * category id before posting; categoryName is carried for readability/tests.
+ * @param {{title: string, html: string, category?: string, categorySlug?: string, tags?: string[], status?: string, reporterId?: string}} opts
  */
-export function baseWpPayload({ title, html, category, tags = [], status = 'draft', reporterId }) {
+export function baseWpPayload({ title, html, category, categorySlug, tags = [], status = 'draft', reporterId }) {
   return {
     title,
     content: html,
     status,
     categoryName: category || null,
+    categorySlug: categorySlug || null,
     tagNames: tags,
     meta: { generated_by: 'ai-reporter', reporter_id: reporterId || null },
   };

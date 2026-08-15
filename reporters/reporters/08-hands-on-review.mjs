@@ -2,12 +2,14 @@
 // Reviews a tool from an ACTUAL sandbox/API run — the run output is evidence
 // carried into the article (CLAUDE.md §1: no claim without proof).
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '08',
   slug: 'hands-on-review',
   title: '体験レビュー記者',
-  category: '体験レビュー',
+  category: categoryNameFor('WF-08'),
+  categorySlug: categorySlugFor('WF-08'),
   model: 'claude-sonnet-5',
   trigger: 'weekly',
 };
@@ -45,6 +47,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['レビュー', 'ハンズオン'],
     reporterId: meta.id,
   });

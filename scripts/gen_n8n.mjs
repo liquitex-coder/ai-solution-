@@ -17,7 +17,15 @@ const WP_URL = 'https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-
 const CRON = { daily: '0 22 * * *', weekly: '0 1 * * 1', 'every-5-min': '*/5 * * * *' };
 
 function metaOf(r) {
-  return { id: r.id, slug: r.slug, title: r.title, category: r.category, model: r.model, trigger: r.trigger };
+  return {
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    category: r.category,
+    categorySlug: r.categorySlug,
+    model: r.model,
+    trigger: r.trigger,
+  };
 }
 
 function fnSrc(fn) {

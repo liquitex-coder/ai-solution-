@@ -1,12 +1,14 @@
 // WF-12 Changelog tracker reporter.
 // Monitors release notes of major tools and explains "what changed and why".
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '12',
   slug: 'changelog-tracker',
   title: 'アップデート追跡記者',
-  category: 'アップデート',
+  category: categoryNameFor('WF-12'),
+  categorySlug: categorySlugFor('WF-12'),
   model: 'claude-haiku-4-5-20251001',
   trigger: 'daily',
 };
@@ -44,6 +46,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['アップデート', 'リリース'],
     reporterId: meta.id,
   });
