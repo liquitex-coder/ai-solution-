@@ -1,12 +1,14 @@
 // WF-10 Breaking-news reporter.
 // Short "速報" posts detected across sources in near-real-time.
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '10',
   slug: 'breaking-news',
   title: '速報記者',
-  category: 'AIニュース',
+  category: categoryNameFor('WF-10'),
+  categorySlug: categorySlugFor('WF-10'),
   model: 'claude-haiku-4-5-20251001',
   trigger: 'every-5-min',
 };
@@ -44,6 +46,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['速報', 'AIニュース'],
     reporterId: meta.id,
   });

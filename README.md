@@ -181,13 +181,25 @@ echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
 ```
 reporters/
 ├── core.mjs            # 共通ヘルパー（Claude リクエスト / WP ペイロード生成）
+├── categories.mjs      # カテゴリの唯一の正（data/wp-taxonomy.json を読む）
 ├── validators.mjs      # 記事ルールの機械検証（article-base.md を強制）
 ├── registry.mjs        # 全記者の単一ソース（native 07-13 + legacy 01-06）
 ├── dryrun.mjs          # フィクスチャで全段を実行（HTTP なし）
 ├── run.mjs             # CLI ドライラン
+├── wp_client.mjs       # WordPress 投稿シーム（カテゴリslug→ID解決を含む）
 ├── reporters/NN-*.mjs  # 各記者モジュール（normalize/buildClaudeRequest/parseArticle/buildWpPayload）
 └── fixtures/NN-*.json  # 各記者の固定入力（{ rawSource, claudeResponse }）
 ```
+
+### カテゴリの唯一の正（`data/wp-taxonomy.json`）
+
+各記者の WordPress カテゴリは `data/wp-taxonomy.json`（`scripts/wp-init.sh` が実際にWPへ作成する正式一覧）が
+唯一の正。記者モジュールはこれを `reporters/categories.mjs` 経由で読み込み、**カテゴリ名をハードコードしない**
+（詳細: [docs/requirements.md §15-11](./docs/requirements.md)）。
+
+- `npm run check:reporters` が「全記者 ↔ 全カテゴリの1対1対応・未使用枠なし」をゲートで検査
+- `reporters/wp_client.mjs` の `postDraft()` は投稿前にカテゴリslugを実際に `/categories?slug=...` で解決し、
+  見つからなければ「`wp-init.sh` を先に実行せよ」と明確に失敗する（カテゴリ無し投稿を黙って許さない）
 
 ### ローカル検証（プッシュ前・APIキー不要）
 

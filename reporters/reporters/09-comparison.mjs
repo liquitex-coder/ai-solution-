@@ -2,12 +2,14 @@
 // Builds "X vs Y" articles from existing catalog entries only — every compared
 // field must trace to a real catalog field (no fabricated specs).
 import { extractText, titleFromH2, baseClaudeRequest, baseWpPayload } from '../core.mjs';
+import { categoryNameFor, categorySlugFor } from '../categories.mjs';
 
 const meta = {
   id: '09',
   slug: 'comparison',
   title: '比較記者',
-  category: 'ツール比較',
+  category: categoryNameFor('WF-09'),
+  categorySlug: categorySlugFor('WF-09'),
   model: 'claude-haiku-4-5-20251001',
   trigger: 'weekly',
 };
@@ -41,6 +43,7 @@ function buildWpPayload(article, opts = {}) {
     title: article.title,
     html: article.html,
     category: meta.category,
+    categorySlug: meta.categorySlug,
     tags: opts.tags || ['比較', 'AIツール'],
     reporterId: meta.id,
   });
