@@ -79,7 +79,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst weekStr = $('トレンドデータ集約').first().json.weekStr;\nconst now = new Date();\nconst monthDay = `${now.getMonth()+1}月${now.getDate()}日`;\nreturn [{ json: { title: `【週次AIトレンド】${monthDay}週 - 注目のAIニュース・ツールまとめ`, content, status: 'publish' } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst weekStr = $('トレンドデータ集約').first().json.weekStr;\nconst now = new Date();\nconst monthDay = `${now.getMonth()+1}月${now.getDate()}日`;\nreturn [{ json: { title: `【週次AIトレンド】${monthDay}週 - 注目のAIニュース・ツールまとめ`, content, status: 'draft' } }];"
       },
       "id": "66667777-8888-9999-0000-111122223333",
       "name": "WordPress投稿データ整形",
@@ -123,5 +123,5 @@
   "active": false,
   "settings": { "executionOrder": "v1" },
   "tags": [{ "name": "週次レポート" }, { "name": "Perplexity" }, { "name": "AI情報収集" }],
-  "notes": "必要な認証情報:\n1. Perplexity API Key (httpHeaderAuth): Authorization: Bearer YOUR_PERPLEXITY_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/06-weekly-report.md から動的読込み。\nスケジュール: 毎週月曜 0:00 UTC (= 09:00 JST)\n週次レポートは status: publish で即公開。"
+  "notes": "必要な認証情報:\n1. Perplexity API Key (httpHeaderAuth): Authorization: Bearer YOUR_PERPLEXITY_API_KEY\n2. Claude API Key (httpHeaderAuth): x-api-key: YOUR_CLAUDE_API_KEY\n3. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)\n\nプロンプトは n8n/prompts/06-weekly-report.md から動的読込み。\nスケジュール: 毎週月曜 0:00 UTC (= 09:00 JST)\n週次レポートも status: draft（人間承認後に公開 — INV-R1。旧仕様の即公開はバグとして修正済み）。"
 }
