@@ -53,7 +53,7 @@ export function baseClaudeRequest({ model, system, user, maxTokens = 2048 }) {
  * category id before posting; categoryName is carried for readability/tests.
  * @param {{title: string, html: string, category?: string, categorySlug?: string, tags?: string[], status?: string, reporterId?: string}} opts
  */
-export function baseWpPayload({ title, html, category, categorySlug, tags = [], status = 'draft', reporterId }) {
+export function baseWpPayload({ title, html, category, categorySlug, tags = [], status = 'draft', reporterId, disclosure = 'none', revenueLinks = [] }) {
   return {
     title,
     content: html,
@@ -61,6 +61,13 @@ export function baseWpPayload({ title, html, category, categorySlug, tags = [], 
     categoryName: category || null,
     categorySlug: categorySlug || null,
     tagNames: tags,
-    meta: { generated_by: 'ai-reporter', reporter_id: reporterId || null },
+    // disclosure/revenue_links feed the §16-4 gate (assertDisclosure); every
+    // aggregation reporter defaults to 'none' — a monetized article must opt in.
+    meta: {
+      generated_by: 'ai-reporter',
+      reporter_id: reporterId || null,
+      disclosure,
+      revenue_links: revenueLinks,
+    },
   };
 }

@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { NATIVE, fixturePathFor } from '../reporters/registry.mjs';
 import { baseClaudeRequest, baseWpPayload, extractText, titleFromH2 } from '../reporters/core.mjs';
-import { assertArticleHtml, assertWpPayload, FORBIDDEN_TAGS, FORBIDDEN_PHRASES } from '../reporters/validators.mjs';
+import {
+  assertArticleHtml, assertDisclosure, assertWpPayload,
+  FORBIDDEN_TAGS, FORBIDDEN_PHRASES,
+  DISCLOSURE_KINDS, DISCLOSURE_NOTICES, DISCLOSURE_HEAD_WINDOW,
+} from '../reporters/validators.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'liquitex-coder/ai-solution-';
@@ -59,10 +63,14 @@ function renderNodeCode(reporter) {
     `const meta = ${JSON.stringify(meta)};`,
     `const FORBIDDEN_TAGS = ${JSON.stringify(FORBIDDEN_TAGS)};`,
     `const FORBIDDEN_PHRASES = ${JSON.stringify(FORBIDDEN_PHRASES)};`,
+    `const DISCLOSURE_KINDS = ${JSON.stringify(DISCLOSURE_KINDS)};`,
+    `const DISCLOSURE_NOTICES = ${JSON.stringify(DISCLOSURE_NOTICES)};`,
+    `const DISCLOSURE_HEAD_WINDOW = ${JSON.stringify(DISCLOSURE_HEAD_WINDOW)};`,
     fnSrc(extractText),
     fnSrc(titleFromH2),
     fnSrc(baseWpPayload),
     fnSrc(assertArticleHtml),
+    fnSrc(assertDisclosure),
     fnSrc(assertWpPayload),
     fnSrc(reporter.parseArticle),
     fnSrc(reporter.buildWpPayload),
