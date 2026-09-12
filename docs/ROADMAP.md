@@ -56,7 +56,7 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 | T-01 | Claude | Requirements §28–§31, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
 | T-02 ✅ | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | done 2026-09-12 (`114bcb8`): unittest 5/5 OK on Linux; legacy-DB migration verified |
 | T-03 ✅ | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | done 2026-09-12 (`0763a20`): unittest 12/12 OK on Linux; live `/health`, PASS/FAIL/400/404 verified; facts row + ratchet read confirmed |
-| T-04 | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | `docker compose config` valid; W9 (T-05) PASS |
+| T-04 ✅ | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | done 2026-09-12 (`f2a9361`): `docker compose config` valid on Linux; healthcheck, depends_on service_healthy, env keys verified |
 | T-05 | Codex | `scripts/check_wired.py` W8/W9/W10/W11 per §30-1 (W11 = workflow `category_id` ⇄ taxonomy `wp_id`) | check_wired green **after** T-04 and T-07 (red before — that is the point) |
 | T-06 | Codex | CI `wired-check.yml` + `.githooks/pre-push` + `CLAUDE.md §D` run `check_wired`, `run_eval`, `unittest` | all three visible in workflow file and hook |
 
@@ -64,7 +64,7 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-07 | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | W10/W11 PASS |
+| T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2; W10/W11 land in T-05 |
 | T-08 | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | reviewed in PR; no stale claims |
 | T-24 | Codex | Auditor spec/code parity per §32-1 (eval cases first: quote ratio 1/3, `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED`; `WARN:` prefix until 30-day observation) | `run_eval` FP=0/FN=0 with new cases; §32-1 rows flipped to implemented |
 | T-09 | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | reviewed in PR |
@@ -111,12 +111,12 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 
 | Scope | Done | Total | % |
 |---|---|---|---|
-| Phase A | 3 | 6 | 50% |
-| Phase B | 0 | 4 | 0% |
+| Phase A | 4 | 6 | 67% |
+| Phase B | 1 | 4 | 25% |
 | Phase C | 0 | 2 | 0% |
 | Phase D | 0 | 5 | 0% |
-| Phase 1 definition (A–D) | 3 | 17 | 18% |
-| Whole roadmap (A–F) | 3 | 24 | 13% |
+| Phase 1 definition (A–D) | 5 | 17 | 29% |
+| Whole roadmap (A–F) | 5 | 24 | 21% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
