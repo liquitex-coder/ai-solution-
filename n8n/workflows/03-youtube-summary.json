@@ -180,7 +180,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst videoData = $('新動画フィルタリング').item.json;\nreturn [{ json: { title: `【YouTube要約】${videoData.title} - ${videoData.channelTitle}`, content, wp_status: 'draft', source_url: videoData.videoUrl || '' } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst videoData = $('新動画フィルタリング').item.json;\nreturn [{ json: { title: `【YouTube要約】${videoData.title} - ${videoData.channelTitle}`, content, wp_status: 'draft', source_url: videoData.videoUrl || '', category_id: 1564589 } }];"
       },
       "id": "wf03aa08-0000-4003-8003-000000000008",
       "name": "WordPress投稿データ整形",
@@ -202,7 +202,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },

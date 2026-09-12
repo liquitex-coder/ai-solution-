@@ -201,7 +201,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const claudeContent = $json.content[0].text;\nconst rssItem = $('新記事フィルタリング（重複除外）').item.json;\nconst link = rssItem.link || '';\nlet source = 'AIニュース';\nif (link.includes('openai.com')) source = 'OpenAI';\nelse if (link.includes('anthropic.com')) source = 'Anthropic';\nelse if (link.includes('google')) source = 'Google AI';\nelse if (link.includes('meta.ai') || link.includes('ai.meta')) source = 'Meta AI';\nreturn [{ json: { title: `【${source}】${rssItem.title}`, content: claudeContent, wp_status: 'draft', source_url: link } }];"
+        "jsCode": "const claudeContent = $json.content[0].text;\nconst rssItem = $('新記事フィルタリング（重複除外）').item.json;\nconst link = rssItem.link || '';\nlet source = 'AIニュース';\nif (link.includes('openai.com')) source = 'OpenAI';\nelse if (link.includes('anthropic.com')) source = 'Anthropic';\nelse if (link.includes('google')) source = 'Google AI';\nelse if (link.includes('meta.ai') || link.includes('ai.meta')) source = 'Meta AI';\nreturn [{ json: { title: `【${source}】${rssItem.title}`, content: claudeContent, wp_status: 'draft', source_url: link, category_id: 790464621 } }];"
       },
       "id": "1e2f3a4b-5c6d-7890-1234-456789012345",
       "name": "WordPress投稿データ整形",
@@ -223,7 +223,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },

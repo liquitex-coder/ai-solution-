@@ -168,7 +168,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst threadsData = $('AI関連投稿をフィルタリング').item.json;\nconst firstPermalink = (threadsData.posts && threadsData.posts[0]) ? (threadsData.posts[0].permalink || '') : '';\nreturn [{ json: { title: `【Threads】@${threadsData.username}のAIノウハウまとめ（${threadsData.postCount}件）`, content, wp_status: 'draft', source_url: firstPermalink } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst threadsData = $('AI関連投稿をフィルタリング').item.json;\nconst firstPermalink = (threadsData.posts && threadsData.posts[0]) ? (threadsData.posts[0].permalink || '') : '';\nreturn [{ json: { title: `【Threads】@${threadsData.username}のAIノウハウまとめ（${threadsData.postCount}件）`, content, wp_status: 'draft', source_url: firstPermalink, category_id: 790464623 } }];"
       },
       "id": "7788aa11-2233-4455-6677-889900112233",
       "name": "WordPress投稿データ整形",
@@ -190,7 +190,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },

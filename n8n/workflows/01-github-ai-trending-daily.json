@@ -166,7 +166,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const claudeJson = $json.content[0].text;\nconst currentItem = $('上位5件を整形').item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\nreturn [{ json: { title, content: claudeJson, wp_status: 'draft', source_url: currentItem.url || '' } }];"
+        "jsCode": "const claudeJson = $json.content[0].text;\nconst currentItem = $('上位5件を整形').item.json;\nconst rank = currentItem.rank || 1;\nconst repoName = currentItem.name || '';\nconst shortName = repoName.split('/').pop();\nconst title = `【AIツール】${shortName} - 注目のAIリポジトリ第${rank}位 | GitHubトレンド`;\nreturn [{ json: { title, content: claudeJson, wp_status: 'draft', source_url: currentItem.url || '', category_id: 790464620 } }];"
       },
       "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
       "name": "WordPress投稿データ整形",
@@ -188,7 +188,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },
