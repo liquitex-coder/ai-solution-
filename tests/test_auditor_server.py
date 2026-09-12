@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from scripts import auditor_server
 from scripts.auditor_server import make_server
 
 
@@ -108,6 +109,38 @@ class AuditorServerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join()
+
+    def test_transient_write_failure_does_not_latch_memory_db(self):
+        original_connect = auditor_server.memory_init.connect
+        call_count = {"n": 0}
+
+        def flaky_connect(path):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise sqlite3.OperationalError("database is locked")
+            return original_connect(path)
+
+        auditor_server.memory_init.connect = flaky_connect
+        try:
+            status, body = self.request("/audit", "POST", {
+                "content": "革命的な記事",
+            })
+            self.assertEqual(status, 200)
+            self.assertIsNone(body["fact_id"])
+
+            # The latch must be gone: /health still reports the DB available,
+            # and the very next write succeeds once the transient error clears.
+            health_status, health_body = self.request("/health")
+            self.assertEqual(health_status, 200)
+            self.assertTrue(health_body["memory_db"])
+
+            status2, body2 = self.request("/audit", "POST", {
+                "content": "革命的な記事2",
+            })
+            self.assertEqual(status2, 200)
+            self.assertIsNotNone(body2["fact_id"])
+        finally:
+            auditor_server.memory_init.connect = original_connect
 
 
 if __name__ == "__main__":

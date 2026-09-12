@@ -16,9 +16,10 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 
 try:
-    from . import content_audit, memory_init
+    from . import content_audit, kroki_embed, memory_init
 except ImportError:  # Direct execution leaves scripts/ as sys.path[0].
     import content_audit
+    import kroki_embed
     import memory_init
 
 
@@ -56,9 +57,11 @@ class AuditorHTTPServer(ThreadingHTTPServer):
                 finally:
                     conn.close()
         except Exception as exc:
+            # Transient write failures (e.g. "database is locked") must not
+            # permanently disable future writes; only startup availability
+            # (self.memory_db, set once in __init__) gates /health.
             print(f"auditor memory database write failed: {exc}", file=sys.stderr,
                   flush=True)
-            self.memory_db = False
             return None
 
     def server_close(self) -> None:
@@ -179,9 +182,25 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     return 200, verdict, skill_ref
 
 
+def embed_diagrams_route(handler: AuditorRequestHandler) -> tuple[int, None, None]:
+    payload = handler._read_json()
+    if payload is None:
+        handler._send_json(400, {"error": "invalid JSON body"})
+        return 400, None, None
+    content = payload.get("content")
+    if not isinstance(content, str):
+        handler._send_json(400, {"error": "content must be a string"})
+        return 400, None, None
+
+    converted, count = kroki_embed.embed_diagrams(content)
+    handler._send_json(200, {"content": converted, "diagrams": count})
+    return 200, None, None
+
+
 ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, Any]]] = {
     ("GET", "/health"): health,
     ("POST", "/audit"): audit,
+    ("POST", "/embed-diagrams"): embed_diagrams_route,
 }
 
 
