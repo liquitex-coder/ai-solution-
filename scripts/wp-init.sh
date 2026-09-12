@@ -2,16 +2,42 @@
 # WordPress auto-initialization: creates categories, tags, and verifies auth.
 # Reads taxonomy from data/wp-taxonomy.json.
 # Usage: bash scripts/wp-init.sh
-# Required env vars: WP_URL, WP_USERNAME, WP_APP_PASSWORD
+#
+# Auth + endpoint shape (requirements §24) — auto-selected by WP_BEARER_TOKEN:
+#   - set:     WordPress.com production. Bearer OAuth2 access_token, and the
+#              API is reached through public-api.wordpress.com/wp/v2/sites/{WP_SITE}
+#              (a WordPress.com-hosted site's own /wp-json/wp/v2 is not the
+#              REST entry point when two-step auth is active). Requires WP_SITE
+#              (e.g. liquitex929aa21393-eyqci.wordpress.com — the unmapped_url,
+#              not a mapped custom domain).
+#   - unset:   self-hosted sandbox. Basic auth (WP_USERNAME + WP_APP_PASSWORD)
+#              against {WP_URL}/wp-json/wp/v2.
 set -euo pipefail
 
 WP_URL="${WP_URL:-http://localhost:8080}"
+WP_SITE="${WP_SITE:-}"
 WP_USERNAME="${WP_USERNAME:-admin}"
 WP_APP_PASSWORD="${WP_APP_PASSWORD:-}"
+WP_BEARER_TOKEN="${WP_BEARER_TOKEN:-}"
 TAXONOMY_FILE="$(dirname "$0")/../data/wp-taxonomy.json"
 
-if [[ -z "$WP_APP_PASSWORD" ]]; then
-  echo "ERROR: WP_APP_PASSWORD is not set. Generate one in WordPress > Users > Application Passwords." >&2
+if [[ -n "$WP_BEARER_TOKEN" ]]; then
+  if [[ -z "$WP_SITE" ]]; then
+    echo "ERROR: WP_BEARER_TOKEN is set but WP_SITE is not." >&2
+    echo "       WP_SITE must be the site's unmapped wordpress.com domain" >&2
+    echo "       (e.g. liquitex929aa21393-eyqci.wordpress.com)." >&2
+    exit 1
+  fi
+  AUTH_HEADER="Authorization: Bearer ${WP_BEARER_TOKEN}"
+  AUTH_DESC="Bearer (WP_BEARER_TOKEN) — WordPress.com production"
+  API_BASE="https://public-api.wordpress.com/wp/v2/sites/${WP_SITE}"
+elif [[ -n "$WP_APP_PASSWORD" ]]; then
+  AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "$WP_USERNAME" "$WP_APP_PASSWORD" | base64 -w 0)"
+  AUTH_DESC="Basic ($WP_USERNAME) — self-hosted sandbox"
+  API_BASE="${WP_URL%/}/wp-json/wp/v2"
+else
+  echo "ERROR: no credentials set. Set WP_BEARER_TOKEN + WP_SITE (WordPress.com" >&2
+  echo "       production) or WP_USERNAME + WP_APP_PASSWORD (self-hosted sandbox)." >&2
   exit 1
 fi
 
@@ -20,16 +46,15 @@ if ! command -v jq &>/dev/null; then
   exit 1
 fi
 
-AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "$WP_USERNAME" "$WP_APP_PASSWORD" | base64 -w 0)"
-API_BASE="${WP_URL%/}/wp-json/wp/v2"
-
 check_auth() {
   local status
   status=$(curl -s -o /dev/null -w '%{http_code}' \
     -H "$AUTH_HEADER" \
     "${API_BASE}/users/me")
   if [[ "$status" != "200" ]]; then
-    echo "ERROR: Authentication failed (HTTP $status). Check WP_USERNAME and WP_APP_PASSWORD." >&2
+    echo "ERROR: Authentication failed (HTTP $status) using $AUTH_DESC." >&2
+    echo "       Basic auth on WordPress.com with two-step auth active returns 401" >&2
+    echo "       (invalid_token) — use WP_BEARER_TOKEN instead (requirements §24)." >&2
     exit 1
   fi
   echo "[OK] Authentication verified."
@@ -88,8 +113,8 @@ create_tag() {
 }
 
 echo "=== WordPress Initialization ==="
-echo "Target: $WP_URL"
-echo "User:   $WP_USERNAME"
+echo "Target: $API_BASE"
+echo "Auth:   $AUTH_DESC"
 echo ""
 
 check_auth

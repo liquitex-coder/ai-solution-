@@ -66,30 +66,53 @@ docker compose up -d
 
 ## Step 1: WordPress.com APIトークン取得
 
-### 1-1. アプリ登録（未完了の場合）
+> **重要（要件§24・2026-07-12実運用で確認）**: このサイトは二段階認証が有効なため、
+> WordPress.com の `wp/v2` REST API は Application Password の直接利用（Basic認証）を
+> `401 invalid_token` で拒否する。**OAuth2 の Bearer トークンが必須**。
 
-1. https://developer.wordpress.com/apps/ にアクセス
-2. "Create New Application" をクリック
-3. 以下を入力:
+### 1-1. 二段階認証 + Application Password 発行（未完了の場合）
+
+1. https://wordpress.com/me/security にアクセス
+2. Recovery Email を先に設定（推奨・紛失時の復旧用）
+3. 「Two-Step Authentication」を有効化（認証アプリ or SMS）
+4. 同ページに出現する「Application Passwords」で1つ発行（24文字、その場で控える）
+
+### 1-2. アプリ登録（未完了の場合）
+
+1. https://developer.wordpress.com/apps/new/ にアクセス
+2. 以下を入力:
    - **Name**: AIナビ n8n Connector
-   - **Description**: n8nからの自動投稿用
-   - **Website URL**: https://liquitex929aa21393-eyqci.wordpress.com
-   - **Redirect URL**: https://liquitex-coder.app.n8n.cloud/oauth/callback
+   - **Description**: n8nからの自動投稿用（必須項目）
+   - **Website URL**: https://liquitex-coder.app.n8n.cloud
+   - **Redirect URLs**: https://liquitex-coder.app.n8n.cloud（password grantでは未使用だが必須項目）
    - **Type**: Web
-4. 数式CAPTCHAに答えて送信（例: 8+6=14）
-5. **Client ID** と **Client Secret** をメモ
+3. 送信して **Client ID** と **Client Secret** をメモ
 
-### 1-2. アクセストークン取得（テスト用）
+### 1-3. アクセストークン取得（password grant）
 
-ブラウザで以下のURLを開く（YOUR_CLIENT_IDを置き換え）:
-
+```bash
+curl -s -X POST "https://public-api.wordpress.com/oauth2/token" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "grant_type=password" \
+  -d "username=YOUR_WPCOM_USERNAME" \
+  -d "password=YOUR_APPLICATION_PASSWORD" \
+  -d "blog_url=liquitex929aa21393-eyqci.wordpress.com"
 ```
-https://public-api.wordpress.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=https://liquitex-coder.app.n8n.cloud/oauth/callback&response_type=token&scope=posts
+
+→ `{"access_token":"...","token_type":"bearer",...}` が返る。この `access_token` を
+`.env` の `WP_BEARER_TOKEN` に設定する（原則失効しない・無期限）。
+
+**検証**（`200` が返れば成功）:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  "https://public-api.wordpress.com/rest/v1.1/me"
 ```
 
-→ 認証後、URLに `#access_token=XXXXX` が含まれたページにリダイレクトされる
-
-このアクセストークンをメモ。
+⚠️ PowerShellでは `curl` ではなく `curl.exe` を使い、トークンは変数に**シングルクォート**
+`'...'` で代入すること（ダブルクォートは `$` 等を解釈し値が壊れる場合がある）。
 
 ---
 
@@ -124,7 +147,24 @@ https://public-api.wordpress.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&redir
 
 ## Step 3: n8n.cloudへのワークフローインポート
 
-### インポート手順
+### 自動インポート（Proプラン以降・推奨、要件§25）
+
+無料トライアルではn8n公開APIが無効（`Upgrade to use API`と表示される）。Pro
+プラン以降で `Settings → n8n API` からAPIキーを発行できる。発行後:
+
+```powershell
+$env:N8N_API_KEY = "発行したAPIキー"
+$env:ANTHROPIC_API_KEY = "..."
+$env:WP_BEARER_TOKEN = "..."
+# 任意: GITHUB_TOKEN, PERPLEXITY_API_KEY, KIMI_API_KEY, THREADS_ACCESS_TOKEN, YOUTUBE_API_KEY
+powershell -ExecutionPolicy Bypass -File scripts/n8n_deploy.ps1
+```
+
+Credential作成（環境変数が設定されている分のみ・冪等）とワークフロー9本の
+インポートを自動実行する。**Active化は行わない**（Step 5で手動確認してから
+ONにする、既存の段階的ロールアウト方針を維持）。
+
+### 手動インポート手順（トライアル中 or APIを使わない場合）
 
 1. `liquitex-coder.app.n8n.cloud` にログイン
 2. 左メニュー「Workflows」→ 右上「Add workflow」
@@ -134,10 +174,13 @@ https://public-api.wordpress.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&redir
 ```
 n8n/workflows/01-github-ai-trending-daily.json
 n8n/workflows/02-rss-monitor.json
-n8n/workflows/03-youtube-new-video.json
+n8n/workflows/03-youtube-summary.json
 n8n/workflows/04-threads-influencer.json
 n8n/workflows/05-note-monitor.json
 n8n/workflows/06-weekly-trend-report.json
+n8n/workflows/07-article-writer.json
+n8n/workflows/08-kimi-zh.json
+n8n/workflows/09-multi-source-research.json
 ```
 
 ---
@@ -157,21 +200,21 @@ n8n/workflows/06-weekly-trend-report.json
 5. **Value**: `sk-ant-XXXXXXXXXX`（あなたのAPIキー）
 6. 保存
 
-#### B. WordPress Application Password（推奨）
+#### B. WordPress App Password（本番: WordPress.com Bearer、要件§24）
+
+> 二段階認証が有効な WordPress.com サイトでは Basic 認証（Application Password
+> 直用）は `401 invalid_token` になる。credential 名は既存ワークフローとの
+> 互換のため `WordPress App Password` のまま、**値だけ Bearer** に変更する。
 
 1. 「HTTP Header Auth」を選択
-2. Name: `WordPress App Password`
+2. Name: `WordPress App Password`（既存ワークフローが参照する名前のまま）
 3. **Name**: `Authorization`
-4. **Value**: `Basic BASE64(username:app_password)` ← 下記コマンドで生成
-
-```bash
-# app_password は WordPress のスペースあり文字列（例: xxxx xxxx xxxx xxxx xxxx xxxx）
-echo -n 'admin:xxxx xxxx xxxx xxxx xxxx xxxx' | base64
-# 出力: YWRtaW46eHh4eCB4eHh4IHh4eHggeHh4eCB4eHh4IHh4eHg=
-# この文字列を Value に設定する
-```
-
+4. **Value**: `Bearer YOUR_ACCESS_TOKEN` ← Step 1-3 で取得した `access_token`
 5. 保存
+
+> ローカルの自己ホスト型サンドボックス（`docker-compose up`、二段階認証なし）
+> のみを使う場合は、代わりに `Basic BASE64(username:app_password)` で構わない
+> （`scripts/wp-init.sh` はどちらの環境変数が設定されているかで自動判定する）。
 
 #### C. GitHub API Token
 
@@ -196,6 +239,15 @@ echo -n 'admin:xxxx xxxx xxxx xxxx xxxx xxxx' | base64
 3. **Name**: `Authorization`
 4. **Value**: `Bearer YOUR_PERPLEXITY_API_KEY`
 5. 保存
+
+### GITHUB_TOKEN（Credentialではなく環境変数、要件§25-3）
+
+各WFの「プロンプト読込み」Codeノードは `$env.GITHUB_TOKEN` を直接参照して
+GitHub Contents APIからプロンプトを取得する。これはCredentialではなく
+n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外・別途手動設定）:
+
+1. n8n左メニュー「Settings」→「Environments」（Proプラン以降）
+2. 変数名 `GITHUB_TOKEN`、値に GitHub Personal Access Token（`public_repo` スコープ）を設定
 
 ---
 
@@ -257,9 +309,21 @@ echo -n 'admin:xxxx xxxx xxxx xxxx xxxx xxxx' | base64
 
 #### 401 Unauthorized（WordPress 認証エラー）
 
-**原因**: Application Password の期限切れ / 誤入力 / アカウント変更
+**原因（本番・WordPress.com）**: `invalid_token` の場合、Basic認証（Application
+Password直用）を二段階認証有効サイトに送っている可能性が最も高い（要件§24）。
+Application Password自体の期限切れではなく、**認証方式そのものが違う**。
 
-**対応手順**:
+**対応手順（本番）**:
+1. Step 1-3 の password grant を再実行し、新しい `access_token` を取得
+2. n8n Credentials「WordPress App Password」の Value を
+   `Bearer NEW_ACCESS_TOKEN` に更新
+3. `curl -H "Authorization: Bearer NEW_ACCESS_TOKEN" https://public-api.wordpress.com/rest/v1.1/me`
+   で `200` を確認してから再実行
+
+**原因（ローカルサンドボックス・Basic認証運用時のみ）**: Application Password
+の期限切れ / 誤入力 / アカウント変更
+
+**対応手順（サンドボックス）**:
 1. WordPress 管理画面 → 「ユーザー」→ 「プロフィール」
 2. 「アプリケーションパスワード」内の旧パスワードを削除
 3. 「新しいアプリケーションパスワード」を追加「追加」
@@ -361,6 +425,7 @@ docker compose down && docker compose up -d
 - Application Password の Base64 エンコードを再生成して試す
 - WordPress.com の REST API エンドポイント URL を再確認
 - n8n Credentials の値が正しく保存されているか確認
+- **セルフホスト WP で REST API が 404 になる場合**: 管理画面 → 設定 → パーマリンク → 「投稿名」等に変更して「変更を保存」（「基本」設定では REST API ルーティングが機能しない）
 
 ### Claude APIでエラーが出る
 
@@ -383,6 +448,6 @@ docker compose down && docker compose up -d
 
 ### n8n のワークフローが自動実行されない
 
-- ワークフローの „Active” スイッチが ON か確認
+- ワークフローの „Active" スイッチが ON か確認
 - n8n クラウドのプランが有効か確認（トライアル期限切れ）
 - Executions タブでエラーログを確認

@@ -1,0 +1,293 @@
+{
+  "name": "09 9媒体横断調査（週次・確度スコア付き）",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * 4"
+            }
+          ]
+        }
+      },
+      "id": "wf09aa01-0000-4009-8009-000000000001",
+      "name": "毎週金曜7時 (JST) トリガー",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Research topic — override via manual execution input\nconst topic = $json.topic || 'AI agents LLM';\nconst sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { topic, sinceIso } }];"
+      },
+      "id": "wf09aa02-0000-4009-8009-000000000002",
+      "name": "調査テーマ設定",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 9-media sweep — public APIs directly; credentialed sources skip gracefully.\nconst topic = $json.topic;\nconst query = encodeURIComponent(topic);\nconst GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst YOUTUBE_API_KEY = $env.YOUTUBE_API_KEY || '';\nconst sinceIso = $json.sinceIso;\nconst items = [];      // { medium, title, url, snippet, publishedAt }\nconst coverage = {};   // medium -> 'ok' | 'skipped:no-credential' | 'error:...'\n\nasync function safeJson(url, headers) {\n  const res = await fetch(url, { headers: headers || {} });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n\n// 1. GitHub\ntry {\n  const gh = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\n  if (GITHUB_TOKEN) gh['Authorization'] = `token ${GITHUB_TOKEN}`;\n  const d = await safeJson(`https://api.github.com/search/repositories?q=${query}+pushed:>${sinceIso.slice(0,10)}&sort=stars&order=desc&per_page=5`, gh);\n  for (const r of d.items || []) {\n    items.push({ medium: 'github', title: r.full_name, url: r.html_url,\n      snippet: (r.description || '').slice(0, 300), publishedAt: r.updated_at,\n      stars: r.stargazers_count });\n  }\n  coverage.github = 'ok';\n} catch (e) { coverage.github = `error:${e.message}`; }\n\n// 2. Hacker News (Algolia)\ntry {\n  const d = await safeJson(`https://hn.algolia.com/api/v1/search?query=${query}&tags=story&numericFilters=created_at_i>${Math.floor(new Date(sinceIso).getTime()/1000)}&hitsPerPage=5`);\n  for (const h of d.hits || []) {\n    items.push({ medium: 'hackernews', title: h.title || '',\n      url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,\n      snippet: (h.story_text || '').slice(0, 300), publishedAt: h.created_at,\n      points: h.points });\n  }\n  coverage.hackernews = 'ok';\n} catch (e) { coverage.hackernews = `error:${e.message}`; }\n\n// 3. Reddit (public JSON)\ntry {\n  const d = await safeJson(`https://www.reddit.com/search.json?q=${query}&sort=top&t=week&limit=5`,\n    { 'User-Agent': 'n8n-ai-navi/1.0' });\n  for (const c of (d.data && d.data.children) || []) {\n    const p = c.data;\n    items.push({ medium: 'reddit', title: p.title || '',\n      url: `https://www.reddit.com${p.permalink}`,\n      snippet: (p.selftext || '').slice(0, 300),\n      publishedAt: new Date(p.created_utc * 1000).toISOString(), score: p.score });\n  }\n  coverage.reddit = 'ok';\n} catch (e) { coverage.reddit = `error:${e.message}`; }\n\n// 4. RSS (official AI blogs — same set as WF02)\nconst RSS_FEEDS = [\n  { url: 'https://openai.com/blog/rss.xml', label: 'OpenAI' },\n  { url: 'https://www.anthropic.com/blog.rss', label: 'Anthropic' },\n  { url: 'https://blog.google/technology/ai/rss/', label: 'Google AI' }\n];\nlet rssOk = 0;\nfor (const feed of RSS_FEEDS) {\n  try {\n    const res = await fetch(feed.url, { headers: { 'User-Agent': 'n8n-ai-navi/1.0' } });\n    if (!res.ok) continue;\n    const xml = await res.text();\n    const entries = xml.split(/<item>|<entry>/).slice(1, 4);\n    for (const en of entries) {\n      const t = (en.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/) || [])[1] || '';\n      const l = (en.match(/<link[^>]*>([\\s\\S]*?)<\\/link>/) || [])[1]\n        || (en.match(/<link[^>]*href=\"([^\"]+)\"/) || [])[1] || '';\n      const pd = (en.match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/) || [])[1]\n        || (en.match(/<published>([\\s\\S]*?)<\\/published>/) || [])[1] || '';\n      if (pd && new Date(pd) < new Date(sinceIso)) continue;\n      if (t) items.push({ medium: 'rss', source: feed.label,\n        title: t.replace(/<!\\[CDATA\\[|\\]\\]>/g, '').trim(), url: l.trim(),\n        snippet: '', publishedAt: pd });\n    }\n    rssOk++;\n  } catch (e) { /* per-feed failure tolerated */ }\n}\ncoverage.rss = rssOk > 0 ? `ok (${rssOk}/${RSS_FEEDS.length} feeds)` : 'error:all-feeds-failed';\n\n// 5. note (hashtag RSS)\ntry {\n  const res = await fetch('https://note.com/hashtag/%E7%94%9F%E6%88%90AI/rss',\n    { headers: { 'User-Agent': 'n8n-ai-navi/1.0' } });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  const xml = await res.text();\n  for (const en of xml.split('<item>').slice(1, 6)) {\n    const t = (en.match(/<title>([\\s\\S]*?)<\\/title>/) || [])[1] || '';\n    const l = (en.match(/<link>([\\s\\S]*?)<\\/link>/) || [])[1] || '';\n    const pd = (en.match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/) || [])[1] || '';\n    if (pd && new Date(pd) < new Date(sinceIso)) continue;\n    if (t) items.push({ medium: 'note',\n      title: t.replace(/<!\\[CDATA\\[|\\]\\]>/g, '').trim(), url: l.trim(),\n      snippet: '', publishedAt: pd });\n  }\n  coverage.note = 'ok';\n} catch (e) { coverage.note = `error:${e.message}`; }\n\n// 6. YouTube — needs API key\nif (YOUTUBE_API_KEY) {\n  try {\n    const d = await safeJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=relevance&publishedAfter=${sinceIso}&maxResults=5&key=${YOUTUBE_API_KEY}`);\n    for (const v of d.items || []) {\n      items.push({ medium: 'youtube', title: v.snippet?.title || '',\n        url: `https://www.youtube.com/watch?v=${v.id?.videoId}`,\n        snippet: (v.snippet?.description || '').slice(0, 300),\n        publishedAt: v.snippet?.publishedAt });\n    }\n    coverage.youtube = 'ok';\n  } catch (e) { coverage.youtube = `error:${e.message}`; }\n} else { coverage.youtube = 'skipped:no-credential (YOUTUBE_API_KEY)'; }\n\n// 7-9. Credentialed / dedicated-WF sources — covered by their own workflows\ncoverage.threads = 'skipped:covered-by-WF04';\ncoverage.zh = 'skipped:covered-by-WF08';\ncoverage.noimosai = 'skipped:covered-by-WF07';\n\nreturn [{ json: { topic, sinceIso, items, coverage,\n  mediaCovered: Object.values(coverage).filter(v => String(v).startsWith('ok')).length } }];"
+      },
+      "id": "wf09aa03-0000-4009-8009-000000000003",
+      "name": "9媒体横断取材",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Confidence scoring (§19-6): cross-source corroboration via keyword overlap.\nconst KNOWN_MEDIA = ['OpenAI', 'Anthropic', 'Google AI'];\nconst data = $json;\nconst items = data.items || [];\n\nfunction keywords(s) {\n  return new Set((s || '').toLowerCase()\n    .replace(/[^a-z0-9぀-ヿ一-鿿\\s]/g, ' ')\n    .split(/\\s+/).filter(w => w.length >= 3));\n}\nfunction overlap(a, b) {\n  const ka = keywords(a), kb = keywords(b);\n  if (!ka.size || !kb.size) return 0;\n  let n = 0;\n  for (const w of ka) if (kb.has(w)) n++;\n  return n / Math.min(ka.size, kb.size);\n}\n\nconst scored = items.map((item, i) => {\n  // corroborated = similar title reported by a DIFFERENT medium\n  const corroborated = items.some((other, j) =>\n    j !== i && other.medium !== item.medium && overlap(item.title, other.title) >= 0.5);\n  let confidence;\n  if (corroborated) confidence = 'HIGH';\n  else if (item.medium === 'rss' && KNOWN_MEDIA.includes(item.source)) confidence = 'MED';\n  else if (item.medium === 'github' && (item.stars || 0) >= 500) confidence = 'MED';\n  else confidence = 'LOW';\n  return { ...item, confidence };\n});\n\n// fetch failures surface as UNVERIFIABLE coverage notes for the article\nconst failures = Object.entries(data.coverage || {})\n  .filter(([, v]) => String(v).startsWith('error'))\n  .map(([medium, v]) => ({ medium, status: v, confidence: 'UNVERIFIABLE' }));\n\nreturn [{ json: { ...data, items: scored, coverageFailures: failures } }];"
+      },
+      "id": "wf09aa04-0000-4009-8009-000000000004",
+      "name": "確度スコア付与",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GITHUB_TOKEN = $env.GITHUB_TOKEN || '';\nconst BASE = 'https://api.github.com/repos/liquitex-coder/ai-solution-/contents/n8n/prompts/';\nconst headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'n8n-ai-navi/1.0' };\nif (GITHUB_TOKEN) headers['Authorization'] = `token ${GITHUB_TOKEN}`;\nasync function fetchPrompt(file) {\n  try {\n    const res = await fetch(BASE + file, { headers });\n    if (!res.ok) return '';\n    const data = await res.json();\n    return Buffer.from((data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n  } catch(e) { return ''; }\n}\nconst [copyright, wfPrompt] = await Promise.all([\n  fetchPrompt('00-copyright-transform.md'),\n  fetchPrompt('09-multi-source-research.md')\n]);\nreturn [{ json: { ...$json, promptContent: copyright + '\\n\\n---\\n\\n' + wfPrompt } }];"
+      },
+      "id": "p009wf09-aa00-4009-8009-000000000009",
+      "name": "プロンプト読込み (WF-09)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "model": "claude-sonnet-5",
+            "max_tokens": 4000,
+            "messages": [
+              {
+                "role": "user",
+                "content": "={{ $json.promptContent + '\\n\\n【調査データ（確度スコア付き）】\\nテーマ: ' + $json.topic + '\\n媒体カバレッジ: ' + JSON.stringify($json.coverage) + '\\n取材結果:\\n' + JSON.stringify($json.items) + '\\n取材失敗媒体: ' + JSON.stringify($json.coverageFailures) }}"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        }
+      },
+      "id": "wf09aa06-0000-4009-8009-000000000006",
+      "name": "Claude APIで深掘り記事生成",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_CRED_ID",
+          "name": "Claude API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content[0].text;\nconst research = $('確度スコア付与').item.json;\nconst now = new Date();\nconst monthDay = `${now.getMonth() + 1}月${now.getDate()}日`;\nconst sourceUrls = (research.items || []).map(i => i.url).filter(Boolean);\nreturn [{ json: {\n  title: `【横断調査】${research.topic} — 9媒体クロスリサーチ（${monthDay}）`,\n  content,\n  wp_status: 'draft',\n  source_url: sourceUrls[0] || '',\n  source_urls: sourceUrls\n} }];"
+      },
+      "id": "wf09aa07-0000-4009-8009-000000000007",
+      "name": "WordPress投稿データ整形",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Auditor Gate — staged rollout (requirements §22-3, INV-R2)\n// CLAIM_AUDITOR_MODE: report_only (default) | canary (~10% publish) | full\nconst auditorUrl = $env.CLAIM_AUDITOR_URL || '';\nconst mode = ($env.CLAIM_AUDITOR_MODE || 'report_only').toLowerCase();\nconst content = $json.content || '';\nconst sourceUrl = $json.source_url || '';\nfunction decide(verdict) {\n  if (verdict !== 'PASS') return 'draft';\n  if (mode === 'full') return 'publish';\n  if (mode === 'canary') {\n    const t = ($json.title || '') + String(content.length);\n    let h = 0;\n    for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;\n    return (h % 10 === 0) ? 'publish' : 'draft';\n  }\n  return 'draft'; // report_only: record verdict, never auto-publish\n}\nif (!auditorUrl) {\n  return [{ json: { ...$json, verdict: 'SKIP', audit_mode: mode, wp_status: 'draft',\n    audit_note: 'CLAIM_AUDITOR_URL未設定 → 下書き保存' } }];\n}\ntry {\n  const res = await fetch(`${auditorUrl}/audit`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      content,\n      source_urls: sourceUrl ? [sourceUrl] : [],\n      skill_ref: '09-multi-source-research'\n    })\n  });\n  if (!res.ok) {\n    return [{ json: { ...$json, verdict: 'UNVERIFIABLE', audit_mode: mode, wp_status: 'draft',\n      audit_note: `Auditor HTTP ${res.status}` } }];\n  }\n  const result = await res.json();\n  return [{ json: { ...$json, ...result, audit_mode: mode,\n    wp_status: decide(result.verdict) } }];\n} catch(e) {\n  return [{ json: { ...$json, verdict: 'UNVERIFIABLE', audit_mode: mode, wp_status: 'draft',\n    audit_note: e.message } }];\n}"
+      },
+      "id": "ag09wf09-aa00-4009-8009-000000000010",
+      "name": "Auditor Gate (WF-09)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "body": {
+          "contentType": "json",
+          "jsonBody": {
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content }}",
+            "status": "={{ $json.wp_status }}"
+          }
+        }
+      },
+      "id": "wf09aa08-0000-4009-8009-000000000008",
+      "name": "WordPressに下書き投稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WORDPRESS_APP_PASSWORD_CRED_ID",
+          "name": "WordPress App Password"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "e009wf09-ee00-4009-8009-000000000009",
+      "name": "エラートリガー",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "毎週金曜7時 (JST) トリガー": {
+      "main": [
+        [
+          {
+            "node": "調査テーマ設定",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "調査テーマ設定": {
+      "main": [
+        [
+          {
+            "node": "9媒体横断取材",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9媒体横断取材": {
+      "main": [
+        [
+          {
+            "node": "確度スコア付与",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "確度スコア付与": {
+      "main": [
+        [
+          {
+            "node": "プロンプト読込み (WF-09)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "プロンプト読込み (WF-09)": {
+      "main": [
+        [
+          {
+            "node": "Claude APIで深掘り記事生成",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude APIで深掘り記事生成": {
+      "main": [
+        [
+          {
+            "node": "WordPress投稿データ整形",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress投稿データ整形": {
+      "main": [
+        [
+          {
+            "node": "Auditor Gate (WF-09)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auditor Gate (WF-09)": {
+      "main": [
+        [
+          {
+            "node": "WordPressに下書き投稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "横断調査"
+    },
+    {
+      "name": "確度スコア"
+    },
+    {
+      "name": "AI情報収集"
+    }
+  ],
+  "notes": "WF09: 9媒体横断調査（requirements §WF09 / §19-6 確度スコア）\n直接取材: GitHub / Hacker News / Reddit / RSS(公式ブログ3件) / note\nYOUTUBE_API_KEY 設定時: YouTube も取材（未設定なら skipped と記録）\nThreads/ZH/NoimosAI は専用WF (04/08/07) がカバー → coverage に明記\n確度スコア: 複数媒体で裏取り=HIGH / 公式ブログ・500★以上=MED / 他=LOW\n取材失敗媒体は UNVERIFIABLE として記事プロンプトに渡す（沈黙しない）\nAuditor Gate: CLAIM_AUDITOR_URL 未設定 → 下書き保存\nスケジュール: 毎週木曜 22:00 UTC (= 金曜 07:00 JST)\n必要な認証情報: Claude API Key / WordPress App Password\n任意: GITHUB_TOKEN, YOUTUBE_API_KEY (n8n 環境変数)"
+}

@@ -1,0 +1,18 @@
+name: wired-check
+# Design-vs-wired gate (requirements §21). Pure stdlib — no pip install,
+# no external network — so it completes even under restrictive network policy.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  wired-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run design-vs-wired gate
+        run: python3 scripts/check_wired.py

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Local environment / secrets
+.env
+
+# Agent memory database (local state, never committed)
+data/memory.db
+data/memory.db-*
+
+# n8n local data
+.n8n/

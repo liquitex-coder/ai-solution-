@@ -1,8 +1,8 @@
 # AI情報専門サイト 要件定義書
 
 **バージョン**: 2.2  
-**最終更新**: 2026-08-15  
-**ステータス**: 設計中（§15-11 カテゴリ統合を統合 / NoimosAI スコープ外 / ホスティング確定を §12 に反映）
+**最終更新**: 2026-07-10  
+**ステータス**: 設計中（ホスティング先未確定）
 
 ---
 
@@ -12,13 +12,12 @@
 |---|---|
 | サイト名 | AIナビ（仮） |
 | 目的 | AI初心者〜中級者が「使える・試せる」情報を得られる日本語ハブ |
-| ターゲット | AIを使いたいが何から始めればいいか分からない人、業務効率化したいビジネスマン |
-| 言語 | 日本語メイン |
+| ターゲット | 日本語圈（メイン）・英語圈（技術SNS・動画経由でリーチ拡大） |
+| 言語 | 日本語メイン / 英語SEOメタ・将来英語記事化 |
 | CMS | WordPress |
 | コンセプト | **人間の介入を最小化した全自動AI情報メディア** |
-| 中核体験 | **「Claude × 〇〇 で何ができるか」を動画＋再現手順で"実演"して見せるショーケース**（§19） |
-| 発信形式 | テキスト記事に加え **動画（デモ／ショート）** で「できること」を見せる（§20） |
-| ノウハウ化 | このサイト構築プロセス自体を記事化・販売する予定 |
+| 戦略軽層 | **このパイプライン自体がClaim Platformの実動デモ・宣伝媦体** |
+| ノウハウ化 | サイト構築プロセス自体を記事化・販売する予定 |
 
 ---
 
@@ -31,16 +30,15 @@
 | トップ | 注目ツール・最新ニュース・入門ガイド | 自動 |
 | AIツールカタログ | 厳選ツール一覧（カテゴリ・料金フィルター） | 手動 + 自動 |
 | ツール詳細 | 各ツールの詳細・使い方・メリデメ・比較 | 手動 + 自動 |
-| 使い方ガイド | ステップバイステップのHowToガイド | 自動生成 |
-| **組み合わせレシピ** | **Claude × ツール/MCP/API の実演レシピ（動画＋再現手順＋実出力）**（§19） | 自動 + 実演 |
-| **動画デモ** | **画面録画・ショート動画で「できること」を見せる**（§20） | 自動 + 手動 |
-| 連携・自動化 | n8n 統合手順・外部連携（SNS配信は後日/別途決定・§5） | 手動 |
+| 使い方ガイド | ステップバイステップのHow Toガイド | 自動生成 |
+| 連携・自動化 | NoimosAI連携・n8n統合手順 | 手動 |
 | AIニュース | 最新アップデート・リリース情報 | 全自動 |
-| GitHubトレンド | 今日の注目AIリポジトリ | 全自動（毎朝） |
+| GitHubトレンド | 今日の注目 AIリポジトリ | 全自動（毎朝） |
 | プロンプト集 | コピーして使えるプロンプトテンプレート | 自動 + UGC（将来） |
 | インフルエンサー発信 | SNS上のAIノウハウ・話題まとめ | 全自動 |
+| **Claim Platform紹介** | claim-auditor / crew / security活用事例 | 自動生成 + 手動 |
 
-### 2-2. デザイン方针
+### 2-2. デザイン方針
 
 - **イラスト・アイコン主体**（文字より視覚で先に会わせる）
 - **カード型レイアウト**（一覧性重視、スキャンしやすい）
@@ -63,10 +61,13 @@
 | Meta AI Blog | RSS | 無料 | LLaMA・AI研究 |
 | GitHub Trending | GitHub API（公式） | 無料 | 今日の注目AIリポジトリ |
 | GitHub Search | GitHub API（公式） | 無料 | スター急上昇・新着AIツール |
-| YouTube | YouTube Data API v3 | 無料（1万units/日） | AI系チャンネルの新動画 |
+| YouTube | YouTube Data API v3 + yt-dlp | 無料（1万units/日） | AI系チャンネルの新動画・字幕 |
 | Threads | Threads API | 無料 | AIインフルエンサーの投稿 |
 | note.com | RSS | 無料 | AI系クリエイターの記事 |
+| Reddit | Reddit API（公式） | 無料 | r/MachineLearning・r/LocalLLaMA 等 |
+| Hacker News | HN Algolia API | 無料 | AI技術記事・コメントの要点 |
 | Perplexity API | Perplexity API | 無料枠あり | AIトレンドキーワード検索 |
+| **NoimosAI** | **Google Docs経由** | **別途計上** | **戦略立案・SEO記事** |
 
 ### Phase 2：有料ソース追加（成長後）
 
@@ -75,141 +76,284 @@
 | X (Twitter) | X API v2 | $100/月〜 | 収益化後 |
 | X スクレイピング | Apify | $49/月〜 | 収益化後 |
 | Instagram | Instagram Graph API | 無料枠あり | Phase 2 |
-
-### 収集対象インフルエンサー（例）
-
-- chroniki_claude（Claude Code専門家・Threads）
-- AI_Trend_Daily（GitHubトレンド系・Instagram）
-- その他：AIツール解説・プロンプトエンジニア系アカウント
-
-> **収集ソースのスコープと段階（重要）**: 情報収集は SNS（Threads / YouTube / note / X 等）からも行う方針で**確定**。
-> ただし各 **SNS/動画 API の取得・配線は「後日」**（オーナーのキー取得・§17 G0 の意思決定後）に実施する。
-> それまでは (a) 無料 RSS と GitHub API を先行稼働させ、(b) 動画は**手動公開**（§20 Stage A）でパイプラインを回す。
-> → API 未取得は **ローンチのブロッカーにしない**（後付けで各ソースを有効化できる設計にする）。
+| **中国語ソース（知乎/CSDN/B站/少数派）** | **RSS or スクレイピング** | **Kimi API年契約内** | **Phase 2（WF08）** |
 
 ---
 
 ## 4. 自動化パイプライン（全体アーキテクチャ）
 
 ```
-【ネタ収集】
-├── GitHub API  ─────────────────┬
-├── 公式RSS（各社ブログ）          │
-├── YouTube Data API              ├──→【n8n オーケストレーター】
-├── Threads API                   │         ↓
-├── note RSS                      │  新ネタ検知・重複排除・スコアリング
-└── Perplexity API ──────────┘         ↓
-                                   【Claude API】
-                                   日本語記事自動生成
-                                            ↓
-                                   【WordPress REST API】
-                                   自動投稿（下書き or 即公開）
-                                            ↓
-                                   【配信・計測レイヤ】※NoimosAI 不使用（§5）
-                                   ├── SEO（Rank Math ＋ Search Console）
-                                   ├── SNS配信（後日・自前化 / 別途決定）
-                                   └── 週次レポート（WF-06）
+【ネタ収集・コンテンツ生成層】
+WF01: GitHub AI Trending ──────────┬
+WF02: RSS Monitor ────────────────┬
+WF03: YouTube + yt-dlp字幕 ──────┬
+WF04: Threads インフルエンサー ───┬── 言語検出（claim-llm）
+WF05: note 監視 ──────────────┬       ├─ ZH → Kimi API (moonshot-v1-128k)
+WF06: 週次トレンドレポート ────┬       ├─ EN → Claude API
+WF07: NoimosAI（Google Docs）──┤       └─ JA → Claude API
+WF08: ZH ソース（知乎/CSDN）───┤             ↓
+WF09: 9媒体横断調査（週次）───┘    著作権変換（00-copyright-transform）
+                                    要約 + 独自分析 + 出所明示
+                                         ↓
+                 【claim-crew（記者エージェント）】
+                 ├─ SKILL.md 型取材スキル（§18参照）
+                 ├─ 9媒体横断取材・情報整理・補完
+                 ├─ エージェント記憶層参照（§19参照）
+                 └─ 確度スコア付与（HIGH/MED/LOW/UNVERIFIABLE）
+                                         ↓
+                        【claim-builder + councilループ】
+                        N案生成→コンセンサス選択
+                                         ↓
+                        【claim-llm】LLM抽象層
+                                         ↓
+┌────────────────────────────────────────────────┐
+│        Claim-Auditor ゲート（全生成物必須）        │
+│  ✅ PASS        → 次工程へ                   │
+│  ❌ FAIL        → 人間レビューキュー + 記憶層蓄積│ ← INV-R1
+│  ⚠️ UNVERIFIABLE → ドラフト+フラグ表示       │ ← INV-R2
+└────────────────────────────────────────────────┘
+                    ↓ PASSのみ
+          【ビジュアル生成】
+          ├─ Mermaid図解（Kroki.ioで無料レンダリング）
+          ├─ Flux.1アイキャッチ（fal.ai ~¥1/枚）
+          └─ Higgsfield動画（英語圈SNS配信）
+                    ↓
+          【claim-security-】APIエンドポイント保護
+                    ↓
+          WordPress（下書き投稿）
+                    ↓
+          人間が最終承認・公開 ← INV-R1
+                    ↓
+          【claim-evolve】SKILL.md 自律改善ループ
 ```
 
 ### n8nワークフロー一覧
 
-| ワークフロー名 | トリガー | 処理内容 |
-|---|---|---|
-| github-trending-daily | 毎朝8:00 | GitHubトレンドAIリポジトリ取得→記事生成→投稿 |
-| rss-monitor | 30分ごと | 各社ブログRSS監視→新記事検知→日本語記事生成 |
-| youtube-new-video | 1時間ごと | 対象チャンネル新動画検知→要約→記事生成 |
-| threads-influencer | 3時間ごと | 対象アカウント投稿収集→まとめ記事生成 |
-| note-monitor | 1時間ごと | note RSS監視→AI関連記事抽出→転載記事生成 |
-| weekly-trend-report | 毎週月曜 | Perplexity でトレンド検索→週次まとめ記事生成 |
+| # | ワークフロー名 | トリガー | 処理内容 |
+|---|---|---|---|
+| 01 | github-trending-daily | 毎朝8:00 | GitHubトレンドAIリポジトリ取得→記事生成→Auditor→投稿 |
+| 02 | rss-monitor | 30分ごと | 各社ブログRSS監視→新記事検知→日本語記事生成→Auditor→投稿 |
+| 03 | youtube-new-video | 1時間ごと | 新動画検知→**yt-dlp字幕取得**→要約→記事生成→Auditor→投稿 |
+| 04 | threads-influencer | 3時間ごと | 対象アカウント投稿収集→まとめ記事生成→Auditor→投稿 |
+| 05 | note-monitor | 1時間ごと | note RSS監視→AI関連記事抽出→転載記事生成→Auditor→投稿 |
+| 06 | weekly-trend-report | 毎週月曜 | Perplexityでトレンド検索→週次まとめ記事生成→Auditor→投稿 |
+| 07 | noimosai-google-docs | Google Drive新規ファイル | NoimosAI記事取得→Claude整形→Auditor→投稿 |
+| 08 | zh-sources | スケジュール or RSS | 知乎/CSDN/B站取得→Kimi ZH→JA変換→著作権変換→Auditor→投稿 |
+| **09** | **multi-source-research** | **週次 or オンデマンド** | **9媒体横断（GitHub/RSS/YT/Threads/note/Reddit/HN/ZH/NoimosAI）→確度スコア付き引用要約→Auditor→深掘り記事生成** |
 
-### プロンプト管理
+### プロンプト・スキル管理
 
-Claude API へ送るプロンプトは `n8n/prompts/` ディレクトリで Markdown ファイルとして Git 管理する。
-ワークフロー JSON へのハードコードは禁止。プロンプト変更は PR でレビューし、品質のPDCAを回す。
+Claude API / Kimi API へ送るプロンプトは `n8n/prompts/` で、エージェントの行動規律は `n8n/skills/` で Git 管理する。ワークフロー JSON へのハードコードは禁止。
+
+#### n8n/prompts/ — プロンプトテンプレート
 
 | ファイル | 用途 |
 |---|---|
+| `n8n/prompts/00-copyright-transform.md` | 著作権コンプライアンス変換（全WF共通・最優先） |
 | `n8n/prompts/article-base.md` | 全ワークフロー共通の記事フォーマット指示 |
-| `n8n/prompts/01-github-trending.md` | GitHubトレンド記事生成プロンプト |
-| `n8n/prompts/02-rss-summary.md` | RSSフィード要約プロンプト |
-| `n8n/prompts/03-youtube-summary.md` | YouTube動画要約プロンプト |
-| `n8n/prompts/04-threads-summary.md` | Threadsまとめプロンプト |
-| `n8n/prompts/05-note-summary.md` | note記事要約プロンプト |
-| `n8n/prompts/06-weekly-report.md` | 週次トレンドレポートプロンプト |
+| `n8n/prompts/01-github-trending.md` | GitHubトレンド記事生成 |
+| `n8n/prompts/02-rss-summary.md` | RSSフィード要約 |
+| `n8n/prompts/03-youtube-summary.md` | YouTube動画要約（字幕ベース） |
+| `n8n/prompts/04-threads-summary.md` | Threadsまとめ |
+| `n8n/prompts/05-note-summary.md` | note記事要約 |
+| `n8n/prompts/06-weekly-report.md` | 週次トレンドレポート |
+| `n8n/prompts/07-noimosai-format.md` | NoimosAI記事整形 |
+| `n8n/prompts/08-kimi-zh.md` | Kimi API ZH→JA変換（WF08専用） |
 
----
+#### n8n/skills/ — エージェントスキル（§18参照）
 
-## 5. 配信・マーケティング自動化（NoimosAI は今回不使用）
-
-> **決定（2026-08-08）**: **NoimosAI（外部SaaS）は今回スコープから外す**。
-> 理由: (1) 外部SaaSであり本体コードに統合できない、(2) SNS配信は既存/自前で代替可能で重複、
-> (3) 送信前の人間承認（INV-R1）を外部SaaSの自動投稿に依存できない。
-> → **SNS配信は「後日・自前化 or 別途決定」**とし、当面は **WordPress への下書き生成までを本線**とする。
-> 旧「NoimosAI連携（A: マーケ自動化 / B: 商材紹介）」は破棄。SEO/計測は下記の SaaS 非依存手段で賄う。
-
-### 5-1. 当面の配信・計測（WordPress ネイティブ・SaaS非依存）
-
-| 役割 | 手段 | 状態 |
+| ファイル | エージェント | 機能 |
 |---|---|---|
-| SEO最適化・Sitemap | Rank Math（§9） | 採用 |
-| 検索計測 | Google Search Console | 採用 |
-| アクセス計測 | GA4 | 採用 |
-| 新記事の配信トリガー | `/feed`（WordPress標準RSS） | 採用（メルマガ §16 M7 の起点） |
-
-### 5-2. SNS配信（後日・自前化）
-
-- SNS自動投稿（X・Threads・YouTube・TikTok・note・Instagram）は **後日**実装（§3「SNS API 後日」方針と整合）。
-- 実装時は **送信をデフォルトOFF・下書き/ドライラン既定**（`reporters/wp_client.mjs` の `status:draft`、
-  `scripts/e2e_smoke.mjs` の `--offline` と同型）にし、**人間承認を挟んでから送信**（INV-R1）。
-- 方式（各SNSの直API か 中間サービス Typefully/Pencil 等か）は **未確定**。着手前に本節へ追記して確定する。
-
-### 5-3. WordPress 側エンドポイント（配信・計測用・SaaS非依存）
-
-| エンドポイント | 用途 |
-|---|---|
-| `/feed`（WordPress標準RSS） | 新記事の自動検知・配信/メルマガのトリガー |
-| `/sitemap.xml` | Google Search Console・SEO 用 |
-| `/wp-json/wp/v2/posts` | パイプラインからの投稿（Application Password・§13） |
+| `n8n/skills/skill-base.md` | 全エージェント | 共通ヘッダー・フェーズ定義 |
+| `n8n/skills/01-trending-researcher.md` | claim-crew | GitHub/HN/Reddit横断取材 |
+| `n8n/skills/02-rss-reporter.md` | claim-crew | RSS多媒体取材 |
+| `n8n/skills/03-video-reporter.md` | claim-crew | YouTube字幕取材（yt-dlp） |
+| `n8n/skills/04-social-reporter.md` | claim-crew | SNS横断取材 |
+| `n8n/skills/10-article-writer.md` | claim-builder | 記事生成・構造化 |
+| `n8n/skills/11-seo-meta-writer.md` | claim-builder | 英語SEOメタ生成 |
+| `n8n/skills/20-auditor-gate.md` | claim-auditor | ファクトチェック+著作権検証 |
+| `n8n/skills/30-wp-publisher.md` | n8n | WordPress投稿 |
+| `n8n/skills/90-evolve-loop.md` | claim-evolve | SKILL.md自律改善ループ |
 
 ---
 
-## 6. GitHubトレンドコンテンツ（独自コンテンツとして作成）
+## 5. Claim Platform連携戦略
 
-### 判断理由：既存アカウントの転載ではなく自前で作る
+**核心思想**: パイプライン自体がClaim Platformのユースケースデモであり、「AIナビを動かすために使ったツールの紹介」自体が最強の宣伝媒体となる。
 
-- **SEO**: オリジナルコンテンツのため検索流入が取れる
-- **差別化**: 単なるリポジトリ紹介に留まらず「日本語解説＋使い方＋連携方法」まで踏み込む
-- **API**: GitHub APIは公式・無料で使いやすい
+### 5-1. 各プロダクトの役割
+
+| プロダクト | パイプライン内の役割 | 宣伝切り口 |
+|---|---|---|
+| **claim-auditor** | 全生成物のファクトチェック + 著作権コンプライアンスゲート | 「このメディアは全記事をAuditor検証済」 |
+| **claim-crew** | SKILL.md型記者エージェント（9媒体横断取材・整理） | 「AIエージェントが仮想記者として取材」 |
+| **claim-builder + council** | 記事品質向上（N案生成→コンセンサス選択） | 「複数Claudeの協議で記事を生成」 |
+| **claim-llm** | LLM抽象層（言語検出・ルーティング・NetworkPolicy） | 「LLM呼び出しを安全に制御」 |
+| **claim-security-** | APIエンドポイント保護・アドミッションサンドイッチ | 「AIシステムのセキュリティを定式化」 |
+| **claim-evolve** | SKILL.md自律改善ループ | 「記事品質が自律進化する仕組み」 |
+
+### 5-2. Auditorゲートの詳細
+
+**大前提: 全ソースの全生成物に対してAuditorを通す。例外なし。GitHubコンテンツも含む。**
+
+| 生成物 | チェック対象 | 判定基準 |
+|---|---|---|
+| NoimosAI記事本文 | 事実主張・数値・固有名詞 | ソース確認可能か |
+| GitHubトレンド記事 | スター数・技術説明・トレンド予測 | GitHub API値と照合 |
+| RSS・YouTube要約 | オリジナルソースとの整合性 | URL履歴と照合 |
+| ZH翻訳記事（Kimi経由） | 著作権5要件 + 翻訳ラベル | 著作権コンプライアンスチェッカー |
+| EN翻訳記事 | 著作権5要件 + 翻訳ラベル | 著作権コンプライアンスチェッカー |
+| 9媒体横断調査記事 | 確度スコア LOW 以下の主張 | 確度スコア閾値チェック |
+| Mermaid図解 | 図が本文と整合するか | 構造的一貫性 |
+| SEOメタ（タイトル/description） | 誇大表現・事実誤認 | 本文との整合性 |
+
+### 5-3. 宣伝コンテンツ戦略
+
+```
+「この記事はclaim-auditorでファクトチェック済み」→ バッジ表示
+「claim-crewのAI記者が9媒体を横断取材」→ 記事の著者欄に記載
+「複数Claudeの議論で生成」→ councilループを記事内で言及
+「セキュリティスキャン済み」→ claim-security-のバッジ
+```
+
+---
+
+## 6. NoimosAI連携 + Kimi ZH連携
+
+### 6-1. NoimosAIの役割：JA/EN編集長（戦略脳）
+
+```
+NoimosAI
+├── キーワード戦略立案（SEOリサーチ）
+├── 記事構成・本文生成（SEO最適化済み）
+├── Google Docsへ書き出し
+└── SNSエージェントで配信拡散
+```
+
+### 6-2. Kimiの役割：ZH編集長（中国語情報源処理）
+
+```
+Kimi（Moonshot AI / moonshot-v1-128k）
+├── 中国語ソース取得（知乎/CSDN/B站/少数派等）
+├── ZH→JA 翻訳+要約+著作権変換（全文翻訳禁止）
+├── 長文技術記事の一括処理（200K tokenコンテキスト）
+└── OpenAI互換API → n8n HTTP Requestノードで直接呼び出し
+```
+
+**n8n WF08 接続設定（HTTP Requestノード）**:
+```
+URL:    https://api.moonshot.cn/v1/chat/completions
+Method: POST
+Auth:   Bearer {{ $env.KIMI_API_KEY }}
+Body:   { "model": "moonshot-v1-128k", "messages": [...] }
+```
+
+### 6-3. LLM役割分担表
+
+| 層 | 担当 | 内容 |
+|---|---|---|
+| ZH編集長 | Kimi | ZHソース翻訳・要約・加工 |
+| JA/EN編集長 | NoimosAI | キーワード戦略・SEO設計・記事本文 |
+| 入稿担当 | Claude API | WordPress用整形・カテゴリ/タグ割り当て |
+| LLMルーティング | claim-llm | 言語検出→Kimi/Claude振り分け |
+| 質保証 | Claim-Auditor | 全記事の事実検証 + 著作権コンプライアンス |
+| 自動化 | n8n | 全体パイプライン制御 |
+
+### 6-4. ワークフロー07 — NoimosAI→Google Docs→n8n
+
+```
+NoimosAI（記事生成）
+    ↓
+Google Docs（SEOメタデータ付き記事）
+    ↓ Google Drive Trigger（新規ファイル検知）
+n8n WF07
+    ↓
+Claude API（WordPress用HTML整形 + カテゴリ/タグ割り当て）
+    ↓
+Claim-Auditorゲート
+    ↓ PASS
+WordPress（下書き）
+```
+
+### 6-5. ワークフロー08 — ZHソース→Kimi→n8n
+
+```
+ZHソース（RSS or スクレイピング）
+    ↓
+Kimi API（ZH→JA翻訳+要約 / 08-kimi-zh.md）
+    ↓
+著作権変換（00-copyright-transform.md適用）
+    ↓
+Claude API（日本語品質仕上げ + 構造統一）← オプション
+    ↓
+Claim-Auditor（copyright_compliance: cross_lingual=ZH）
+    ↓ PASS
+WordPress（下書き）
+```
+
+---
+
+## 7. ビジュアル自動化戦略（80/15/5ルール）
+
+全記事に豪華な画像は不要。役割分担によりブランドイメージとコスト効率を両立する。
+
+| 割合 | 種別 | ツール | コスト |
+|---|---|---|---|
+| **80%** | 図解・フロー | Mermaid.js + Kroki.io | 無料 |
+| **15%** | アイキャッチ静止画 | Flux.1 / fal.ai | ~¥1/枚 |
+| **5%** | 動画（英語圈SNS向け） | Higgsfield AI | 高価値記事のみ |
+
+### Mermaid + Kroki.io（図解）
+
+```
+n8n → Claude API（Mermaidコード生成）→ Kroki.io API（無料レンダリング）→ WordPress img埋め込み
+```
+
+備考: 月100記事以上はKroki.ioをDockerセルフホスト推奨。
+
+### Flux.1 / fal.ai（アイキャッチ）
+- DALL-E 3比1/10以下のコストで同等品質 / 必要環境変数: `FAL_API_KEY`
+
+### Higgsfield AI（動画・英語圈拡大）
+- 高価値記事の5%のみ / YouTube Shorts / TikTok / Instagram Reels（英語）→ WP記事へ誘導
+
+---
+
+## 8. 言語戦略（JAメイン + EN圈ターゲット）
+
+| 層 | 言語 | 内容 | 実装タイミング |
+|---|---|---|---|
+| 記事本文 | 日本語 | 全記事 | Phase 1（現在） |
+| SEOメタ | 英語 | title / description / slug / alt | Phase 1（全記事に並走） |
+| 英語翻訳記事 | 英語 | 高価値記事のみ別投稿 | Phase 2 |
+| SNS配信 | 英語 | Higgsfield動画 + YouTube / TikTok | Phase 2 |
+| ZH→JA 翻訳記事 | 日本語（翻訳ラベル付き） | Kimi経由 | Phase 2（WF08） |
+
+---
+
+## 9. GitHubトレンドコンテンツ
 
 ### 取得ロジック
 
 ```
-GitHub API Search
-└── q: topic:ai OR topic:llm OR topic:claude OR topic:openai
-    created: >YYYY-MM-DD（過去7日間）
-    sort: stars（スター数降順）
-    
-→ Claude APIで日本語化
-  ・リポジトリ名・説明の翻訳
-  ・「何ができるか」「誰に使えるか」「使い方」を生成
-  ・難易度タグ付与（入門/中級/上級）
-  
-→ WordPress自動投稿
-  カテゴリ: GitHubトレンド
-  タグ: 言語・トピック・スター数帯
+GitHub API Search（topic:ai OR topic:llm / 過去7日 / sort:stars）
+    ↓
+claim-crew: 難易度タグ付与（入門/中級/上級）+ 英語SEOメタ並行生成
+    ↓
+Claim-Auditorゲート（スター数はAPI直接取得=PASS / 予測発言=UNVERIFIABLE）
+    ↓
+WordPress自動投稿（カテゴリ: GitHubトレンド）
 ```
 
 ---
 
-## 7. サンドボックス環境
-
-本番デプロイ前にローカルで全パイプラインをテストできる環境。
+## 10. サンドボックス環境
 
 ### 起動方法
 
 ```bash
-cp .env.example .env        # APIキーを .env に設定
-docker-compose up -d        # 全サービスをバックグラウンドで起動
+cp .env.example .env
+docker-compose up -d
 ```
 
 ### サービス構成
@@ -224,65 +368,61 @@ docker-compose up -d        # 全サービスをバックグラウンドで起�
 
 | 変数名 | 説明 |
 |---|---|
-| `MYSQL_ROOT_PASSWORD` | MySQL root パスワード |
-| `MYSQL_PASSWORD` | WordPress 用 DB パスワード |
+| `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` | MySQL パスワード |
 | `N8N_USER` / `N8N_PASSWORD` | n8n 管理画面ログイン |
 | `ANTHROPIC_API_KEY` | Claude API キー |
+| `KIMI_API_KEY` | Moonshot AI APIキー（WF08 ZHソース処理用） |
 | `GITHUB_TOKEN` | GitHub Personal Access Token |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 キー |
 | `PERPLEXITY_API_KEY` | Perplexity API キー |
-| `WP_APP_PASSWORD` | WordPress Application Password（WP起動後に設定） |
+| `WP_APP_PASSWORD` | WordPress Application Password（ローカルサンドボックス / Basic認証用） |
+| `WP_BEARER_TOKEN` | WordPress.com OAuth2 access_token（本番 / Bearer認証用。§24参照） |
+| `FAL_API_KEY` | fal.ai API キー（Flux.1アイキャッチ用） |
+| `GOOGLE_DRIVE_CREDENTIALS` | Google Drive API認証（WF07用） |
 
-### サンドボックスで検証できること
+### サンドボックス検証チェックリスト
 
-- [ ] `docker-compose up -d` → WordPress が http://localhost:8080 で応答
-- [ ] n8n が http://localhost:5678 で応答
-- [ ] ワークフロー01（GitHub AI Trending）手動実行 → WP下書き記事作成
-- [ ] ワークフロー02（RSS Monitor）手動実行 → WP下書き記事作成
-- [ ] Claude API がJSON構造の記事を返す
-- [ ] WordPress REST API POST `/wp-json/wp/v2/posts` → 201レスポンスと記事ID
-- [ ] RSS / Sitemapの出力確認（`/feed`・`/sitemap.xml`）
+- [ ] `docker-compose up -d` → WP/n8n 応答確認
+- [ ] WF01 手動実行 → Auditor PASS → WP下書き作成
+- [ ] WF03 手動実行 → yt-dlp字幕取得 → 記事生成 → Auditor → WP下書き
+- [ ] WF08 手動実行 → Kimi API → 著作権変換 → Auditor → WP下書き
+- [ ] WF09 手動実行 → 9媒体横断 → 確度スコア付与 → Auditor → WP下書き
+- [ ] エージェント記憶層 SQLite 初期化 → 読み書き確認
+- [ ] WordPress REST API POST `/wp-json/wp/v2/posts` → 201 + 記事ID
 
 ---
 
-## 8. 技術スタック
+## 11. 技術スタック
 
 | 層 | 技術 | 備考 |
 |---|---|---|
 | CMS | WordPress | ホスティング先未確定 |
-| テーマ | カスタムテーマ（Astra + Elementorまたはフルカスタム） | 要検討 |
 | オーケストレーター | n8n | セルフホスト or n8n.cloud |
-| コンテンツ生成AI | Claude API（Anthropic） | メイン |
-| コンテンツ生成AI | OpenAI GPT API | サブ・比較用 |
-| マーケティング自動化 | （NoimosAI は今回不使用・§5）SNS配信は後日・自前化 | — |
+| コンテンツ生成AI | Claude API（Anthropic） | メイン（入稿・整形・Mermaid生成） |
+| ZH言語処理 | Kimi（Moonshot AI / moonshot-v1-128k） | ZHソース翻訳・加工（年契約済） |
+| 戦略・SEO | NoimosAI | 編集長役 |
+| 記者エージェント | claim-crew | SKILL.md型・9媒体横断取材 |
+| コンテンツ品質 | claim-builder + council | N案生成→コンセンサス選択 |
+| ファクトチェックゲート | claim-auditor | 全生成物必須（著作権コンプライアンス含む） |
+| LLM制御 | claim-llm | 言語検出・ルーティング・抽象層 |
+| API保護 | claim-security- | エンドポイントセキュリティ |
+| 継続改善 | claim-evolve | SKILL.md自律改善ループ |
+| **エージェント記憶層** | **SQLite + sqlite-vec** | **claim-crew 4層記憶（§19参照）** |
+| **字幕取得** | **yt-dlp** | **YouTube字幕抽出（WF03）** |
 | SEOプラグイン | Rank Math（無料） | Search Console連携 |
-| 画像生成（将来） | DALL-E 3 or Stable Diffusion | アイキャッチ自動生成 |
+| 図解生成 | Mermaid.js + Kroki.io | 完全無料 |
+| アイキャッチ画像 | Flux.1 / fal.ai | ~¥1/枚 |
+| 動画生成 | Higgsfield AI | 高価値記事・EN市場向け |
 | ローカル開発 | Docker Compose | サンドボックス |
-| 開発ツール | Claude Code + WordPress MCP | WordPress 直操作（§13参照） |
-
-### WordPress 認証方式
-
-| 環境 | 認証方式 | 備考 |
-|---|---|---|
-| ローカル（サンドボックス） | Application Passwords | n8n HTTP Header Auth（Basic）で設定 |
-| 本番（WordPress.com） | Application Passwords | OAuth Token より有効期限の問題が少ない |
-
-Application Passwords は WordPress 管理画面 → ユーザー → プロフィール → アプリケーションパスワード から生成。
-`Authorization: Basic base64(username:app_password)` をヘッダーに付与。
-
-**認証切り替えの履歴**:
-
-| 旧方式 | 新方式 | 切り替え理由 |
-|---|---|---|
-| OAuth Token（WordPress.com） | Application Passwords | トークン有効期限なし・設定簡単 |
+| 開発ツール | Claude Code + WordPress MCP | WordPress 直操作（§16参照） |
 
 ---
 
-## 9. WordPressプラグイン構成
+## 12. WordPressプラグイン構成
 
 | プラグイン | 用途 | コスト |
 |---|---|---|
-| Rank Math SEO | SEO最適化・Sitemapクラス | 無料 |
+| Rank Math SEO | SEO最適化・Sitemap生成 | 無料 |
 | WP REST API | n8nからの自動投稿 | WordPress標準 |
 | Classic Editor | n8nからの投稿に対応 | 無料 |
 | WP Super Cache | 表示高速化 | 無料 |
@@ -291,88 +431,94 @@ Application Passwords は WordPress 管理画面 → ユーザー → プロフ�
 
 ---
 
-## 10. 実装フェーズ
+## 13. 実装フェーズ
 
 ### Phase 0：サンドボックス構築（進行中）
 - [x] 要件定義書作成
 - [x] docker-compose.yml 作成（WordPress + n8n + MySQL）
-- [x] .env.example 作成（APIキープレースホルダー）
+- [x] .env.example 作成
 - [x] n8nワークフロー雛形作成（01〜06）
-- [x] n8n/prompts/ ディレクトリ作成（7ファイル）
+- [x] n8n/prompts/ ディレクトリ作成（9ファイル）
 - [x] SETUP_GUIDE.md エラーハンドリング拡充
 - [x] MCP サーバー設定（Claude Code ↔ WordPress）
-- [ ] WordPress 初回セットアップ（管理画面・Application Password 発行）
-- [ ] エンドツーエンドサンドボックステスト（§7 チェックリスト全項目）
+- [x] 著作権コンプライアンスプロンプト（00-copyright-transform.md）
+- [ ] Claim-Auditorゲートをn8nに組み込み（WF01〜09）
+- [ ] Mermaid + Kroki.io 図解自動挿入実装
+- [ ] yt-dlp 字幕取得ノード実装（WF03）
+- [ ] エージェント記憶層 SQLite 初期化スクリプト
+- [ ] n8n/skills/ ディレクトリ作成（SKILL.md 10ファイル）
+- [ ] WordPress 初回セットアップ（Application Password 発行）
+- [ ] エンドツーエンドサンドボックステスト
 
 ### Phase 1：コアパイプライン（ホスティング確定後）
 - [ ] 本番WordPressセットアップ
-- [ ] GitHub Trendingワークフロー稼働
-- [ ] 公式RSSワークフロー稼働
-- [ ] 配信・計測レイヤ稼働（Rank Math ＋ Search Console ＋ GA4 ＋ `/feed`・§5）
+- [ ] WF01-02 稼働（Auditorゲート付き）
+- [ ] NoimosAI初期連携（WF07）
+- [ ] WF08稼働（知乎/CSDN/B站 → Kimi → JA記事）
+- [ ] Flux.1アイキャッチ実装
+- [ ] 英語SEOメタ並行生成
+- [ ] SKILL.md形式への移行（n8n/skills/ 運用開始）
 
-### Phase 2：SNS拡張
-- [ ] YouTube APIワークフロー追加
-- [ ] Threads APIワークフロー追加
-- [ ] note RSSワークフロー追加
-- [ ] SNS配信の自前実装（後日・API取得後・§5-2）
+### Phase 2：SNS拡張・EN市場・記憶層
+- [ ] WF03-05 稼働（YouTube/Threads/note）
+- [ ] WF09 稼働（9媒体横断調査・確度スコア付き）
+- [ ] エージェント記憶層本番稼働（claim-crew 4層記憶）
+- [ ] NoimosAI SNSエージェント全連携
+- [ ] Higgsfield動画実装（英語圈SNS）
+- [ ] claim-crew 記者エージェント本格統合
+- [ ] claim-evolve SKILL.md自律改善ループ稼働
 
 ### Phase 3：マネタイズ・ノウハウ化
 - [ ] このサイト構築プロセスの記事化
+- [ ] 「Claim Platformで動くメディア」としてブランド化
 - [ ] 有料SNSソース（X API等）追加
 - [ ] UGCプロンプト投稿機能
-- [ ] アイキャッチ画像自動生成
+- [ ] 英語全文翻訳記事（高価値記事）
 
 ---
 
-## 11. エラー対応方鷑
+## 14. エラー対応方針
 
-本番・サンドボックス共通のエラーハンドリング方鷑。詳細な対処手順は `n8n/SETUP_GUIDE.md` の「エラーハンドリング」セクションを参照。
-
-| エラー | 原因 | 対応方鷑 |
+| エラー | 原因 | 対応方針 |
 |---|---|---|
 | `401 Unauthorized` | トークン・App Password 無効 | 再発行・再設定 |
 | `403 Forbidden` (GitHub) | API レート制限 | Conditional header / Wait ノード追加 |
-| `429 Too Many Requests` | Claude API レート制限 | Retry on Fail 設定 + 60秒待機 |
+| `429 Too Many Requests` | Claude / Kimi API レート制限 | Retry on Fail 設定 + 60秒待機 |
 | `529 Overloaded` (Claude) | Claude API 過負荷 | 指数バックオフ（Wait ノード） |
 | `410 Gone` (WordPress) | REST API エンドポイント変更 | WP バージョン確認・エンドポイント更新 |
+| Auditor FAIL | 事実誤認 or 著作権違反 | 人間レビューキューに転送 + 記憶層蓄積 |
 | n8n タイムアウト | 処理時間超過 | ワークフローを分割・非同期化 |
 | RSS 404 | RSS URL 変更 | 実際のサイトでURLを再確認 |
+| Kimi API エラー | ZHソース取得失敗 | WF08 Retry on Fail + フォールバック処理 |
+| yt-dlp エラー | 字幕なし or 地域制限 | テキスト説明文（description）にフォールバック |
+| 記憶層クエリ失敗 | SQLite アクセスエラー | ログ記録してスキップ（記憶なしで継続） |
 
 ---
 
-## 12. 未確定事項（要確認）
+## 15. 未確定事項（要確認）
 
 | 項目 | ステータス | 確認予定 |
 |---|---|---|
-| WordPressホスティング先 | **確定** — WordPress.com（`liquitex929aa21393-eyqci.wordpress.com`、CLAUDE.md §6 と整合） | 済（2026-08-15 反映） |
-| n8n運用方式（セルフホスト or クラウド） | **確定** — n8n cloud（`liquitex-coder.app.n8n.cloud`） | 済（2026-08-15 反映） |
+| WordPressホスティング先 | **未確定** | オーナー確認後 |
+| n8n運用方式（セルフホスト or クラウド） | 未確定 | ホスティング決定後 |
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
-| ドメイン | 未確定（当面は WordPress.com サブドメインで運用） | 要相談 |
-| Claude APIキー / OpenAI APIキー | 保有確認必要（**G2 実疎通の前提** — §17） | 要確認 |
-| SNS/動画 API 取得（YouTube・Threads・X 等） | **後日**（キー取得後に配線） | オーナー確認後 |
-| 動画ホスティング（YouTube一次 or 自前） | 提案: YouTube埋め込み（§20-4） | 要確認 |
-| 動画制作の自動化度（手動→半自動→自動） | 段階導入（§20-3 Stage A→C） | 要検討 |
-| TTS / 画面録画 / 編集ツールの選定 | 未確定（§20-7） | 要検討 |
+| ドメイン | 未確定 | 要相談 |
+| Higgsfield APIアクセス・コスト | 要確認 | Phase 2開始前 |
+| claim-auditorのn8n組み込み方法 | HTTP API or CLI | 要設計 |
+| ZHソースのスクレイピング方法 | RSS or Apify | WF08実装時に決定 |
+| 日本語Embeddingモデル選定 | multilingual-e5-small 候補 | 記憶層実装時に決定 |
+| Reddit API レート制限 | 無料枠確認必要 | WF09実装時 |
 
 ---
 
-## 13. 開発ツール（MCP サーバー）
+## 16. 開発ツール（MCP サーバー）
 
 ### 概要
 
-Claude Code から WordPress REST API を直接操作するための MCP（Model Context Protocol）サーバー。
-n8n ワークフローを経由せず、開発・デバッグ・コンテンツ確認を Claude Code 上で完結できる。
+Claude Code から WordPress REST API を直接操作するための MCP サーバー。
 
 ```
-【Claude Code (開発時)】
-      ↓ MCP protocol (stdio)
-【wordpress-mcp.js】
-      ↓ HTTP + Basic Auth
-【WordPress REST API】
-  /wp-json/wp/v2/posts
-  /wp-json/wp/v2/categories
-  /wp-json/wp/v2/tags
-  /wp-json/wp/v2/media
+【Claude Code (開発時)】→ MCP protocol (stdio) →【wordpress-mcp.js】→ HTTP + Basic Auth →【WordPress REST API】
 ```
 
 ### 構成ファイル
@@ -383,773 +529,514 @@ n8n ワークフローを経由せず、開発・デバッグ・コンテンツ�
 | `mcp/wordpress-mcp.js` | WordPress CRUD MCP サーバー本体（Node.js ESM） |
 | `mcp/package.json` | 依存パッケージ（`@modelcontextprotocol/sdk`） |
 
-### 提供ツール一覧
-
-| ツール名 | 説明 |
-|---|---|
-| `wp_get_site_info` | サイト情報（名前・URL・バージョン）取得 |
-| `wp_list_posts` | 投稿一覧（status・キーワード・カテゴリでフィルター） |
-| `wp_get_post` | 投稿 ID 指定で詳細取得 |
-| `wp_create_post` | 新規投稿作成（title・content・status・categories・tags） |
-| `wp_update_post` | 既存投稿の更新 |
-| `wp_delete_post` | 投稿をゴミ箱へ移動（force=true で完全削除） |
-| `wp_list_categories` | カテゴリ一覧取得 |
-| `wp_list_tags` | タグ一覧取得（キーワード検索可） |
-| `wp_create_category` | 新規カテゴリ作成 |
-| `wp_create_tag` | 新規タグ作成 |
-
 ### セキュリティ考慮
 
-- 認証情報は **環境変数** で管理（`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`）
-- `.claude/settings.json` に資格情報をハードコードしない
+- 認証情報は環境変数で管理（`WP_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`）
 - MCP サーバーはローカルプロセスとして stdio 通信（外部ポート不使用）
-- 本番 WordPress への誤操作防止：`status: 'draft'` がデフォルト（明示しないと公開されない）
+- 本番 WordPress への誤操作防止：`status: 'draft'` がデフォルト
 
-### セットアップ手順
+---
+
+## 17. 著作権コンプライアンス（Auditorプラグイン）
+
+### 17-1. 引用5要件（著作権法32条）と Auditor マッピング
+
+| 引用5要件 | Auditorチェック | 実装方法 | LLM-free |
+|---|---|---|---|
+| ①主従関係 | 生成字数 / 引用字数 > 2.0 | 字数カウント | ✅ |
+| ②明瞭区別 | `<blockquote>` または `>` が存在 | 正規表現 | ✅ |
+| ③必要性 | `##` 見出しブロック ≥ 3 | 構造チェック | ✅ |
+| ④出所明示 | 記事内に原文URLが存在 | URL検出 | ✅ |
+| ⑤改変禁止 | 同言語: blockquote内テキスト類似度 > 0.85 | difflib | ✅ |
+
+### 17-2. 4シナリオ別ルール
+
+| シナリオ | 位置づけ | ⑤ | 追加要件 |
+|---|---|---|---|
+| JA→JA | 引用（32条） | difflib | — |
+| EN→JA | 翻案（27条） | 免除 | 翻訳ラベル必須 |
+| ZH→JA | 翻案 + ベルヌ条約 | 免除 | 翻訳ラベル必須 |
+| JA→EN | 自著翻訳 | 不適用 | Phase 2のみ |
+
+### 17-3. 翻訳シナリオ追加チェック（cross-lingual）
+
+```python
+def check_cross_lingual(source_url, generated_text):
+    required = (
+        ("本記事は" in generated_text and "翻訳" in generated_text)
+        and source_url in generated_text
+    )
+    optional = (generated_text.count("##") >= 3)
+    return "PASS" if (required and optional) else "FAIL"
+```
+
+### 17-4. SNS投稿での注意
+
+- スクリーンショット投稿は原則NG
+- 最も安全: リンクのみ + 自分の意見（WF04 Threadsも同ルール適用）
+
+---
+
+## 18. エージェントスキル体系（agent-skills 応用）
+
+> **参考**: `addyosmani/agent-skills`（MIT License）のアイデアを採用・発展。コードは使用しない。
+
+### 18-1. コンセプト
+
+AIエージェントの行動規律を **SKILL.md 単位で型化・独立管理** する。
+現在の `n8n/prompts/*.md`（プロンプトテンプレート）を超えて、各エージェントの**フェーズ・入出力・品質条件**まで含めた実行仕様として定義する。
+
+```
+n8n/prompts/*.md   → 「何を生成するか」のテンプレート（現状）
+n8n/skills/*.md    → 「どのフェーズで何をすべきか」の行動仕様（追加）
+```
+
+### 18-2. SKILL.md 構造
+
+各スキルファイルは以下の構造を持つ:
+
+```markdown
+---
+skill: article-generation
+version: 1.0
+agent: claim-crew
+phase: BUILD
+inputs: [source_url, source_text, language, confidence_score]
+outputs: [article_markdown, seo_meta_en, confidence_score_updated]
+auditor_required: true
+memory_read: [facts, scenes]
+memory_write: [scenes]
+---
+
+### DEFINE（取材対象の定義）
+...
+
+### PLAN（取材角度・情報源の設計）
+...
+
+### BUILD（記事生成・変換）
+...
+
+### REVIEW（claim-auditor ゲート）
+PASS条件: 著作権5要件 + 確度スコア >= MED + 出典明記
+FAIL時: 人間レビューキュー + 記憶層のfacts層にFAIL事例を格納
+
+### SHIP（WordPress投稿）
+...
+```
+
+### 18-3. Rationalizations Table → Auditor 統合
+
+agent-skills の「言い訳ブロックリスト」を claim-auditor のプレフライトチェックに統合する:
+
+| 言い訳パターン（NGフレーズ） | Auditor 判定 |
+|---|---|
+| 「動くはずです」「動くと思います」 | FAIL — テスト出力なし |
+| 「たぶん大丈夫」「おそらく」 | FAIL — 根拠なし主張 |
+| 「あとで確認します」 | FAIL — 未検証のまま投稿 |
+| 「URLだけ貼っておきます」 | FAIL — 出典不備（§17参照） |
+| 「引用なので問題ない」（要件未確認） | UNVERIFIABLE — 5要件チェック必要 |
+
+### 18-4. claim-evolve による SKILL.md 自律改善ループ
+
+```
+記事投稿 → WordPress アクセス解析
+    ↓
+claim-evolve: 低パフォーマンス記事の担当 SKILL.md を特定
+    ↓
+DEFINE / PLAN フェーズの改善案を生成（councilループ）
+    ↓
+claim-auditor が改善案を検証（ハルシネーション・品質後退チェック）
+    ↓
+SKILL.md を PR 経由で更新（人間レビュー後マージ）
+    ↓
+次回から改善版 SKILL.md が稼働
+```
+
+---
+
+## 19. エージェント記憶層（TencentDB-Agent-Memory 応用）
+
+> **参考**: `TencentCloud/TencentDB-Agent-Memory`（MIT License）のアイデアを採用・発展。コードは使用しない。
+
+### 19-1. コンセプト
+
+claim-crew の記者エージェントが **4層の記憶** を持ち、過去の取材コンテキストを活かして質の高い記事を継続生成する。同じ情報を何度も調査する無駄を排除し、ブランドトーンの一貫性を保つ。
+
+### 19-2. claim-crew の4層記憶設計
+
+| 層 | 内容 | 例 | 保持期間 |
+|---|---|---|---|
+| **会話層** | 現在の記事ブリーフ・取材指示 | 「今日はClaude 4の新機能について書く」 | セッション中のみ |
+| **事実層** | 検証済みソース + Auditor FAIL事例の蓄積 | 「GPT-5パラメータ数は非公開（UNVERIFIABLE実績）」 | 永続 |
+| **シーン層** | 過去記事のコンテキスト（重複防止） | 「先週 agent-skills 記事を投稿済み（URL）」 | 90日間 |
+| **ペルソナ層** | サイトトーン・禁止表現・ブランドガイドライン | 「誇大表現禁止・断言より確認を促す表現」 | 永続（人間管理） |
+
+### 19-3. Auditor FAIL 事例の学習ループ
+
+```
+Auditor FAIL 発生
+    ↓
+FAIL理由 + 元テキスト + ソースURLを事実層に格納
+    ↓
+次回同テーマの取材時に WideSearch で参照
+    ↓
+「前回この主張は検証不能だった」と claim-crew に通知
+    ↓
+取材角度を変えて別ソースで裏取りを試みる
+```
+
+### 19-4. 重複コンテンツ防止（シーン層活用）
+
+```
+新記事生成前
+    ↓
+シーン層を類似度検索
+    ↓
+類似度 > 0.85 の過去記事が存在する場合
+    → 「差分情報」「新角度」「アップデート記事」としてリフレーム指示
+    → 全文重複なら生成スキップ + ログ記録
+```
+
+### 19-5. 技術実装方針
+
+| 項目 | 選択 | 理由 |
+|---|---|---|
+| ストレージ | SQLite + sqlite-vec | ローカル完結・外部依存ゼロ |
+| テキスト検索 | BM25（FTS5） | 日本語トークナイザー対応可 |
+| ベクトル検索 | sqlite-vec + Embedding | 意味的類似検索 |
+| 統合検索 | RRF（Reciprocal Rank Fusion） | BM25とベクトルの長所を統合 |
+| 日本語Embedding | multilingual-e5-small（ローカル）候補 | プライバシー保護・無料 |
+| token削減 | 記憶層から必要箇所のみ抽出してClaudeへ渡す | Claude API コスト削減（目標: -60%） |
+
+### 19-6. 確度スコア（last30days-skill 応用）
+
+9媒体横断取材の結果に **確度スコア** を付与し、Auditorの判定精度を向上させる。
+
+| 確度 | 条件 | Auditor処理 |
+|---|---|---|
+| **HIGH** | 複数独立ソースで同一情報を確認 | PASS候補（ファクトチェック簡略化） |
+| **MED** | 1ソースのみ確認・信頼性高い媒体 | 通常のAuditorチェック |
+| **LOW** | 1ソースのみ・信頼性不明 | 要追加取材 or UNVERIFIABLEフラグ |
+| **UNVERIFIABLE** | ソース確認不能・予測・見解 | UNVERIFIABLEフラグ必須 |
+
+確度スコアは事実層に蓄積され、同じ情報が再登場した際に参照される。
+
+### 19-7. n8n との統合フロー
+
+```
+WF01-09 実行前
+    ↓
+記憶層クエリ（シーン層 + 事実層 / WideSearch）
+    ↓
+コンテキスト注入（SKILL.md の PLAN フェーズへ追加）
+    ↓
+claim-crew 記事生成（確度スコア付与）
+    ↓
+Claim-Auditor ゲート
+    ↓ PASS
+WordPress 投稿
+    ↓
+記憶層更新（会話 → シーン層昇格 / 新事実 → 事実層追加）
+```
+
+---
+
+## 20. オープンソース活用ポリシー
+
+本プロジェクトで参考にしたOSSの権利関係:
+
+| リポジトリ | ライセンス | 活用方法 |
+|---|---|---|
+| addyosmani/agent-skills | MIT | アイデア採用（SKILL.md構造・フェーズ設計） |
+| TencentCloud/TencentDB-Agent-Memory | MIT | アイデア採用（4層記憶・RRF統合設計） |
+| mvanhorn/last30days-skill | MIT | アイデア採用（9媒体横断・確度スコア設計） |
+
+**ポリシー**: コードは使用せずアイデアのみ採用（著作権の対象外）。コードを使用する場合はLICENSEファイルを `third_party/` に格納してクレジット表示する。
+
+---
+
+## 21. 配線ゲート（design-vs-wired）— 「設計したが動いていない」の必須防止
+
+> 背景: 本プロジェクトでは「設計・文書・プロンプトは存在するが、どの本番パスからも
+> 呼ばれていない」状態が繰り返し発生した（例: 00-copyright-transform.md 未配線、
+> WF06 の Auditor ゲートなし自動公開、WF07/08 のワークフロー未作成）。
+> 以後、これは人手の監査ではなく決定論的ゲートで機械的に防ぐ（**必須**）。
+
+### 21-1. ゲート仕様（scripts/check_wired.py）
+
+| # | チェック | FAIL条件 |
+|---|---|---|
+| W1 | requirements の WF一覧（WF01〜09）に対応する `n8n/workflows/*.json` が存在 | 対応JSONなし |
+| W2 | 全ワークフローに Auditor Gate ノードが存在（`CLAIM_AUDITOR_URL` 参照で判定） | ゲートなしWF |
+| W3 | 全ワークフローのプロンプト読込みが `00-copyright-transform.md` を含む | 著作権プロンプト未読込 |
+| W4 | WordPress 投稿の `status` はゲート出力（`wp_status`）経由 | `'publish'` ハードコード |
+| W5 | `n8n/prompts/*.md` は少なくとも1つのWFから参照される | 未参照（LIBRARY_ONLY 登録を除く） |
+| W6 | ワークフローJSONに認証情報らしきリテラルが含まれない | 秘密情報パターン検出 |
+
+- **LIBRARY_ONLY レジストリ**: 意図的に未配線のファイルはスクリプト内のレジストリに
+  理由コメント付きで明示登録する。登録なしの未配線は FAIL。
+- 終了コード: 全PASS=0 / FAILあり=1。出力は項目毎に PASS/FAIL を列挙。
+
+### 21-2. 運用（必須化）
+
+1. **ローカル**: push 前ゲート（CLAUDE.md §D）に組み込み。FAIL のまま push 禁止。
+2. **CI**: `.github/workflows/wired-check.yml` が全 PR で実行（pure-stdlib・
+   外部ネットワーク不要のためネットワークポリシー下でも完走する）。
+3. **完了定義への組み込み**: 新機能は check_wired.py が検出できる形で本番パスに
+   配線されるまで「完了」と報告しない（CLAUDE.md §A 絶対ルール）。
+
+---
+
+## 22. コンテンツ監査の評価セットと段階的ロールアウト
+
+> 背景: Auditor Gate（§21 W2）は導入時点で PASS→即公開だったが、判定精度を測る
+> 手段が無いまま自動公開するのは危険（ハーネス原則: 段階的ロールアウト）。
+> Claim-Security- の FR-SEC-26（FP=0 まで ACTIVE 化禁止）と同じ規律を適用する。
+
+### 22-1. 決定論的コンテンツ監査（scripts/content_audit.py）
+
+LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
+
+| ルール | 判定 |
+|---|---|
+| 誇大表現（禁止語リスト） | FAIL:HYPE |
+| blockquote 比率 > 40%（主従逆転） | FAIL:QUOTE_DOMINANCE |
+| blockquote あり・出所リンクなし | FAIL:NO_ATTRIBUTION |
+| 60字超の「」引用が blockquote 外（明瞭区別違反） | FAIL:UNMARKED_QUOTE |
+| 見出し（h2）が3未満 | FAIL:STRUCTURE |
+| 数値主張あり・ソースURLゼロ | UNVERIFIABLE:UNSOURCED_STATS |
+| 上記すべて非該当 | PASS |
+
+### 22-2. 評価セット（data/eval_set.json）
+
+- 正常系 / 境界 / 敵対的 の3区分・計50件以上。各件 expected verdict をラベル付け。
+- `scripts/run_eval.py` が混同行列を出力。**FP（PASS すべきものを block）= 0 かつ
+  FN（block すべきものを PASS）= 0 でなければ exit 1**。
+- 評価セットは push 前ゲート（§D）に含める — 監査ルール変更の回帰を常時検知。
+
+### 22-3. 段階的ロールアウト（CLAIM_AUDITOR_MODE）
+
+| モード | 動作 | 昇格条件 |
+|---|---|---|
+| `report_only`（既定） | 全件 draft + verdict をメタデータ記録 | — |
+| `canary` | PASS の約10%のみ自動 publish | 評価セット FP=0/FN=0 + 本番 verdict 30日分レビュー |
+| `full` | PASS を自動 publish | canary 30日で誤公開ゼロ + 人間署名（INV-R1） |
+
+- モードは n8n 環境変数 `CLAIM_AUDITOR_MODE` で制御。コード変更なしで昇格・降格。
+- FAIL / UNVERIFIABLE は全モードで draft（公開されない）。
+- §21 W7: 全ワークフローの Auditor Gate はモード対応であること（check_wired が強制）。
+
+---
+
+## 23. ラチェット自動化（Phase R0: Report-Only 提案器）
+
+> ハーネス原則「ラチェット」の仕組み化。CLAUDE.md §C への追記を人間の記憶に
+> 頼らず、記憶層（§19）の Auditor FAIL 蓄積から**機械的に提案**する。
+> 段階的ロールアウト（§22-3 と同じ規律）で、Phase R0 は提案のみ・変更しない。
+
+### 23-1. 仕様（scripts/ratchet_check.py）
+
+1. 入力: 記憶層 DB（`data/memory.db`、§19 の facts 層）。
+2. 直近30日の `verdict='FAIL'` を `(skill_ref, fail_reason)` で集計。
+3. 同一組合せが **閾値（既定3回）以上** → ラチェット提案を生成:
+   - CLAUDE.md §C への追記案（1行、日本語）
+   - 対応するプロンプトファイル（`n8n/prompts/` の skill_ref 対応ファイル）の見直し提案
+4. 出力: Markdown（提案なしなら "no proposals"）。exit 0（Report-Only・変更しない）。
+   `--strict` 指定時のみ提案ありで exit 3（将来 CI で昇格する時に使用）。
+
+### 23-2. ロールアウト計画
+
+| Phase | 動作 | 昇格条件 |
+|---|---|---|
+| **R0（現在）** | 提案を出力するのみ | — |
+| R1 | 提案を Draft PR として自動起票（人間レビュー・署名で merge） | R0 の提案品質を人間が30日評価 |
+| R2 | claim-evolve の gate（改善∧無退行）を通した自動 merge | INV-R1 の再検討が必要なため当面凍結 |
+
+---
+
+## 24. WordPress.com 認証方式（実運用で確定・2026-07-12）
+
+### 24-1. 背景
+
+`docker-compose.yml` のローカルサンドボックス（自己ホスト型 WordPress）は
+Application Password + Basic認証で動作する（WordPress 5.6+の標準機能）。
+
+しかし本番の投稿先（`liquitex929aa21393-eyqci.wordpress.com`、カスタムドメイン
+`aiguide.blog` にマッピング済み）は **WordPress.com ホスト型**であり、二段階認証を
+有効化した状態では `wp/v2` REST API が Basic認証（Application Password直用）を
+`401 invalid_token` で拒否することを実運用で確認した。WordPress.com は
+**OAuth2 password grant で取得した Bearer トークン**を要求する。
+
+### 24-2. 認証フロー（本番・1回限りのセットアップ）
+
+```
+① wordpress.com/me/security で二段階認証を有効化
+② 同ページに出現する Application Passwords で1つ発行（24文字）
+③ developer.wordpress.com/apps/new/ で OAuth2 アプリを登録
+      → Client ID / Client Secret を取得
+④ oauth2/token に password grant でリクエスト
+      （client_id, client_secret, grant_type=password,
+        username, password=②のApplication Password, blog_url）
+      → access_token を取得（無期限・原則失効しない）
+⑤ access_token を WP_BEARER_TOKEN として保管
+```
+
+`wp/v2/sites/{blog}/posts` へは `Authorization: Bearer {access_token}` で投稿可能
+（`201`・下書き作成を実運用で確認済み、post id 44 で検証・削除済み）。
+
+### 24-3. 環境変数とスクリプトの対応
+
+| 環境 | 認証方式 | 使用する環境変数 |
+|---|---|---|
+| ローカルサンドボックス（自己ホスト） | Basic（Application Password） | `WP_USERNAME` + `WP_APP_PASSWORD` |
+| 本番（WordPress.com） | Bearer（OAuth2 access_token） | `WP_BEARER_TOKEN` |
+
+`scripts/wp-init.sh` は `WP_BEARER_TOKEN` が設定されていれば Bearer を、
+未設定なら従来どおり Basic を使う（後方互換・自動判定、追加フラグ不要）。
+n8n 側は WordPress ノードの credential を `httpHeaderAuth` の
+`Authorization: Bearer {{ $env.WP_BEARER_TOKEN 相当の値 }}` に設定する
+（credential の値自体はn8n UIでの手動設定であり、ワークフローJSONは変更不要 —
+既存の `httpHeaderAuth` credential 型のまま、ヘッダー値だけ差し替える）。
+
+### 24-4. 既知の制約
+
+- OAuth2 access_token は WordPress.com 側の失効操作（アプリのRevoke）まで有効。
+  Application Password を再発行してもこのトークンには影響しない。
+- `blog_id`/`blog_url` が `token` レスポンスで空（global scope）でも問題ない —
+  同一ユーザーが所有する全サイトに有効なトークンとして機能することを確認済み。
+
+### 24-5. wp-init 実行検証（2026-07-12・実機・Windows PowerShell）
+
+`scripts/wp-init.ps1`（WSL bash不在環境向けのPowerShell移植版）を、実際の
+WordPress.com本番サイトに対して実行し、エラーなしで完走することを確認した:
+
+```
+[OK] Authentication verified. (liquitex929aa21393)
+--- Creating categories --- ： 8件すべて [CREATED]
+--- Creating tags ---       ：30件すべて [CREATED]
+=== Initialization complete ===
+```
+
+`scripts/wp-init.sh`（bash版）と同一の分岐ロジック（WP_BEARER_TOKEN + WP_SITE
+優先、WP_APP_PASSWORD へフォールバック）を実装しており、これで両スクリプトとも
+実運用で検証済みとなった。
+
+---
+
+## 25. n8n cloud API 経由デプロイ自動化（Proプラン、実運用）
+
+### 25-1. 背景
+
+n8n cloud の公開API（`/api/v1/*`）は無料トライアルでは無効化されており、
+Proプラン以降で有効。ユーザーがProへアップグレードしAPIキーを発行したため、
+手動UIインポート（9本のワークフロー + 7種のCredential手動作成・紐付け）を
+スクリプト化する。ハーネス原則の「段階的ロールアウト」に従い、**ワークフローの
+Active化はスクリプトでは行わず、人間が手動実行で確認してからONにする**
+（SETUP_GUIDE Step 5 の既存フローを維持）。
+
+### 25-2. スクリプト仕様（scripts/n8n_deploy.ps1）
+
+1. 認証: n8n公開APIは `X-N8N-API-KEY` ヘッダー（`Authorization: Bearer` ではない）。
+2. Credential作成（`POST /api/v1/credentials`）— 環境変数が設定されている分のみ、
+   冪等（既存同名Credentialがあれば `[SKIP]`）:
+
+   | Credential名 | ヘッダー名 | 環境変数 | 値のprefix | 必須 |
+   |---|---|---|---|---|
+   | Claude API Key | `x-api-key` | `ANTHROPIC_API_KEY` | なし | 必須 |
+   | WordPress App Password | `Authorization` | `WP_BEARER_TOKEN` | `Bearer ` | 必須 |
+   | GitHub API Token | `Authorization` | `GITHUB_TOKEN` | `token ` | 任意（WF01） |
+   | Perplexity API Key | `Authorization` | `PERPLEXITY_API_KEY` | `Bearer ` | 任意（WF06） |
+   | Kimi API Key | `Authorization` | `KIMI_API_KEY` | `Bearer ` | 任意（WF08） |
+   | Threads API Token | `Authorization` | `THREADS_ACCESS_TOKEN` | `Bearer ` | 任意（WF04） |
+   | YouTube Data API Key | `key`（既知の不整合、25-4参照） | `YOUTUBE_API_KEY` | なし | 任意（WF03/09） |
+
+3. ワークフロー作成（`POST /api/v1/workflows`）— `n8n/workflows/*.json` を読み、
+   `name`/`nodes`/`connections`/`settings` のみ送信（`active`/`tags`/`notes` は
+   n8n API のスキーマ外のため除去）。各ノードの `credentials.*.id`
+   プレースホルダーを、作成済みCredentialの実IDへ書き換える。
+   同名ワークフローが既に存在すれば `[SKIP]`（冪等）。
+4. **Active化はしない** — 作成後は人間が n8n UI で手動実行 → WordPress下書き
+   確認 → Active ON、という既存フロー（SETUP_GUIDE Step 5）に委ねる。
+
+### 25-3. 環境変数（n8n Environments、API対象外）
+
+`GITHUB_TOKEN` は Credential ではなく、各WFの「プロンプト読込み」Code ノードが
+`$env.GITHUB_TOKEN` として直接参照する（GitHub Contents APIからプロンプトを
+取得するため）。これは n8n の Environments/Variables 機能で設定するもので、
+本スクリプトのCredential作成とは別系統。Proプランで対応するUIから手動設定が必要
+（`n8n/SETUP_GUIDE.md` に手順追記）。
+
+### 25-4. 既知の不整合（解消済み・2026-07-12）
+
+`03-youtube-summary.json` の「YouTube Data API動画取得」ノードは
+`genericAuthType: httpHeaderAuth` で配線されていたが、Google の YouTube Data API
+はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求するため認証が通らない
+不整合があった。ノードを `genericAuthType: httpQueryAuth` に修正し、
+`scripts/n8n_deploy.ps1` の YouTube Credential定義も対応する型（`httpQueryAuth`）で
+作成するよう修正した。`09-multi-source-research.json` は元々Codeノード内で
+`fetch()` に直接クエリパラメータとして `key=${YOUTUBE_API_KEY}` を付与しており、
+この不整合の対象外だった。
+
+---
+
+## 26. Claude Code × Codex 協業ルール（開発ツール連携・MCP経由）
+
+> 本節はAIナビ・パイプライン自体の仕様ではなく、**このリポジトリを開発する際の
+> ツール連携方針**（操作者のローカル開発環境向け）。2026-09-12、操作者が
+> 個人wikiで検証済みの構成を本リポジトリのCLAUDE.md/AGENT_WORKFLOW.mdに反映。
+
+### 26-1. 役割分担
+
+| 役割 | 担当 | 内容 |
+|---|---|---|
+| 司令塔（Orchestrator） | Claude Code | 要件整理・設計・作業分解・PRレビュー・リスク洗い出し・「本当にそれでいい？」の壁打ち |
+| 実装者（Implementer） | Codex（MCP経由） | 実装・差分作成・リファクタの下ごしらえ・既存コードに沿った修正案生成・小さな修正の高速反復 |
+
+Claude Codeは実装コードを直接書かず、Codexへの委譲・レビュー・統合に徹する
+（Worker-Evaluator分離の原則をツール連携にも適用）。
+
+### 26-2. 接続方式
+
+Codexを MCP サーバーとして登録する（**操作者のローカル環境**で実行。クラウド
+サンドボックスセッションでは Codex 未インストールのため適用不可）:
 
 ```bash
-# 1. 依存パッケージインストール
-cd mcp && npm install
-
-# 2. 環境変数設定（.env からコピーして設定済みであれば不要）
-export WP_URL=http://localhost:8080
-export WP_USERNAME=admin
-export WP_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx
-
-# 3. Claude Code を再起動（MCPサーバーが自動起動される）
-# .claude/settings.json の mcpServers が読み込まれる
-
-# 4. 動作確認（Claude Code から）
-# "WordPress のサイト情報を取得して" と指示するとMCPが使われる
+claude mcp add codex --scope user -- codex mcp-server
 ```
 
-### 利用例
+呼び出し時は必ず `approval-policy: never` / `sandbox: workspace-write` を渡す
+（Codexの承認プロンプトは MCP elicitation 経由で非対応クライアントでは失敗するため）。
 
-```
-ユーザー: 「下書きの記事を一覧表示して」
-Claude Code → wp_list_posts({ status: 'draft' }) → 記事一覧を返答
+### 26-3. 呼び出し規律
 
-ユーザー: 「このMarkdownをWordPressの下書きとして投稿して」
-Claude Code → wp_create_post({ title: '...', content: '<h2>...', status: 'draft' })
-             → 記事ID・URLを返答
-```
+1. 1回の `codex` 呼び出しにつき1サブタスクのみ。
+2. 毎回 `cwd`（絶対パス）・`approval-policy=never`・`sandbox=workspace-write` を渡す。
+3. プロンプトに以下を必ず含める: GOAL（目的）/ FILES（対象ファイル、それ以外は触らない）/
+   ACCEPTANCE（成功基準となるコマンド）/ CONSTRAINTS（禁止事項）。
+4. 呼び出し後は必ず `git diff` を確認してから次の指示を出す。
+5. 継続作業は新規セッションでなく `codex-reply` + 既存thread idを使う。
+
+詳細な運用契約テンプレート → `docs/AGENT_WORKFLOW.md` §9。
 
 ---
 
-## 14. AI記者 拡張ユースケース（提案）
-
-### 背景と方針
-
-現行の AI 記者（WF-01〜06）はいずれも **収集 → 要約・翻訳 → 投稿** の「アグリゲーション型」であり、
-一次情報を日本語に噛み砕いて流すことに主眼がある。差別化のため、次フェーズでは
-Claim-Auditor ファミリーの強みである **証拠主義・反ハルシネーション（INV-R1 / INV-R2）** を
-記事品質に転用した「新しい使い方の AI 記者」を追加する。
-
-- **単なる転載メディアとの決別**: 検証・実体験・比較という「一次的な付加価値」を持つ記事を自動生成する。
-- **クロスリポジトリ連携**: 判定が必要なユースケース（ファクトチェック）は Claim-Auditor の
-  LLM-free 判定エンジン（INV-R2）を上流プロポーザーとして利用し、真偽判定そのものは決定論的に行う。
-- **安全既定の踏襲**: 追加ワークフローもすべて `status: draft` 投稿を既定とし、人間レビューを挟む（INV-R1）。
-
-### 追加ワークフロー一覧（WF-07〜13）
-
-| # | 記者名 | トリガー | 入力ソース | 出力 | モデル案 |
-|---|---|---|---|---|---|
-| 07 | **ファクトチェック記者** | イベント/日次 | RSS・SNSの誇大表現クレーム | 検証記事（真偽判定つき） | sonnet-5 |
-| 08 | **体験レビュー記者** | 週次 | ツールカタログ + サンドボックス実行 | 再現手順つきハンズオンレビュー | sonnet-5 |
-| 09 | **比較記者** | オンデマンド/週次 | 既存カタログエントリ2件以上 | 比較表つき「〇〇 vs △△」記事 | haiku |
-| 10 | **速報記者** | 5分ごと | 主要ソース横断（RSS+SNS） | 「速報」バッジつき短報 | haiku |
-| 11 | **読者Q&A記者** | フォーム受信時 | 読者質問（UGC） | 質問回答記事 | haiku |
-| 12 | **アップデート追跡記者** | 日次 | 主要ツールのchangelog/リリースノート | 「何が変わり、なぜ重要か」記事 | haiku |
-| 13 | **深掘り解説記者** | 週次 | トレンドトピック + 内部記事群 | 内部リンク配置つきピラー長文 | sonnet-5 |
-
-### 本命3案（優先度: 高）
-
-#### WF-07 ファクトチェック記者（検証記者）
-
-- **目的**: AIツールの誇大な宣伝文句（例「〇〇はGPTを超えた」「10倍速い」）を検出し、実際に検証して記事化する。
-- **差別化**: Claim-Auditor の判定エンジンを流用 → 真偽判定は **LLM-free で決定論的（INV-R2）**。LLMは
-  クレーム抽出・記事文面生成という上流プロポーザーに限定する。
-- **フロー案**:
-  ```
-  RSS/SNS収集 → Claude API（クレーム抽出: claim / 主張元 / 検証可能な条件）
-    → Claim-Auditor 判定（is_ears / verdict: 決定論）
-    → Claude API（判定結果を根拠に日本語検証記事を生成）
-    → WordPress 下書き投稿（カテゴリ: ファクトチェック）
-  ```
-- **必須検証（Test-Before-Ship）**: Claim-Auditor 判定APIが verdict を返すこと、記事本文に
-  「主張 / 検証条件 / 判定 / 根拠」の4要素が含まれること。
-
-#### WF-08 体験レビュー記者（ハンズオン記者）
-
-- **目的**: 収集して終わりにせず、**API/サンドボックスで実際に動かした結果**を証拠として添付したレビューを生成する。
-- **差別化**: CLAUDE.md の「証拠なしに完了と言わない」思想を記事品質にそのまま適用。実出力・スクショを掲載。
-- **必須検証**: レビュー対象ツールの実行ログ（API レスポンス or サンドボックス出力）が記事に紐づくこと。
-
-#### WF-09 比較記者（〇〇 vs △△）
-
-- **目的**: ツールカタログの既存エントリを2件以上組み合わせ、比較表つき記事を自動生成する。
-- **差別化**: 「Claude vs ChatGPT」等の比較クエリはSEO流入が非常に強い。新規収集ゼロで既存資産から量産可能（低コスト高リターン）。
-- **必須検証**: 比較表の各行が実カタログエントリのフィールドに由来すること（捏造フィールド禁止）。
-
-### 追加4案（優先度: 中）
-
-| # | 記者名 | 狙い | 補足 |
-|---|---|---|---|
-| 10 | 速報記者 | 鮮度・回遊率 | 主要発表をリアルタイム検知し「速報」バッジで即投稿。後追いで正式記事に昇格。 |
-| 11 | 読者Q&A記者 | エンゲージメント・UGC | 読者質問を記事化。将来のUGCプロンプト投稿機能（Phase 3）と接続。 |
-| 12 | アップデート追跡記者 | 継続流入 | 主要ツールのchangelogを監視し差分を解説。バージョン別に記事が積み上がる。 |
-| 13 | 深掘り解説記者 | SEOピラー | トレンドを長文解説化し内部リンクを自動配置。回遊とドメイン権威を強化。 |
-
-### プロンプト管理
-
-追加記者のプロンプトも §4 の規約に従い `n8n/prompts/` に Markdown で Git 管理する（JSONハードコード禁止）。
-
-| ファイル（予定） | 用途 |
-|---|---|
-| `n8n/prompts/07-factcheck.md` | ファクトチェック記者（クレーム抽出 + 記事生成の2段） |
-| `n8n/prompts/08-hands-on-review.md` | 体験レビュー記者 |
-| `n8n/prompts/09-comparison.md` | 比較記者 |
-| `n8n/prompts/10-breaking-news.md` | 速報記者 |
-| `n8n/prompts/11-reader-qa.md` | 読者Q&A記者 |
-| `n8n/prompts/12-changelog-tracker.md` | アップデート追跡記者 |
-| `n8n/prompts/13-deep-dive.md` | 深掘り解説記者 |
-
-### 実装フェーズへの割り当て（案）
-
-| フェーズ | 追加記者 | 前提 |
-|---|---|---|
-| Phase 1.5 | WF-09 比較記者 | カタログ整備（既存資産で完結、収集不要のため最優先） |
-| Phase 2 | WF-10 速報 / WF-12 アップデート追跡 | 収集パイプライン安定後 |
-| Phase 2.5 | WF-07 ファクトチェック / WF-08 体験レビュー | Claim-Auditor 判定API連携・サンドボックス実行基盤 |
-| Phase 3 | WF-11 読者Q&A / WF-13 深掘り解説 | UGC受付・内部リンク基盤 |
-
-> ⚠️ 本節は **提案（未確定）**。実装着手前に §10 実装フェーズへ正式に取り込み、各記者ごとに
-> Test-Before-Ship の検証項目（§4）を定義してから WF JSON / プロンプトを作成すること。
-
----
-
-## 15. 「動かない記者」を作らない仕組み（No-Dead-Reporter 設計）
-
-### 15-1. 問題定義
-
-記者を増やすほど「書いたが一度も動かしていない記者」が混入する。原因は、記者の実ロジック
-（ソース正規化・プロンプト整形・記事パース・WP ペイロード生成）が **n8n ワークフロー JSON の
-Code ノード内に埋め込まれ、単体で実行・検証できない**こと。これは §4「設計したが動かない」の禁止事項そのもの。
-
-### 15-2. 設計原則
-
-> **記者ロジックは n8n JSON から切り出し、外部依存ゼロで実行できる純関数モジュールにする。**
-> **全記者はマージ前に「ドライラン検証ゲート」を必ず通す。ゲートを通らない記者はマージ不可。**
-
-これにより「動かない記者が存在しえない」状態を構造的に保証する（Claim-Auditor の
-`check_wired` / `check_active_witnessed` と同一思想）。
-
-### 15-3. 記者コントラクト（共通インターフェース）
-
-各記者は `reporters/reporters/NN-slug.mjs` に、以下の**純関数**を持つモジュールとして実装する。
-外部 I/O（HTTP・API キー・n8n）は一切含めない。
-
-| メンバ | 型 | 責務 |
-|---|---|---|
-| `id` / `slug` / `title` / `category` / `model` / `trigger` | メタ | 記者の識別・分類 |
-| `normalize(rawSource)` | 純関数 | 収集した生データ → 正規化アイテム配列 |
-| `buildClaudeRequest({items, prompt, model})` | 純関数 | 正規化アイテム＋プロンプト → Claude API リクエスト body |
-| `parseArticle(claudeResponse)` | 純関数 | Claude レスポンス → `{ title, html }` |
-| `buildWpPayload(article, opts)` | 純関数 | 記事 → WordPress REST ペイロード（既定 `status: draft`） |
-
-### 15-4. フィクスチャとドライラン
-
-各記者は `reporters/fixtures/NN-slug.json` に **`{ rawSource, claudeResponse }`** の固定入力を持つ。
-ドライランハーネス（`reporters/run.mjs`）は HTTP を一切呼ばず、フィクスチャを使って
-`normalize → buildClaudeRequest → parseArticle → buildWpPayload` の全段を実行し、
-生成された WP ペイロードを検証する。→ **外部APIキー不要・ネットワーク不要で「実際に動く」ことを証明**。
-
-### 15-5. 記事ルールの機械検証（validators）
-
-`reporters/validators.mjs` が §4・`article-base.md` のルールをコードで強制する。
-
-| 検証 | 内容 |
-|---|---|
-| `assertArticleHtml(html)` | 先頭が `<h2` / 禁止タグ（`html`,`body`,`script`,`style`）なし / コードフェンスなし / 非空 |
-| `assertWpPayload(p)` | `status` 既定 `draft` / `title` 非空 / `content` が `assertArticleHtml` を通過 |
-| 禁止フレーズ検査 | 「おそらく」「かもしれません」等（`article-base.md`）を含まない |
-
-### 15-6. ゲート（マージ阻止）
-
-`scripts/check_reporters.mjs` が **レジストリ（`reporters/registry.mjs`）の全記者**について次を検査し、
-1件でも失敗すれば **exit 1**（＝マージ不可）。
-
-| 記者種別 | witness（証拠）要件 |
-|---|---|
-| native（07〜13） | プロンプトファイル存在 ＋ フィクスチャ存在 ＋ **ドライラン全段成功** ＋ ペイロードが validators 通過 |
-| n8n（01〜06） | ワークフロー JSON が parse 可能 ＋ Claude ノードと WP ノードを含む ＋ 参照プロンプトが存在 |
-
-### 15-7. テストと CI
-
-- 単体テスト: `node --test`（`reporters/*.test.mjs`）。**ランタイム依存パッケージゼロ**（Node 標準のみ）→ `npm install` 不要で必ず走る。
-- CI: `.github/workflows/reporters.yml` が push/PR で `node --test` とゲートを実行。ネットワーク不使用のため設定段階で落ちない。
-- ローカルゲート（プッシュ前）:
-  ```bash
-  node --test reporters
-  node scripts/check_reporters.mjs
-  ```
-
-### 15-8. 本番（n8n）との整合 — JSON はモジュールから生成する
-
-n8n の Code ノードは、テスト済みモジュールと**同一ロジック**でなければならない。手書き転記はドリフトの温床
-なので、**ワークフロー JSON は `scripts/gen_n8n.mjs` がモジュールから自動生成する**。
-
-- 生成器は各記者モジュールの関数を `Function.prototype.toString()` で取得し、Code ノードへ**そのままインライン
-  展開**する（`normalize` / `buildClaudeRequest` / `parseArticle` / `buildWpPayload` ＋ 依存する共通ヘルパ・
-  validators）。→ Code ノードの中身 ＝ テスト済みソースそのもの。
-- 生成される 7 ノード構成: トリガー → ソース入力（フィクスチャ例入り）→ プロンプト読込み → リクエスト生成
-  （`normalize`+`buildClaudeRequest`）→ Claude API → 記事生成（`parseArticle`+`buildWpPayload`+`assertWpPayload`）
-  → WordPress 下書き投稿 → エラートリガー。
-- ソース入力ノードにフィクスチャの `rawSource` を例として埋め込むため、n8n で**手動実行するとそのまま WP 下書き
-  が生成**される（§4「manual execute → WP draft」を満たす）。
-- 記事生成ノードは投稿前に `assertWpPayload` を実行する。壊れた記事は**投稿されずにワークフローが失敗**する
-  （fail-closed）。
-
-**鮮度ゲート**: `reporters/generated.test.mjs` が「モジュールから再生成した JSON」＝「ディスク上の JSON」を検証。
-モジュールを変更して `npm run gen:n8n` を忘れると**テストが落ちる**。さらに生成された Code ノードのコードを
-`node:vm` で実行し、モジュールのドライラン結果と一致することを確認する（本番コードが実際に動く証拠）。
-
-```bash
-npm run gen:n8n     # モジュールから WF-07〜13 の JSON を生成（決定論的）
-node --test reporters/*.test.mjs   # 鮮度 + vm 実行一致を検証
-```
-
-### 15-10. E2E スモーク（実クレデンシャル疎通）
-
-オフライン検証（§15-4〜15-8）は「ロジックが動く」ことを保証するが、**実 Claude API 呼び出し**と
-**実 WordPress 投稿（201）** は別レイヤ。これを `scripts/e2e_smoke.mjs` で検証する。
-
-| モード | Claude | WordPress | 用途 |
-|---|---|---|---|
-| `--offline`（既定でキー無しなら自動） | フィクスチャ応答 | 実POST（WP_URL） | WP 投稿シームだけ確認 |
-| 実行（キーあり） | 実API | 実POST | 完全な E2E 疎通 |
-
-- WP 投稿は `reporters/wp_client.mjs` の `postDraft()` が担当（Basic 認証・`status: draft` 既定）。
-- `postDraft()` は**モックHTTPサーバに対する実ソケットのテスト**を持つ（`reporters/wp_client.test.mjs`）。
-  → WordPress イメージが無くても、ペイロード→HTTP POST→201/ID 解釈のシームを検証できる。
-- 必要な環境変数: `ANTHROPIC_API_KEY`（実Claude時）, `WP_URL` または `WP_POSTS_URL`, `WP_USERNAME`,
-  `WP_APP_PASSWORD`。未設定時はスキップ理由を明示して exit 0（安全）。
-
-> ⚠️ 本番の完全 E2E（実キー・実WP）は、APIキーと WordPress ホスティングが揃った環境で
-> `node scripts/e2e_smoke.mjs` を実行して確認する（§4 の「201 レスポンスと記事ID」を満たす）。
-> サンドボックス内では組織のegressポリシーで WordPress/n8n イメージを取得できないため、
-> WP シームはモックサーバ実ソケットテストで代替検証する。
-
-### 15-9. 記者追加時のチェックリスト（DoD）
-
-新記者は次を**すべて**満たすまで DONE にしない:
-
-- [ ] `reporters/reporters/NN-slug.mjs` 実装（コントラクト準拠・I/Oなし）
-- [ ] `reporters/fixtures/NN-slug.json` 追加
-- [ ] `n8n/prompts/NN-slug.md` 追加
-- [ ] `reporters/registry.mjs` に登録
-- [ ] `node --test reporters` green（出力を PR に貼る）
-- [ ] `node scripts/check_reporters.mjs` green（出力を PR に貼る）
-
-### 15-11. カテゴリー統合（唯一の正 = `data/wp-taxonomy.json`）
-
-**問題**: 新記者7本（WF-07〜13）の `category` 名が、実際に WordPress へ作成される正式カテゴリ一覧
-（`data/wp-taxonomy.json`、`scripts/wp-init.sh` が作成）と1つも一致していなかった。さらに
-`wp-taxonomy.json` には未使用のプレースホルダー2枠（`AI活用事例`／`AIツールレビュー`、
-`source_workflow: null`）があり、WF-08（体験レビュー）・WF-09（比較記者）と意味的に重複していた。
-加えて `reporters/wp_client.mjs` の `postDraft()` は `categoryName` を WordPress へ一切送信しておらず、
-名前を揃えても投稿にカテゴリが付かない状態だった。
-
-**対応方針（統合）**:
-
-| 旧 | 新 | 対応記者 |
-|---|---|---|
-| `AI活用事例`（未使用） | `体験レビュー` (`hands-on-review`) | WF-08 |
-| `AIツールレビュー`（未使用） | `ツール比較` (`comparison`) | WF-09 |
-| （新規） | `ファクトチェック` (`factcheck`) | WF-07 |
-| （新規） | `AI速報` (`breaking-news`) — 「AI公式ニュース」と紛れないよう命名 | WF-10 |
-| （新規） | `読者Q&A` (`reader-qa`) | WF-11 |
-| （新規） | `アップデート情報` (`changelog-tracker`) | WF-12 |
-| （新規） | `深掘り解説` (`deep-dive`) | WF-13 |
-
-結果、カテゴリは重複・未使用ゼロの **13個（WF-01〜13 各1対1）** に整理。
-
-**唯一の正とドリフト排除**:
-
-- `data/wp-taxonomy.json` の `categories[].source_workflow`（`"WF-07"` 等）を**唯一の正**とする。
-- `reporters/categories.mjs` が `data/wp-taxonomy.json` を読み込み、`categoryNameFor(workflowId)` /
-  `categorySlugFor(workflowId)` を提供する。各記者モジュールは**モジュール読込み時**にこれを呼んで
-  `meta.category` / `meta.categorySlug` を確定する（`buildWpPayload` 関数本体は `meta.*` を参照するだけ
-  ＝ `Function.toString()` でインライン展開しても外部 import を必要としない。§15-8 の生成器と両立）。
-- `scripts/check_reporters.mjs` に **カテゴリ整合ゲート**を追加: 全 native/legacy 記者が
-  `data/wp-taxonomy.json` に**1対1**で対応し、未使用プレースホルダー・重複が無いことを検査。
-  違反があれば exit 1（マージ不可）。
-
-**投稿時のカテゴリ付与（バグ修正）**:
-
-- `reporters/wp_client.mjs` に `resolveCategoryId()` を追加。`postDraft()` は `payload.categorySlug` が
-  あれば投稿先の `/categories?slug=...` を実 GET してIDを解決し、`categories: [id]` を付けて POST する。
-  スラッグが WordPress 側に存在しない場合は「`wp-init.sh` を先に実行せよ」という明確なエラーで失敗する
-  （fail-closed。カテゴリ無し投稿を黙って許さない）。
-
-> ⚠️ **既知の残課題**: レガシー記者（WF-01〜06、手書き n8n JSON）の WordPress 投稿ノードも同様に
-> カテゴリを一切送信していない（本節で見つかった同種のバグ）。今回は native 記者（07〜13、
-> モジュールから生成）のみ修正した。レガシー6本の JSON 手動修正は別タスクとして扱う。
-
----
-
-## 16. 収益化モデル（Monetization）
-
-> ⚠️ 本章は **設計提案**。金額・料率・チャネルは市場調査後に確定する（`未確定`を明記）。
-> 本章は法務助言ではない。景品表示法・ステマ規制・各ASP規約の適用可否は施行前に専門家レビューを要する。
-
-### 16-1. 大原則 — 「信頼を売らない」収益化
-
-このメディアの一次的価値は **証拠主義・ファクトチェック（INV-R1 / INV-R2）** にある。収益化はこの資産を
-**消費する**方向に働きやすい（スポンサーに不利な検証を書けなくなる 等）。したがって全モデルは次の
-**編集独立原則**に従う。破る収益は取らない。
-
-| 原則 | 内容 |
-|---|---|
-| **P1 判定の非売品化** | ファクトチェック記者（WF-07）・比較記者（WF-09）の**判定/評点はスポンサー対象外**。真偽判定は LLM-free 決定論（INV-R2）で、広告主に応じて変えない。 |
-| **P2 全面開示** | アフィリンク・タイアップ・PR は記事内に**機械可読なフラグ**（`disclosure` メタ）で明示。ステマ規制（景表法・2023-10 施行）に準拠。 |
-| **P3 人間署名ゲート** | 収益リンクを含む記事は自動公開しない。`status: draft` のまま**人間が広告該否を承認**してから公開（INV-R1）。 |
-| **P4 分離配置** | 「編集記事」と「広告/PR記事」はカテゴリ・URL・視覚デザインで分離。混同させない。 |
-
-### 16-2. モデル一覧
-
-| # | モデル | 収益源 | 接続する記者/ページ | 開始フェーズ | 主要リスク |
-|---|---|---|---|---|---|
-| M1 | **アフィリエイト** | ASP経由の成果報酬 | ツールカタログ・比較(WF-09)・ハンズオン(WF-08) | Phase 1.5 | 利益相反・料率変動・規約BAN |
-| M2 | **企業タイアップ（案件）** | 記事1本あたり固定フィー | 体験レビュー(WF-08)・深掘り(WF-13) | Phase 2 | 編集独立の毀損・PR表記漏れ |
-| M3 | **ディスプレイ広告** | インプレッション/クリック | 全記事の枠 | Phase 1.5 | トラフィック依存・低単価 |
-| M4 | **情報商材/ノウハウ販売** | 単発購入（既存 §1・§10） | 「このサイトの作り方」記事群 | Phase 3 | 陳腐化・サポート負荷 |
-| M5 | **有料会員（サブスク）** | 月額 | 限定プロンプト集・先行速報(WF-10) | Phase 3 | 継続コンテンツ供給 |
-| M6 | **リード送客/代理店** | 紹介手数料・代理店マージン | 各 AI SaaS 紹介（NoimosAI は今回不使用） | Phase 2 | 送客品質・成約計測 |
-| M7 | **ニュースレター/スポンサー枠** | 号あたり掲載料 | メルマガ（WordPress `/feed`起点） | Phase 2.5 | 読者基盤の規模 |
-| M8 | **データ/トレンドAPI提供** | B2B利用料 | 収集パイプラインの二次利用 | Phase 3+ | 一次ソース規約・提供責任 |
-
-### 16-3. 各モデル詳細
-
-#### M1. アフィリエイト（最優先・最も相性が良い）
-- **なぜ最優先か**: 既存資産（ツールカタログ・比較記事）に**追加収集ゼロ**でリンクを差せる。§14 の「低コスト高リターン」思想と一致。
-- **商材**: AI SaaS（各ツールの公式アフィリエイト）、クラウド/API、書籍・講座、汎用ASP（A8.net・もしもアフィリエイト・afb 等）。
-- **実装接点**: カタログの各ツール詳細に `affiliate_url` フィールド（ACF, §9）。比較表(WF-09)・ハンズオン(WF-08)の末尾に定型CTA。
-- **ガバナンス**: P1（比較の評点はリンク有無で変えない）・P2（`rel="sponsored nofollow"` + 「本記事にはアフィリエイトリンクを含みます」を冒頭表示）。
-- **検証（Test-Before-Ship）**: リンク切れ検査ジョブ、`disclosure`メタ欠落記事を公開させない validator（`reporters/validators.mjs` に `assertDisclosure()` 追加）。
-
-#### M2. 企業タイアップ／案件（スポンサード）
-- **形態**: (a) スポンサード体験レビュー、(b) 純広（記事上部バナー）、(c) 導入事例記事。
-- **編集独立の担保**: タイアップ記事は**専用カテゴリ「PR」+ URLプレフィックス `/pr/`** に隔離（P4）。ファクトチェック/比較の**判定ロジックには一切介入させない**（P1）。「弊社が検証した結果」と「スポンサー提供情報」を記事内で節分離。
-- **料金**: 未確定（フォロワー/PV連動の相場を Phase 2 実測後に設定）。
-- **リスク**: PR表記漏れ＝景表法違反。→ 公開前チェックリストに「PRラベル・冒頭明示・`sponsored`属性」を必須ゲート化。
-
-#### M3. ディスプレイ広告
-- **段階**: 初期 Google AdSense → PV成長後にメディアネットワーク/純広へ。
-- **UX方針**: §2-2 の「カード型・スキャンしやすい」を壊さない広告密度。速報(WF-10)の回遊で面を作る。
-- **リスク**: 単価が低くトラフィック規模依存。**主収益ではなく下支え**と位置づける。
-
-#### M4. 情報商材／ノウハウ販売（既定路線の具体化）
-- **原資**: 「このサイト構築プロセス自体を記事化・販売」（§1, §10 Phase 3）。
-- **商品形態**: note有料マガジン / Zenn Book / 電子書籍 / 動画講座（Udemy）/ テンプレート販売（n8nワークフロー・プロンプト集）。
-- **強み**: **ドッグフーディングの証拠**（本サイト自体が全自動で動いている）を実証データとして同梱でき、反ハルシネーション思想と親和。
-- **注意**: 陳腐化が速い領域。バージョン明記＋更新差分販売（M5へ橋渡し）。
-
-#### M5. 有料会員（サブスク）
-- **提供価値**: 限定プロンプト集（§2 プロンプト集の有料階層）、速報(WF-10)の先行通知、限定深掘り(WF-13)、質問優先(WF-11 読者Q&A)。
-- **前提**: 無料層で信頼と回遊を確立してから。継続供給できる記者ラインが揃う Phase 3。
-- **課金基盤**: 未確定（WordPress会員プラグイン / 外部（Stripe, note メンバーシップ））。
-
-#### M6. リード送客・代理店（B2B）
-- **形態**: 各 AI SaaS への送客紹介料、または**代理店契約**でマージンを取る（アフィリの上位版）。※NoimosAI は今回不使用（§5）。
-- **強み**: 実際に使って検証したツールの**導入ガイド記事**が送客導線（§19 レシピと連動＝実演の証拠が説得力）。
-- **計測**: UTM + 成約フックの計測設計が必須（未確定）。
-
-#### M7. ニュースレター／スポンサー枠
-- **導線**: WordPress `/feed`（§5）を起点にメルマガ化。号ごとに1スポンサー枠。
-- **前提**: 購読者規模。Phase 2.5 で速報・週次レポート(WF-06)を号コンテンツに転用。
-
-#### M8. データ／トレンドAPI提供（将来）
-- **構想**: 収集・正規化した「AIトレンドデータ」を B2B に提供。
-- **障壁**: 一次ソース（GitHub/YouTube/各API）の規約で**再配布可否**が割れる。提供前に規約精査が必須（未確定・優先度低）。
-
-### 16-4. 利益相反・開示ガバナンス（全モデル共通ゲート）
-
-収益リンク/PRを含む記事は、公開前に**機械チェック**を通す（§4 Test-Before-Ship の拡張）。
-
-| ゲート | 内容 | 実装 |
-|---|---|---|
-| G1 開示メタ必須 | `disclosure ∈ {none, affiliate, sponsored, ad}` が空でない | `validators.mjs: assertDisclosure()` |
-| G2 冒頭明示 | affiliate/sponsored は本文先頭に定型開示文 | `assertArticleHtml` 拡張 |
-| G3 属性付与 | 収益リンクに `rel="sponsored nofollow"` | ペイロード生成時に強制 |
-| G4 判定隔離 | WF-07/09 の判定ノードは収益メタを**入力に取らない** | 記者コントラクトで分離（§15-3） |
-| G5 人間承認 | 収益記事は `draft` 固定・自動公開禁止 | INV-R1（§16-1 P3） |
-
-### 16-5. フェーズ割り当て
-
-| フェーズ | 投入モデル | 前提 |
-|---|---|---|
-| Phase 1.5 | M1 アフィリエイト / M3 AdSense | カタログ整備・記事量産開始（既存資産で開始可能） |
-| Phase 2 | M2 タイアップ / M6 送客 | PV実績（媒体資料が作れる規模） |
-| Phase 2.5 | M7 ニュースレター | 購読者基盤 |
-| Phase 3 | M4 情報商材 / M5 サブスク | 信頼確立・継続供給ライン |
-| Phase 3+ | M8 データ提供 | 一次ソース規約クリア |
-
-### 16-6. KPI・計測（未確定・要設計）
-
-- 収益系: RPM（1000PVあたり収益）、アフィリEPC、案件単価、サブスク MRR/解約率、送客成約率。
-- 信頼系（収益と両立させる守りの指標）: PR記事比率の上限、開示メタ欠落率＝0、判定記事のスポンサー混入＝0。
-- 計測基盤: GA4 + Search Console（§5 SEOエージェント）+ ASP管理画面。UTM設計は未確定。
-
-### 16-7. 未確定事項（§12 に追記予定）
-
-| 項目 | ステータス |
-|---|---|
-| 各ASP・アフィリプログラムの選定と規約適合 | 未確定 |
-| タイアップ料金表・媒体資料 | 未確定（PV実測後） |
-| サブスク課金基盤（Stripe / note / WPプラグイン） | 未確定 |
-| ステマ規制・景表法の記事テンプレ法務レビュー | **必須・未実施** |
-| 収益計測（UTM・成約フック）設計 | 未確定 |
-
----
-
-## 17. ローンチ・ロードマップ（"回り出す"までに必要な要素）
-
-> 目的: 本プロダクトが **自走状態（全記者が cron で回り、監視付きで人間承認だけ挟む）** に到達するまでの
-> クリティカルパスを、準備ゲート **G0→G6** で定義する。各ゲートは前ゲートの完了を前提とする。
-
-### 17-0. 現在地（証拠）
-
-| 事実 | 根拠 |
-|---|---|
-| フェーズは Phase 0（サンドボックス）進行中 | §10 |
-| オフライン記者基盤は稼働（WF-07〜13 生成・ドライラン・vm実行一致） | §15, README §記者フレームワーク |
-| **未確定ブロッカー**: ホスティング / ドメイン / APIキー保有 / n8n運用方式 | §12 |
-| 実クレデンシャルでの Claude→WP 201 は**未実施** | §15-10（E2Eは設計済・未実行） |
-
-→ ロジックは動く。**「本番インフラ・意思決定・運用/安全体制」が欠けている**のが自走までのギャップ。
-
-### 17-1. 準備ゲート一覧（クリティカルパス）
-
-| ゲート | 名称 | 目的 | 完了条件（DoD） | 主依存 |
-|---|---|---|---|---|
-| **G0** | 意思決定ロック | ブロッカー解消 | ホスティング先・ドメイン・n8n運用方式を確定、全APIキー保有を確認（§12 を全て「確定」に） | オーナー判断 |
-| **G1** | サンドボックス緑 | ロジック証明 | `node --test reporters` + `check_reporters.mjs` green、`docker-compose up` で WP/n8n 応答（§4・§7チェックリスト） | G0一部 |
-| **G2** | 実疎通（初ドラフト） | シーム証明 | 実キーで `e2e_smoke.mjs` 実行 → 実Claude生成 → 実WP **201＋記事ID**（§15-10） | G0（キー・WP） |
-| **G3** | 本番インフラ稼働 | 常時稼働 | 本番WP（テーマ・§9プラグイン・§data taxonomy投入・App Password）＋ n8n本番に全WF投入＋プロンプトGitHub取得配線（README §プロンプト管理） | G2 |
-| **G4** | 編集安全体制 | 信頼の担保 | 人間レビューキュー（`draft`承認フロー・INV-R1）＋ 開示ゲート G1–G5（§16-4）＋ 法務ページ（プライバシー/運営者情報/免責）＋ ステマ規制テンプレ法務レビュー | G3 |
-| **G5** | 流通・計測 | 見つかる/測れる | Sitemap＋Search Console登録＋Rank Math＋GA4計測＋ `/feed` 稼働（SNS配信は後日・自前化・§5） | G3 |
-| **G6** | 自走運用 | 回り出す | 全WFが cron 稼働＋ n8n エラーワークフロー＋アラート＋運用Runbook（§11・SETUP_GUIDE）＋ **§18 品質ループ稼働** | G4,G5 |
-
-### 17-2. ゲート別・必要要素の内訳
-
-**G0 意思決定ロック（最優先・非技術ブロッカー）**
-- WordPress ホスティング先確定（本番）／独立ドメイン取得／n8n（セルフホスト or n8n.cloud）確定。
-- APIキー保有確認: `ANTHROPIC_API_KEY` / `GITHUB_TOKEN` / `YOUTUBE_API_KEY` / `PERPLEXITY_API_KEY`。
-- → これが解けるまで G2 以降は**着手不能**（§12 の未確定が実装の律速）。
-
-**G3 本番インフラ（"作る"の本体）**
-- WordPress: テーマ（§8）、プラグイン一式（§9）、カテゴリ/タグ（`data/wp-taxonomy.json`）投入、Application Password 発行。
-- n8n: 本番デプロイ、クレデンシャル（WP Basic / Claude / GitHub / YouTube / Perplexity）登録、WF-01〜13 インポート、スケジュール有効化。
-- プロンプト配線: 各WFが GitHub `contents/n8n/prompts/*.md` を動的取得（ハードコード禁止・README準拠）。
-
-**G4 編集安全体制（"信頼を守る"の本体・差別化の核）**
-- 人間レビューキュー: 全記事 `status: draft` → 承認して公開（INV-R1）。承認UI/運用ルール。
-- 収益記事ゲート G1–G5（§16-4）を validators に実装（`assertDisclosure()` 等）。
-- 法務: 運営者情報・プライバシーポリシー・免責/PR方針ページ、ステマ規制テンプレの法務レビュー（§16-7 未実施）。
-
-**G5 流通・計測（"届ける/測る"）**
-- SEO: Sitemap（Rank Math）、Search Console 登録、内部リンク（WF-13）。
-- 計測: GA4 設置、収益/信頼KPI（§16-6）のダッシュボード。
-- 配信: `/feed` を起点に、SNS配信は後日・自前化（NoimosAI 不使用・§5）。
-
-**G6 自走運用（"回り続ける"）**
-- 全WF cron 稼働（毎朝/30分/1時間/週次…§4-2）。
-- 監視: n8n エラーワークフロー（§15-8 fail-closed）、失敗アラート（メール/Slack）、§11 エラー対応表の Runbook 化。
-- **§18 の品質ループを常時稼働**（ここで初めて "改善しながら回る" 状態）。
-
-### 17-3. クリティカルパス（要約）
-
-```
-G0 意思決定 ──▶ G2 実疎通(初201) ──▶ G3 本番インフラ ──┬─▶ G4 編集安全 ──┐
-     │                                                └─▶ G5 流通・計測 ─┤
-     └─▶ G1 サンドボックス緑（並行・ほぼ完了）                            ▼
-                                                              G6 自走運用 ＋ §18品質ループ
-```
-
-- **律速は G0（非技術）**。技術側（G1）はほぼ緑なので、意思決定が解ければ G2→G3 は速い。
-- G4 を G5 と**並行**可能だが、G4 未了のまま公開してはならない（INV-R1 / 開示義務）。
-
----
-
-## 18. 継続的品質改善ループ（Quality Loop アーキテクチャ）
-
-> 目的: 記事品質を**一度の実装で終わらせず、計測→評価→改善→検証を閉じたループ**で絶えず上げ続ける。
-> 設計の芯は本プラットフォームのDNAの転用: **判定は決定論・提案だけLLM（INV-R2）** ＋ **prompt-as-code の PDCA（§4）**。
-
-### 18-1. 原則
-
-| 原則 | 内容 |
-|---|---|
-| **Q1 決定論ゲート** | 「公開してよいか」「改善案を採用してよいか」の**合否は決定論ルーブリック**が下す。LLMは採点の**提案者**に留める（INV-R2 の思想を品質判定に適用）。 |
-| **Q2 退行させない** | プロンプト/記者の変更は、**ゴールデン評価セットで基準値を下回ったらマージ不可**（`check_test_count` の baseline 方式を品質に拡張）。 |
-| **Q3 証拠で回す** | 改善の起点は感覚でなく**計測データ**（レビュー判断・GA4・Search Console・アフィリEPC・判定精度）。 |
-| **Q4 人手の訂正を資産化** | レビュアーの修正/却下を**ゴールデン事例と少数ショット例に還元**（学習の代わりに評価セットと few-shot を強化）。 |
-| **Q5 fail-closed** | 品質未達の記事は**投稿されずワークフロー失敗**（§15-8 の `assertWpPayload` を品質スコアまで拡張）。 |
-
-### 18-2. 品質の3層（どこで測るか）
-
-| 層 | タイミング | シグナル | 既存資産 |
-|---|---|---|---|
-| **L1 生成時（pre-publish）** | 投稿前・自動 | validator 合否＋品質スコア | `reporters/validators.mjs`（`assertArticleHtml`/`assertWpPayload`） |
-| **L2 人間レビュー** | 公開前・人手 | 承認/編集/却下＋編集差分 | INV-R1 レビューキュー（G4） |
-| **L3 本番（post-publish）** | 公開後・自動 | 滞在時間/直帰/CTR、検索順位・表示回数、アフィリEPC、ファクトチェック的中 | GA4 / Search Console（§5）/ ASP |
-
-### 18-3. ループ全体図
-
-```
-        ┌──────────────────────────────────────────────────────────┐
-        │                    QUALITY LOOP (QLOOP)                    │
-        │                                                            │
-   ┌────▼─────┐   ┌───────────┐   ┌───────────┐   ┌──────────────┐  │
-   │ MEASURE  │──▶│ EVALUATE  │──▶│ DIAGNOSE  │──▶│  PROPOSE     │  │
-   │ 3層の    │   │ ゴールデン │   │ 弱い記者/  │   │ 改善案生成    │  │
-   │ シグナル  │   │ 評価+採点  │   │ プロンプト │   │ (LLM提案      │  │
-   │ 収集     │   │ (決定論)   │   │ を特定    │   │  +反証 S4/S5)│  │
-   └────▲─────┘   └───────────┘   └───────────┘   └──────┬───────┘  │
-        │                                                 │          │
-        │         ┌───────────┐        ┌───────────┐      ▼          │
-        │         │  SHIP     │◀───────│   GATE    │◀── PR (prompt   │
-        └─────────│ 本番反映   │ 人間署名 │ 回帰評価   │    -as-code)   │
-                  │ (GitHub    │ (INV-R1)│ (退行不可) │                │
-                  │  取得)     │        │ +validator│                │
-                  └───────────┘        └───────────┘                │
-        └──────────────────────────────────────────────────────────┘
-              A/B・カナリア（新プロンプトを一部トラフィックで比較）
-```
-
-### 18-4. 各ステージ
-
-1. **MEASURE** — 3層（§18-2）のシグナルを収集し、記者/プロンプト単位で正規化してメトリクスストアに蓄積。
-   L2 のレビュー判断（承認/編集/却下＋差分）を必ず記録（Q4の原資）。
-2. **EVALUATE** — **ゴールデン評価セット**（記者ごとの固定入力＋期待品質）に対し、候補プロンプトの出力を
-   **ルーブリック（§18-5）で採点**。LLM-critic は所見を提案するが、**スコア集計は決定論**（Q1）。
-3. **DIAGNOSE** — スコア最下位・却下率最大・CTR最悪の記者/プロンプトを**改善バックログ**として順位付け。
-4. **PROPOSE** — 改善プロンプト案を生成。Claim-builder の **S4生成→S5反証（adversarial rebuttal）** を踏襲し、
-   相関誤りを削ってから **PR（prompt-as-code）** 化。
-5. **GATE** — オフライン**回帰ゲート**: 候補は (a) ゴールデンで基準値を上回る (b) validators 通過
-   (c) **どの記者もスコアを下げない**、を全て満たすときのみ緑（Q2）。最後に**人間署名**（INV-R1）。
-6. **SHIP** — マージされたプロンプトは GitHub 動的取得で即本番反映（README §プロンプト管理）。
-   可能なら**カナリア/A-B**で新旧を一部トラフィック比較 → MEASURE に戻る。
-
-### 18-5. 品質スコア・ルーブリック（決定論・機械採点）
-
-`reporters/quality.mjs`（新設）が各記事に対し加点式スコアを算出。**LLM不要の項目を主**とする。
-
-| 次元 | 判定 | 種別 |
-|---|---|---|
-| 構造 | `<h2>`始まり・禁止タグなし・コードフェンスなし（`assertArticleHtml` 準拠） | 決定論 |
-| 開示 | `disclosure` メタ整合・収益リンク属性（§16-4 G1–G3） | 決定論 |
-| 証拠性 | 出典/一次リンクの本数、ファクトチェック記事は「主張/条件/判定/根拠」4要素（§14 WF-07） | 決定論 |
-| 禁止表現 | 「おそらく」「かもしれません」等の不在（`article-base.md`・§15-5） | 決定論 |
-| 可読性 | 見出し密度・段落長・文字数レンジ | 決定論 |
-| 妥当性（補助） | LLM-critic による事実整合の**所見**（スコアには重み低・参考） | LLM提案 |
-
-> スコアは fail-closed 閾値（L1）と、改善採否の基準値（GATE）の両方に使う。
-
-### 18-6. 回帰ゲート（baseline 方式）
-
-- `reporters/fixtures/golden/NN-*.json` に**期待品質つきゴールデン入力**を持つ。
-- `scripts/check_quality_baseline.mjs` が現行プロンプトのスコアを `quality-baseline.json` として固定。
-- プロンプト変更 PR は `node scripts/check_quality_baseline.mjs --compare` を実行し、**基準値割れで exit 1**。
-  基準を上げるときのみ `--update-baseline`（`check_test_count` と同じ運用・§7）。
-- CI（`.github/workflows/reporters.yml`）に同ゲートを追加（ネットワーク不使用で設定段階落ちなし・§15-7）。
-
-### 18-7. 人手の訂正を資産化（学習なしで賢くなる）
-
-- L2 でレビュアーが編集/却下したら、その **before/after 差分**を収集。
-- 定期ジョブが差分から (a) **新ゴールデン事例**（再発防止テスト）と (b) **few-shot 例**（プロンプトの手本）を提案 PR 化。
-- → モデル微調整なしで、**評価セットとプロンプトが人手の判断を蓄積**して改善する（Q4）。これは §15 の
-  「No-Dead-Reporter」を品質面に延長した「No-Regressing-Reporter」に相当。
-
-### 18-8. データフローと計測基盤
-
-```
-L1 validators/quality.mjs ─┐
-L2 レビュー判断ログ        ─┼─▶ メトリクスストア ─▶ EVALUATE/DIAGNOSE ─▶ 改善PR
-L3 GA4 / Search Console / ─┘        (集約)              (週次バッチ)
-   ASP(EPC)
-```
-
-- 収集は既存導線を再利用: `/feed`・GA4・Search Console（§5）、ASP管理画面（§16）。
-- 週次の DIAGNOSE は WF-06（週次レポート）を**内部品質レポート**にも転用可能。
-
-### 18-9. 実装への割り当て（新規/拡張）
-
-| 対象 | 追加/拡張 | ゲート |
-|---|---|---|
-| `reporters/quality.mjs` | ルーブリック採点（新規） | §18-5 |
-| `reporters/validators.mjs` | `assertDisclosure()` 等 L1 拡張（§16 G1–G3） | §16-4 |
-| `reporters/fixtures/golden/` | 記者別ゴールデン＋期待品質（新規） | §18-6 |
-| `scripts/check_quality_baseline.mjs` | 回帰ゲート（新規） | §18-6 |
-| `.github/workflows/reporters.yml` | 品質ゲート追加 | §15-7 |
-| L2 レビューキュー | 承認UI＋差分ログ（G4） | §17 G4 |
-
-### 18-10. 未確定事項
-
-| 項目 | ステータス |
-|---|---|
-| メトリクスストアの実体（DB / スプレッドシート / n8n data table） | 未確定 |
-| A/B・カナリアの配信基盤（WP/エッジで実現するか） | 未確定 |
-| ファクトチェック的中の「後日正解」判定プロセス | 未確定 |
-| LLM-critic の採点重み（参考値以上に上げるか） | 未確定（Q1 は死守） |
-
----
-
-## 19. プロダクト・ポジショニング — "実演する" AIショーケース
-
-> 本サイトの一次的価値を **「まとめて伝える」から「組み合わせて実演して見せる」へ引き上げる**。
-> 中核コンテンツは **組み合わせレシピ（Combination Recipe）** = 「**Claude × 〇〇 で何ができるか**」を
-> **動画＋再現手順＋実出力**で証明するコンテンツ。既存の証拠主義（INV-R1/R2）・WF-08 ハンズオンの正統進化。
-
-### 19-1. ポジショニング転換
-
-| 旧（アグリゲーション型） | 新（ショーケース型・追加） |
-|---|---|
-| 収集 → 要約・翻訳 → 投稿（WF-01〜06） | **Claude × ツールの組み合わせを実際に動かして見せる** |
-| 一次情報の日本語化が主眼 | **「何と組み合わせれば何ができるか」を再現可能な形で提示** |
-| 差別化＝速さ・網羅 | 差別化＝**実演の証拠**（動画・手順・実出力） |
-
-> アグリゲーション記者は**廃止しない**。ネタ発見・トレンド把握の入口として残し、そこから
-> 「レシピ化する価値のある組み合わせ」を選んで旗艦コンテンツ（レシピ）に昇格させる。
-
-### 19-2. 中核コンテンツ = 組み合わせレシピ
-
-**定義**: `Claude × [組み合わせ対象] → [できること / 成果]`
-
-| 組み合わせ対象の型 | 例 |
-|---|---|
-| MCP サーバー | Claude × WordPress MCP（本サイト自体・§13）、Claude × Figma、Claude × Google Drive |
-| 外部 API | Claude × GitHub API、Claude × YouTube、Claude × Perplexity |
-| 他ツール / 基盤 | Claude × n8n（本パイプライン）、Claude × スプレッドシート、Claude × Docker |
-| データソース | Claude × RSS、Claude × 自社DB |
-| 別のAI/機能 | Claude × 画像生成、Claude × TTS（§20） |
-
-### 19-3. レシピの必須要素（"実際に見せる" ＝ 証拠主義）
-
-各レシピは次を**すべて**含む。欠けたら公開しない（fail-closed・INV-R1）。
-
-| 要素 | 内容 |
-|---|---|
-| 組み合わせ | 何と組み合わせるか（対象・前提・必要なもの） |
-| できること | 1文の価値（例「議事録PDFを渡すと要約タスクを自動でチケット化」） |
-| **実演（動画）** | §20 のデモ動画 or ショート（埋め込み） |
-| **再現手順** | コピペ可能なステップ（コマンド/プロンプト/設定） |
-| **実出力** | 実際のAPIレスポンス/スクショ（WF-08 と同じ証拠要件） |
-| 難易度 | 入門 / 中級 / 上級 |
-| 関連レシピ | 内部リンク（回遊・§14 WF-13 と連携） |
-
-### 19-4. 単一ソース・複数レンダリング
-
-1つのレシピを単一データとして持ち、複数面へ展開する（記者フレームワークの純関数コントラクトに乗せる）。
-
-```
-Recipe（単一ソース）
-  ├─▶ 記事HTML（WordPress 下書き）
-  ├─▶ 動画デモ（§20）
-  ├─▶ SNSショート（§5 SNSエージェント配信）
-  └─▶ レシピカタログのカード（§2 一覧）
-```
-
-### 19-5. データモデル（提案・ACF で保持）
-
-```jsonc
-Recipe {
-  id, title,
-  combo: { base: "Claude", with: "WordPress MCP" },
-  canDo: "一文の価値",
-  difficulty: "入門|中級|上級",
-  steps: [ "手順1", "手順2", ... ],          // 再現手順
-  evidence: { videoId?: "yt:...", output?: "実出力", screenshots?: [...] },
-  links: [ recipeId, ... ]                    // 内部リンク
-}
-```
-
-### 19-6. 記者・品質ゲートへの統合
-
-- **新記者 WF-14「レシピ実演記者」（提案）**: `normalize(recipe)` → `buildClaudeRequest` → `parseArticle` →
-  `buildWpPayload`。§15 のコントラクト・ドライラン検証を必須とする（動かないレシピを作らない）。
-- **§18 ルーブリック拡張**: レシピ記事には「**実演の証拠**」次元を追加 —
-  `evidence.videoId` か 手順ブロック か 実出力のいずれかが存在すること（`quality.mjs` に `recipe_evidence` 次元）。
-  → No-Dead-Reporter を **「No-Unproven-Recipe（証拠なきレシピは出さない）」** に拡張。
-
-### 19-7. フェーズ割り当て（§17 と整合）
-
-| フェーズ | 内容 |
-|---|---|
-| Phase 1.5 | レシピのデータモデル＋カタログページ＋WF-14 レシピ記者（**手動動画**・§20 Stage A） |
-| Phase 2 | 動画の半自動化（§20 Stage B）、SNSショート配信（API取得後） |
-| Phase 3 | サンドボックス実行キャプチャによる自動実演（§20 Stage C） |
-
----
-
-## 20. 動画コンテンツ・パイプライン
-
-> 目的: **文字だけでなく動画で「できること」を見せる**。テキスト＝検索流入、動画＝**理解と信頼**
-> （実際に動く証拠）。§19 レシピの「実演」本体を担う。
-
-### 20-1. 動画タイプ
-
-| タイプ | 尺 | 用途 | 連携 |
-|---|---|---|---|
-| デモ動画 | 2〜5分 | レシピの実演本体（画面録画＋ナレーション） | §19 レシピに埋め込み |
-| ショート（縦型） | 30〜60秒 | SNS配信・回遊入口 | §5 SNSエージェント（API後日） |
-| 長尺解説 | 任意 | 深掘り（ピラー） | §14 WF-13 |
-
-### 20-2. 制作パイプライン（自動化を段階導入）
-
-> **どの段階でも「台本(script)とメタ(manifest)はモジュールで生成・検証」**する。実レンダリング/実アップロードは
-> 別シーム（E2E 層・§15-10 と同型）に分離し、台本生成は HTTP/キー無しでドライラン検証できるようにする。
-
-| Stage | Claude | 制作 | 公開 | いつ |
-|---|---|---|---|---|
-| **A 手動主体** | 台本/絵コンテを生成 | 人間が画面録画・編集 | YouTube 手動 → 記事に埋め込み | **最初（API取得前でも回る）** |
-| **B 半自動** | 台本 | TTSナレーション＋スライド/画面キャプチャ自動合成 | 半自動アップロード | Phase 2 |
-| **C 自動（将来）** | 手順を**サンドボックスで実行しキャプチャ** | 実出力をそのまま動画化（究極の証拠主義） | 自動 | Phase 3 |
-
-### 20-3. ホスティング・配信
-
-- **一次ホスト = YouTube**（埋め込み・無料・SEO・被リンク）。WordPress へ `<iframe>`/oEmbed 埋め込み。
-- ショートは各 SNS（§3・§5）へ。**自前動画ストレージは持たない**（コスト・運用回避）。
-- **YouTube/SNS への API アップロードは「後日」**（キー取得後）。それまでは手動アップロード（Stage A）。
-
-### 20-4. 記者フレームワーク統合（動画台本記者）
-
-「動画台本」を**純関数で生成**する記者を追加（レンダリングは含めない）。
-
-| メンバ | 責務 |
-|---|---|
-| `normalize(recipe)` | レシピ → シーン配列（各シーン: 画面指示 + ナレーション） |
-| `buildScript({scenes, prompt})` | Claude リクエスト（台本生成プロンプト注入） |
-| `parseScript(claudeResponse)` | レスポンス → `{ title, scenes[] }` |
-| `buildVideoManifest(script)` | `{ title, scenes[], durationEst, ttsVoice, sourceRecipeId }` |
-
-- フィクスチャ（`reporters/fixtures/NN-video-*.json`）＋ドライランで**台本生成が動くこと**を証明（§15-4）。
-
-### 20-5. 検証（Test-Before-Ship）
-
-| ゲート | 内容 | 実装 |
-|---|---|---|
-| 台本 validator | シーン数>0／各シーンに画面指示＋ナレーション／禁止表現なし（`article-base.md` 流用）／尺見積り範囲内 | `reporters/validators.mjs` に `assertVideoManifest()` |
-| 公開ゲート | レシピ記事は「動画ID or 台本manifest」が紐づくまで**公開不可**（fail-closed） | §19-3 |
-| 実レンダリング/アップロード | 実TTS・実YouTube は E2E スモーク層で確認（キー環境） | `scripts/e2e_smoke.mjs` 拡張（§15-10） |
-
-### 20-6. 未確定事項
-
-| 項目 | ステータス |
-|---|---|
-| TTS/音声サービス（どれを使うか） | 未確定 |
-| 画面録画・キャプチャ自動化（Stage B/C の実現手段） | 未確定 |
-| 動画編集の自動化（テロップ・カット） | 未確定 |
-| YouTube Data API アップロード自動化の時期 | **後日**（§3・SNS API後回し方針と整合） |
-| ショート量産の可否・本数 | 未確定 |
+## 27. アーキテクチャ方向性の確定（2026-09-12・main分岐の解消）
+
+main に別PR系列（#4〜#7）で並行開発されていた Node.js製「reporters」フレームワーク
+（WF07〜13・disclosure gate・品質ベースライン・独自CLAUDE.md）と、本ブランチの
+n8n + Auditor Gate パイプライン（WF01〜09・配線ゲート・評価セット・ラチェット・
+規約ドリフト検出）が、共通の祖先から独立に分岐し重複していた。
+
+**操作者の判断（2026-09-12）**: 本ブランチ（n8n + Auditor Gate 一式）を正とする。
+reporters フレームワークの重複部分（`reporters/`, WF07-13の reporters 側実装,
+`package.json`, `scripts/check_reporters.mjs` 等, `.github/workflows/reporters.yml`,
+`data/wp-taxonomy.json` の reporters 向け拡張, 旧構成の README.md）は本マージで
+削除。マネタイズ設計など reporters 側 requirements.md に存在した独自コンテンツで
+拾う価値があるものは、必要になった時点で `main`（マージ前）または当該PRの履歴から
+個別に参照する（今回は移植しない）。
+
+理由: 両実装は `n8n/workflows/` 等のファイルパスを共有しない部分でも機能的に重複
+しており（同じ「WF01-06に続く追加コンテンツタイプ」という役割）、両方を残すと
+本ブランチの配線ゲート（`scripts/check_wired.py` W2/W3/W4/W7）が reporters 側の
+ワークフローJSON（Auditor Gate 非搭載）を誤って評価しFAILする。
