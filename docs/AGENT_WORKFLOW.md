@@ -131,6 +131,52 @@ diff に無いファイル名（例: 表の行として言及したいだけの�
 
 ---
 
-## 8. 変更履歴
+## 9. Claude Code × Codex 協業ルール（開発ツール連携・要件§26）
+
+> このリポジトリの成果物の仕様ではなく、**開発者（操作者）のローカル環境**での
+> ツール連携方針。クラウドサンドボックスセッション（Codex未インストール）には
+> 適用不可 — MCP登録は操作者のローカルマシンで行う。
+
+### 9-1. 役割分担
+
+| 役割 | 担当 | 内容 |
+|---|---|---|
+| 司令塔（Orchestrator） | Claude Code | 要件整理・設計・作業分解・PRレビュー・リスク洗い出し・「本当にそれでいい？」の壁打ち |
+| 実装者（Implementer） | Codex（MCP経由） | 実装・差分作成・リファクタの下ごしらえ・既存コードに沿った修正案生成・小さな修正の高速反復 |
+
+Claude Codeは実装コードを直接書かず、Codexへの委譲・レビュー・統合に徹する
+（§7-1 Worker-Evaluator分離をツール連携にも適用する形）。
+
+### 9-2. Codexの登録（操作者のローカル環境で1回）
+
+```bash
+claude mcp add codex --scope user -- codex mcp-server
+```
+
+Windows で `codex` が PATH に無い場合は絶対パスを、npx 経由なら `cmd /c npx -y @openai/codex mcp-server` を使う。
+登録確認: `claude mcp list` / セッション内で `/mcp`。
+
+### 9-3. 呼び出し規律
+
+1. `codex` 呼び出しは1回につき1サブタスクのみ。
+2. 毎回明示的に渡す: `cwd`（絶対パス）・`approval-policy: never`・`sandbox: workspace-write`
+   （Codexの承認プロンプトは MCP elicitation 経由のため、渡さないと非対話実行できない）。
+3. プロンプトに必ず含める:
+   ```
+   GOAL: <一文>
+   FILES: <対象ファイルを明示。それ以外は触らせない>
+   ACCEPTANCE: <成功基準となるコマンド、例: pytest -q tests/test_x.py が exit 0>
+   CONSTRAINTS: <禁止事項、例: 新規依存追加禁止・API シグネチャ変更禁止>
+   ```
+4. 呼び出し後は毎回 `git diff` を確認してからレビュー・次の指示。承認せずに積み上げない。
+5. 同一サブタスクの継続は新規 `codex` セッションでなく、返却された thread id で
+   `codex-reply` を使う。
+6. 双方向登録（CodexからClaude Codeを呼ぶ設定）はループの危険があるため、
+   明示的に必要な場合を除き登録しない。
+
+---
+
+## 10. 変更履歴
 
 - 2026-07-10: CLAUDE.md を必須7項目中心に再構成し、詳細を当ファイルへ分離。
+- 2026-09-12: §9 Claude Code × Codex 協業ルールを追加。

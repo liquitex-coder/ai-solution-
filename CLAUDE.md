@@ -84,3 +84,4 @@ docker-compose up && curl -s -o /dev/null -w '%{http_code}' http://localhost:808
 - アーキテクチャ全体図・言語戦略・Claim連携戦略 → `docs/requirements.md` §参照。
 - Key files: `docs/requirements.md`（最初に更新）/ `n8n/workflows/*.json` / `n8n/prompts/*.md` / `n8n/skills/*.md` / `scripts/memory_init.py`。
 - 記事本文は日本語、SEOメタデータは英語（言語戦略）。ZH ソースは Kimi 経由。
+- 開発時の Claude Code × Codex 役割分担（操作者ローカル環境向け） → `docs/AGENT_WORKFLOW.md` §9（要件§26）。
