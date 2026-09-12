@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS facts (
     verdict TEXT DEFAULT '',
     fail_reason TEXT DEFAULT '',
     skill_ref TEXT DEFAULT '',
+    content_hash TEXT DEFAULT '',
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_facts_skill ON facts (skill_ref, created_at);
@@ -121,6 +122,46 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def ensure_schema(conn: sqlite3.Connection) -> None:
+    """Create memory tables and apply lightweight migrations."""
+    conn.executescript(SCHEMA)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(facts)")}
+    if "content_hash" not in columns:
+        conn.execute("ALTER TABLE facts ADD COLUMN content_hash TEXT DEFAULT ''")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_facts_content_hash ON facts (content_hash)")
+    conn.commit()
+
+
+def insert_fact(conn: sqlite3.Connection, content: str, source_url: str = "",
+                confidence: str = "LOW", verdict: str = "",
+                fail_reason: str = "", skill_ref: str = "",
+                content_hash: str = "") -> int:
+    """Store a fact and return its database id."""
+    if confidence not in CONFIDENCE_LEVELS:
+        raise ValueError(f"confidence must be one of {CONFIDENCE_LEVELS}")
+    cur = conn.execute(
+        "INSERT INTO facts (content, source_url, confidence, verdict, fail_reason,"
+        " skill_ref, content_hash, created_at) VALUES (?,?,?,?,?,?,?,?)",
+        (content, source_url, confidence, verdict, fail_reason, skill_ref,
+         content_hash, now_iso()),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def insert_scene(conn: sqlite3.Connection, title: str, url: str,
+                 summary: str = "") -> int:
+    """Insert or update a scene by URL and return its id."""
+    conn.execute(
+        "INSERT INTO scenes (title, url, summary, posted_at) VALUES (?,?,?,?) "
+        "ON CONFLICT(url) DO UPDATE SET title=excluded.title, summary=excluded.summary",
+        (title, url, summary, now_iso()),
+    )
+    row = conn.execute("SELECT id FROM scenes WHERE url=?", (url,)).fetchone()
+    conn.commit()
+    return row[0]
+
+
 def try_load_vec(conn: sqlite3.Connection) -> bool:
     """Load sqlite-vec if installed; BM25-only otherwise (§19-5 graceful path)."""
     try:
@@ -137,7 +178,7 @@ def try_load_vec(conn: sqlite3.Connection) -> bool:
 
 
 def cmd_init(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
-    conn.executescript(SCHEMA)
+    ensure_schema(conn)
     has_vec = try_load_vec(conn)
     if has_vec:
         conn.execute(
@@ -160,27 +201,18 @@ def cmd_init(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 
 def cmd_add_fact(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
-    if args.confidence not in CONFIDENCE_LEVELS:
-        sys.exit(f"confidence must be one of {CONFIDENCE_LEVELS}")
-    cur = conn.execute(
-        "INSERT INTO facts (content, source_url, confidence, verdict, fail_reason,"
-        " skill_ref, created_at) VALUES (?,?,?,?,?,?,?)",
-        (args.content, args.source_url, args.confidence, args.verdict,
-         args.fail_reason, args.skill_ref, now_iso()),
-    )
-    conn.commit()
-    print(json.dumps({"status": "ok", "layer": "facts", "id": cur.lastrowid},
+    try:
+        fact_id = insert_fact(conn, args.content, args.source_url, args.confidence,
+                              args.verdict, args.fail_reason, args.skill_ref)
+    except ValueError as exc:
+        sys.exit(str(exc))
+    print(json.dumps({"status": "ok", "layer": "facts", "id": fact_id},
                      ensure_ascii=False))
 
 
 def cmd_add_scene(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
-    cur = conn.execute(
-        "INSERT INTO scenes (title, url, summary, posted_at) VALUES (?,?,?,?) "
-        "ON CONFLICT(url) DO UPDATE SET title=excluded.title, summary=excluded.summary",
-        (args.title, args.url, args.summary, now_iso()),
-    )
-    conn.commit()
-    print(json.dumps({"status": "ok", "layer": "scenes", "id": cur.lastrowid},
+    scene_id = insert_scene(conn, args.title, args.url, args.summary)
+    print(json.dumps({"status": "ok", "layer": "scenes", "id": scene_id},
                      ensure_ascii=False))
 
 
@@ -260,26 +292,33 @@ def trigram_similarity(a: str, b: str) -> float:
     return len(ga & gb) / len(ga | gb)
 
 
-def cmd_check_dup(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
-    """§19-4: similarity > 0.85 → reframe/skip instruction."""
-    probe = f"{args.title} {args.summary}".strip()
+def find_duplicate(conn: sqlite3.Connection, title: str,
+                   summary: str = "") -> dict:
+    """Return the duplicate-check payload used by the CLI."""
+    probe = f"{title} {summary}".strip()
     best: dict | None = None
     best_sim = 0.0
     for row in conn.execute("SELECT id, title, url, summary FROM scenes"):
-        sim = trigram_similarity(probe, f"{row['title']} {row['summary']}".strip())
+        sim = trigram_similarity(probe, f"{row[1]} {row[3]}".strip())
         if sim > best_sim:
-            best_sim, best = sim, dict(row)
+            best_sim = sim
+            best = {"id": row[0], "title": row[1], "url": row[2], "summary": row[3]}
     is_dup = best_sim > DUP_SIMILARITY_THRESHOLD
     action = ("REFRAME_OR_SKIP: 差分情報・新角度・アップデート記事としてリフレーム。"
               "全文重複なら生成スキップ" if is_dup else "PROCEED")
-    print(json.dumps({
-        "title": args.title,
+    return {
+        "title": title,
         "max_similarity": round(best_sim, 3),
         "threshold": DUP_SIMILARITY_THRESHOLD,
         "duplicate": is_dup,
         "action": action,
         "closest": best,
-    }, ensure_ascii=False, indent=2))
+    }
+
+
+def cmd_check_dup(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
+    print(json.dumps(find_duplicate(conn, args.title, args.summary),
+                     ensure_ascii=False, indent=2))
 
 
 def cmd_prune(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
@@ -346,7 +385,7 @@ def main() -> None:
     try:
         if args.cmd != "init":
             # ensure schema exists for any command
-            conn.executescript(SCHEMA)
+            ensure_schema(conn)
         {
             "init": cmd_init,
             "add-fact": cmd_add_fact,
