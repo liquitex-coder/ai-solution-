@@ -976,3 +976,49 @@ Active化はスクリプトでは行わず、人間が手動実行で確認し�
 未解消のまま残っていた）。本タスクでは配線済みの形（Header Auth）に合わせて
 Credential だけ作成するが、WF03/WF09 の実行時に401/403が出た場合はこの不整合が
 原因である可能性が高く、ノードを `httpQueryAuth` に変更する別タスクが必要。
+
+---
+
+## 26. WordPressカテゴリ自動割当（Phase C2: WF01〜06）
+
+### 26-1. 背景
+
+`scripts/wp-init.ps1`（§24-5）の実行により、`data/wp-taxonomy.json` の
+`categories` に定義された8カテゴリがWordPress.com本番サイトに作成済みで、
+実際のカテゴリIDが判明した。しかし各ワークフローの「WordPressに下書き投稿」
+ノードは `title`/`content`/`status` のみを送信しており、`categories` は
+未指定のまま（WordPress側のデフォルト「未分類」に入る）。
+
+`data/wp-taxonomy.json` の `workflow_category_map` は WF-01〜WF-06 の6件のみ
+カテゴリが確定しており（`source_workflow` が埋まっている6カテゴリに対応）、
+WF-07〜WF-09（記事ライター・ZH処理・複数ソース調査などの中間/汎用ワークフロー）
+はカテゴリ名が未決定のため本タスクの対象外とする（別タスクで扱う）。
+
+### 26-2. 実際に発行済みのカテゴリID（wp-init.ps1 実行結果より）
+
+| ワークフロー | slug（wp-taxonomy.json） | WordPressカテゴリID |
+|---|---|---|
+| WF01: github-ai-trending-daily | github-trending | 790464620 |
+| WF02: rss-monitor | ai-official-news | 790464621 |
+| WF03: youtube-summary | youtube-summary | 1564589 |
+| WF04: threads-influencer | sns-pickup | 790464623 |
+| WF05: note-monitor | note-creator | 13765228 |
+| WF06: weekly-trend-report | weekly-trend-report | 130534926 |
+
+### 26-3. 実装方針
+
+各ワークフローの「WordPress投稿データ整形」Codeノード（jsCode の `return`文）に
+固定値 `category_id`（上記表の数値）を出力データへ追加し、後段の
+「WordPressに下書き投稿」httpRequestノードの `jsonBody` に
+`"categories": "={{ [$json.category_id] }}"` を追加してWordPress REST APIの
+`categories` フィールド（配列指定）に渡す。カテゴリIDはワークフロー間で
+再利用されない固定値のため、Codeノード側にハードコードする
+（`data/wp-taxonomy.json` を実行時に読み込む仕組みは無く、n8n Code node は
+ローカルファイルアクセスを行わないため。将来カテゴリ体系を変更する場合は
+本ドキュメントの表とワークフローJSON双方を手動更新する）。
+
+### 26-4. 対象外（別タスク）
+
+WF07（article-writer）・WF08（kimi-zh）・WF09（multi-source-research）は
+中間処理ワークフローで直接WordPressへ投稿するケースのカテゴリ名が未確定のため、
+本タスクでは変更しない。
