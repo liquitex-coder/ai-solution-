@@ -61,7 +61,6 @@ Pre-flight (Rationalizations Table):
   翻訳ラベル: ZH/EN ソース使用かつ翻訳注記なし → FAIL:MISSING_TRANSLATION_LABEL
 
 品質チェック:
-  - word_count (JA) < 2000 → FAIL:INSUFFICIENT_LENGTH
   - claims が空 → WARN:NO_CLAIMS
   - UNVERIFIABLE claims > 50% → verdict = UNVERIFIABLE
 
@@ -74,7 +73,10 @@ FAIL 蓄積:
 
 ## BUILD
 
-Auditor gate の Python 実装は `src/claim_auditor/` 配下。
+Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verdict ロジック）と
+`scripts/auditor_server.py`（HTTP サービス、要件 §28）。仕様と実装の差分は要件 §32 の
+ドリフト表が唯一の正（PLAN のうち `VERBATIM_COPY` / `MISSING_TRANSLATION_LABEL` /
+`ALREADY_REJECTED` は T-24 で実装予定、`INSUFFICIENT_LENGTH` は不採用）。
 このスキルは n8n からの HTTP Request で呼び出す:
 
 ```json

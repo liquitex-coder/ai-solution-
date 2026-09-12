@@ -145,5 +145,6 @@ Write-Host "  - GITHUB_TOKEN must be set as an n8n Environment variable (Setting
 Write-Host "    for the prompt-loading Code nodes to fetch from GitHub - this is separate from credentials."
 Write-Host "  - No workflow was activated. Manually execute each once, confirm a WordPress draft is"
 Write-Host "    created, then toggle Active (SETUP_GUIDE.md Step 5)."
-Write-Host "  - WF03/WF09 YouTube auth is a known mismatch (requirements section 25-4) - header auth is"
-Write-Host "    wired but Google expects a query-param key; expect this to fail until fixed."
+Write-Host "  - Set CLAIM_AUDITOR_URL and CLAIM_AUDITOR_MODE as n8n Environment/Variables for"
+Write-Host "    production (n8n.cloud) use (SETUP_GUIDE.md Step 4b). The local docker-compose"
+Write-Host "    sandbox already sets both automatically; this manual step is cloud-only."

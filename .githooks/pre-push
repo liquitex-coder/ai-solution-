@@ -11,5 +11,6 @@ cd "$(git rev-parse --show-toplevel)"
 echo "[pre-push] running local gates (CLAUDE.md §D)..."
 python3 scripts/check_wired.py
 python3 scripts/run_eval.py
+python3 -m unittest discover -s tests
 python3 scripts/ratchet_check.py
 echo "[pre-push] all gates green — push allowed"
