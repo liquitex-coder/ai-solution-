@@ -65,15 +65,15 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2; W10/W11 land in T-05 |
-| T-08 | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | reviewed in PR; no stale claims |
+| T-08 ✅ | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | done 2026-09-12 (`90b7a1f`): model names, 13 prompts, slugs and JA block cross-checked against the repo |
 | T-24 | Codex | Auditor spec/code parity per §32-1 (eval cases first: quote ratio 1/3, `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED`; `WARN:` prefix until 30-day observation) | `run_eval` FP=0/FN=0 with new cases; §32-1 rows flipped to implemented |
-| T-09 | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | reviewed in PR |
+| T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`): "即公開" gone, Step 4b states `$env` on n8n cloud is unverified, §25-4 reminder removed |
 
 ## Phase C — Visual layer (Mermaid → Kroki, §31)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-10 | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` on the §28 service + `tests/test_kroki_embed.py` | unittest green; note: endpoint unconsumed until T-11 |
+| T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` on the §28 service + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`): unittest 18/18; URL decodes back to source; oversized → `<pre>`; live endpoint 200/400; memory_db latch removed with transient-error test. **Endpoint unconsumed until T-11** |
 | T-11 | Codex + operator | WF01–09: insert "図解埋め込み" node between WP整形 and Auditor Gate; add `$vars` fallback to gates; `article-base.md` allows one ```mermaid fence | **push only after** operator's manual n8n run shows a WP draft with a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
@@ -112,11 +112,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Scope | Done | Total | % |
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
-| Phase B | 1 | 4 | 25% |
-| Phase C | 0 | 2 | 0% |
+| Phase B | 3 | 4 | 75% |
+| Phase C | 1 | 2 | 50% |
 | Phase D | 0 | 5 | 0% |
-| Phase 1 definition (A–D) | 7 | 17 | 41% |
-| Whole roadmap (A–F) | 7 | 24 | 29% |
+| Phase 1 definition (A–D) | 10 | 17 | 59% |
+| Whole roadmap (A–F) | 10 | 24 | 42% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
