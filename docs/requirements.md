@@ -1018,3 +1018,25 @@ claude mcp add codex --scope user -- codex mcp-server
 5. 継続作業は新規セッションでなく `codex-reply` + 既存thread idを使う。
 
 詳細な運用契約テンプレート → `docs/AGENT_WORKFLOW.md` §9。
+
+---
+
+## 27. アーキテクチャ方向性の確定（2026-09-12・main分岐の解消）
+
+main に別PR系列（#4〜#7）で並行開発されていた Node.js製「reporters」フレームワーク
+（WF07〜13・disclosure gate・品質ベースライン・独自CLAUDE.md）と、本ブランチの
+n8n + Auditor Gate パイプライン（WF01〜09・配線ゲート・評価セット・ラチェット・
+規約ドリフト検出）が、共通の祖先から独立に分岐し重複していた。
+
+**操作者の判断（2026-09-12）**: 本ブランチ（n8n + Auditor Gate 一式）を正とする。
+reporters フレームワークの重複部分（`reporters/`, WF07-13の reporters 側実装,
+`package.json`, `scripts/check_reporters.mjs` 等, `.github/workflows/reporters.yml`,
+`data/wp-taxonomy.json` の reporters 向け拡張, 旧構成の README.md）は本マージで
+削除。マネタイズ設計など reporters 側 requirements.md に存在した独自コンテンツで
+拾う価値があるものは、必要になった時点で `main`（マージ前）または当該PRの履歴から
+個別に参照する（今回は移植しない）。
+
+理由: 両実装は `n8n/workflows/` 等のファイルパスを共有しない部分でも機能的に重複
+しており（同じ「WF01-06に続く追加コンテンツタイプ」という役割）、両方を残すと
+本ブランチの配線ゲート（`scripts/check_wired.py` W2/W3/W4/W7）が reporters 側の
+ワークフローJSON（Auditor Gate 非搭載）を誤って評価しFAILする。
