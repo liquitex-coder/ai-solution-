@@ -2,7 +2,7 @@
 
 > **Language / 言語:** English (primary) | 🇯🇵 日本語は各 Phase 末尾の `<details>`
 >
-> Source of truth for requirements: `docs/requirements.md` (§28–§30 added 2026-09-12).
+> Source of truth for requirements: `docs/requirements.md` (§28–§31 added 2026-09-12).
 > Task IDs (T-NN) are registered in the session task list and referenced from PR descriptions.
 > Roles (requirements §26): **Claude Code = orchestrator** (spec, roadmap, review, gates),
 > **Codex = implementer** (code diffs), **operator = production actions** (keys, hosting, n8n runs).
@@ -24,7 +24,7 @@ sequencing but are not part of this definition.
 | `python3 scripts/ratchet_check.py` | "no memory db" (no production writer exists) |
 | `tests/` | absent |
 
-Gaps verified in code (details in requirements §28-1, §29, §30):
+Gaps verified in code (details in requirements §28-1, §30, §31):
 
 1. All nine Auditor Gate nodes `fetch("${CLAIM_AUDITOR_URL}/audit")`, but no process in the repo serves `/audit` → production verdict is always `SKIP`.
 2. Nothing writes to `data/memory.db` → `ratchet_check.py` has no input.
@@ -32,31 +32,44 @@ Gaps verified in code (details in requirements §28-1, §29, §30):
 4. `data/wp-taxonomy.json` still carries reporters-era WF-10..13 and mismatched WF-07/08/09 mappings (contradicts §27).
 5. README / SETUP_GUIDE / `n8n_deploy.ps1` contain stale statements (WF table 01–06 only, "WF06 publishes immediately", resolved §25-4 warning).
 6. §7 Mermaid/Kroki, §8 EN SEO meta, yt-dlp captions: designed, not implemented.
-7. Auditor spec ⇄ code drift (§31-1): three different quote-ratio thresholds; `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED` documented in `n8n/skills/20-auditor-gate.md` but absent from `scripts/content_audit.py`.
+7. Auditor spec ⇄ code drift (§32-1): three different quote-ratio thresholds; `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED` documented in `n8n/skills/20-auditor-gate.md` but absent from `scripts/content_audit.py`.
 
 ---
+
+## Open-PR coordination (2026-09-12)
+
+Three open PRs touch `docs/requirements.md` and all append new sections at the end, so they conflict pairwise
+(trial merges of #8 and #9 into this branch both conflict on that file).
+
+| PR | Content | Proposed handling |
+|---|---|---|
+| [#9](https://github.com/liquitex-coder/ai-solution-/pull/9) | §29 WordPress category IDs + `category_id` in WF01–06 JSON | **Merge first.** This branch keeps §29 free for it and adds W11 / `wp_id` (T-05, T-07) on top |
+| [#8](https://github.com/liquitex-coder/ai-solution-/pull/8) | §13/§15 corrections + §28 completion roadmap | **Superseded by this PR**: its verified facts are ported into §13/§15 here; its §28 roadmap is replaced by this file. Recommend closing #8 |
+| [#10](https://github.com/liquitex-coder/ai-solution-/pull/10) (this) | §28 Auditor service, §30 W8–W11, §31 Kroki, §32 auditor drift | Renumbered on 2026-09-12 to avoid #9's §29; merge after #9 (merge `main` in, no rebase) |
+
+Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.md §F requires; T-15 covers that run.
 
 ## Phase A — Make the Auditor Gate real (service + memory wiring)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-01 | Claude | Requirements §28–§30, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
+| T-01 | Claude | Requirements §28–§31, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
 | T-02 ✅ | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | done 2026-09-12 (`114bcb8`): unittest 5/5 OK on Linux; legacy-DB migration verified |
 | T-03 | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | unittest green; `curl localhost:8090/health` returns ok |
 | T-04 | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | `docker compose config` valid; W9 (T-05) PASS |
-| T-05 | Codex | `scripts/check_wired.py` W8/W9/W10 per §29-1 | check_wired green **after** T-04 and T-07 (red before — that is the point) |
+| T-05 | Codex | `scripts/check_wired.py` W8/W9/W10/W11 per §30-1 (W11 = workflow `category_id` ⇄ taxonomy `wp_id`) | check_wired green **after** T-04 and T-07 (red before — that is the point) |
 | T-06 | Codex | CI `wired-check.yml` + `.githooks/pre-push` + `CLAUDE.md §D` run `check_wired`, `run_eval`, `unittest` | all three visible in workflow file and hook |
 
 ## Phase B — Drift cleanup
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-07 | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §29-2 | W10 PASS |
+| T-07 | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | W10/W11 PASS |
 | T-08 | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | reviewed in PR; no stale claims |
-| T-24 | Codex | Auditor spec/code parity per §31-1 (eval cases first: quote ratio 1/3, `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED`; `WARN:` prefix until 30-day observation) | `run_eval` FP=0/FN=0 with new cases; §31-1 rows flipped to implemented |
+| T-24 | Codex | Auditor spec/code parity per §32-1 (eval cases first: quote ratio 1/3, `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED`; `WARN:` prefix until 30-day observation) | `run_eval` FP=0/FN=0 with new cases; §32-1 rows flipped to implemented |
 | T-09 | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | reviewed in PR |
 
-## Phase C — Visual layer (Mermaid → Kroki, §30)
+## Phase C — Visual layer (Mermaid → Kroki, §31)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
@@ -77,8 +90,8 @@ Gaps verified in code (details in requirements §28-1, §29, §30):
 
 | ID | Owner | Task |
 |---|---|---|
-| T-17 | Codex + operator | Memory pre-query: `POST /check-dup` before generation, scene write after publish, WP category IDs (§19-4, §19-7, §29-2) |
-| T-18 | Claude → Codex | WF03 yt-dlp captions sidecar (spec §31 first; n8n cloud cannot run binaries) |
+| T-17 | Codex + operator | Memory pre-query: `POST /check-dup` before generation, scene write after publish, WP category IDs (§19-4, §19-7, §30-2) |
+| T-18 | Claude → Codex | WF03 yt-dlp captions sidecar (spec §32 first; n8n cloud cannot run binaries) |
 | T-19 | Codex + operator | EN SEO meta parallel generation (§8) |
 | T-20 | Codex + operator | Flux.1 featured image via fal.ai (§7, 15%) |
 | T-21 | Codex | Ratchet R1: proposals as draft PRs (§23-2) after 30-day R0 evaluation |

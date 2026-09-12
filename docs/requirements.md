@@ -444,8 +444,8 @@ docker-compose up -d
 - [x] 著作権コンプライアンスプロンプト（00-copyright-transform.md）
 - [x] Claim-Auditorゲート**ノード**をn8nに組み込み（WF01〜09、§21 W2/W7 で機械検証）
 - [ ] Claim-Auditorゲートの**呼び先サービス**実装（§28、ROADMAP T-02〜T-06）— 未実装のため現状は全件 `verdict: SKIP`
-- [ ] Mermaid + Kroki.io 図解自動挿入実装（§30、T-10〜T-11）
-- [ ] yt-dlp 字幕取得ノード実装（WF03、T-18・要設計）
+- [ ] Mermaid + Kroki.io 図解自動挿入実装（§31、T-10〜T-11）
+- [ ] yt-dlp 字幕取得ノード実装（WF03、T-18・要設計）— 現状は YouTube Data API の `snippet.description` を要約入力に使用
 - [x] エージェント記憶層 SQLite 初期化スクリプト（`scripts/memory_init.py`、§19）
 - [ ] 記憶層への本番書込み経路（§28-2 FAIL蓄積、T-03）— 未実装のため `ratchet_check.py` は常に "no memory db"
 - [x] n8n/skills/ ディレクトリ作成（SKILL.md 10ファイル、§18）
@@ -456,7 +456,7 @@ docker-compose up -d
 ### Phase 1：コアパイプライン（ホスティング確定後）
 - [ ] 本番WordPressセットアップ
 - [ ] WF01-02 稼働（Auditorゲート付き）
-- [ ] NoimosAI初期連携（WF07）
+- [ ] NoimosAI初期連携（WF07）— 現行 `07-article-writer.json` は Google Drive トリガー無しの手動汎用ライター（§6-4 と乖離、導入要否は未決定）
 - [ ] WF08稼働（知乎/CSDN/B站 → Kimi → JA記事）
 - [ ] Flux.1アイキャッチ実装
 - [ ] 英語SEOメタ並行生成
@@ -502,17 +502,17 @@ docker-compose up -d
 
 | 項目 | ステータス | 確認予定 |
 |---|---|---|
-| WordPressホスティング先 | **未確定** | オーナー確認後 |
-| n8n運用方式（セルフホスト or クラウド） | 未確定 | ホスティング決定後 |
+| WordPressホスティング先 | **確定**: WordPress.com（`liquitex929aa21393-eyqci.wordpress.com` → `aiguide.blog`、§24） | — |
+| n8n運用方式 | **確定**: n8n cloud Pro（`liquitex-coder.app.n8n.cloud`、§25） | — |
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
-| ドメイン | 未確定 | 要相談 |
+| ドメイン | **確定**: `aiguide.blog`（§24-1） | — |
 | Higgsfield APIアクセス・コスト | 要確認 | Phase 2開始前 |
 | claim-auditorのn8n組み込み方法 | **確定: HTTP API**（§28） | — |
 | Auditor サービスのホスティング先（n8n cloud から到達可能な HTTPS） | **未確定** | ROADMAP T-12 |
 | n8n cloud で Code ノードの `$env` が参照可能か | **未検証**（docs.n8n.io は本セッションの egress ポリシーで取得不可） | ROADMAP T-13。不可なら `$vars` フォールバック（T-11） |
-| ZHソースのスクレイピング方法 | RSS or Apify | WF08実装時に決定 |
-| 日本語Embeddingモデル選定 | multilingual-e5-small 候補 | 記憶層実装時に決定 |
-| Reddit API レート制限 | 無料枠確認必要 | WF09実装時 |
+| ZHソースのスクレイピング方法 | **確定**: RSS 3ソース（`08-kimi-zh.json` 「ZH記事ソース設定」: 机器之心 / Synced Review / 雷锋网AI） | — |
+| 日本語Embeddingモデル選定 | 未着手（`memory_init.py` は BM25 のみ、sqlite-vec 不在時フォールバック） | 記憶層本接続時（T-17 以降） |
+| Reddit API レート制限 | WF09 は `reddit.com/search.json` を無認証で利用（実運用未確認） | T-15 の手動実行で確認 |
 
 ---
 
@@ -548,11 +548,11 @@ Claude Code から WordPress REST API を直接操作するための MCP サー�
 
 | 引用5要件 | Auditorチェック | 実装方法 | LLM-free |
 |---|---|---|---|
-| ①主従関係 | 生成字数 / 引用字数 > 2.0（引用 ≤ 1/3） | 字数カウント | 実装済みだが閾値は現在 40%（§31-1 で整合、T-24） |
+| ①主従関係 | 生成字数 / 引用字数 > 2.0（引用 ≤ 1/3） | 字数カウント | 実装済みだが閾値は現在 40%（§32-1 で整合、T-24） |
 | ②明瞭区別 | `<blockquote>` または `>` が存在 | 正規表現 | ✅ |
 | ③必要性 | `##` 見出しブロック ≥ 3 | 構造チェック | ✅ |
 | ④出所明示 | 記事内に原文URLが存在 | URL検出 | ✅ |
-| ⑤改変禁止 | 同言語: blockquote内テキスト類似度 > 0.85 | difflib | **未実装**（§31、T-24） |
+| ⑤改変禁止 | 同言語: blockquote内テキスト類似度 > 0.85 | difflib | **未実装**（§32、T-24） |
 
 ### 17-2. 4シナリオ別ルール
 
@@ -760,7 +760,7 @@ WordPress 投稿
 | `insert_scene(conn, title, url, summary="") -> int` | シーン層へ upsert（同一 url は更新） | WordPress 投稿後（T-17） |
 | `find_duplicate(conn, title, summary="") -> dict` | §19-4 の類似度判定（`check-dup` と同じ payload） | `/check-dup`（T-17） |
 
-- `facts.content_hash TEXT DEFAULT ''`（+ index）を追加する。§31-1 D5 `ALREADY_REJECTED` の検索キー。
+- `facts.content_hash TEXT DEFAULT ''`（+ index）を追加する。§32-1 D5 `ALREADY_REJECTED` の検索キー。
 - テスト: `tests/test_memory.py`（スキーマ冪等 / insert_fact の id / insert_scene の upsert / find_duplicate の真偽 / 旧スキーマ DB への移行）。
 - 実装タスク: ROADMAP T-02（Codex）。
 
@@ -1083,7 +1083,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 |---|---|---|
 | `GET /health` | — | `200 {"status":"ok","service":"claim-auditor-gate","memory_db":true|false}` |
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
-| `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§30。verdict には無関係） |
+| `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
@@ -1094,7 +1094,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 - 記憶層 DB が開けない場合は §14 の方針どおり**ログを出して verdict は返す**（`fact_id: null`）。ゲートを止めない。
 - ゲート側は `{...$json, ...result}` で応答を展開するため、応答キーは既存フィールド（`title/content/wp_status/source_url`）と**衝突させない**。
 - ログ: 1リクエスト1行の JSON（path, verdict, skill_ref, ms）。記事本文はログに出さない。
-- 環境変数: `CLAIM_AUDITOR_PORT`（既定 8090）/ `CLAIM_AUDITOR_BIND`（既定 `0.0.0.0`）/ `CLAIM_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§30）。
+- 環境変数: `CLAIM_AUDITOR_PORT`（既定 8090）/ `CLAIM_AUDITOR_BIND`（既定 `0.0.0.0`）/ `CLAIM_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§31）。
 
 ### 28-3. 配置
 
@@ -1113,17 +1113,18 @@ UNVERIFIABLE が `confidence=UNVERIFIABLE` で書かれる / 不正 JSON → 400
 
 ---
 
-## 29. 配線ゲート拡張（W8〜W10）と WF→カテゴリ正規対応表
+## 30. 配線ゲート拡張（W8〜W11）と WF→カテゴリ正規対応表
 
-### 29-1. 追加チェック（`scripts/check_wired.py`）
+### 30-1. 追加チェック（`scripts/check_wired.py`）
 
 | # | チェック | FAIL条件 |
 |---|---|---|
 | W8 | 各 Auditor Gate が送る `skill_ref` が `scripts/ratchet_check.py` の `SKILL_PROMPTS` に存在 | 未登録の skill_ref（ラチェットが提案不能） |
 | W9 | `scripts/auditor_server.py` が存在し、`docker-compose.yml` に `auditor` サービスと `n8n` への `CLAIM_AUDITOR_URL` がある | 呼び先未配線（§28-1 の再発） |
 | W10 | `data/wp-taxonomy.json` の `workflow_category_map` のキー集合が `{WF-01..WF-09}` と一致し、各値の slug が `categories` に存在 | reporters 系残骸・欠落・不一致 |
+| W11 | 各 WF の「WordPress投稿データ整形」が出力する `category_id` が、対応 category の `wp_id`（`data/wp-taxonomy.json`）と一致。`wp_id` 未記録の WF はチェックをスキップし PASS(skipped) と表示 | 固定値と正のずれ（§29 の ID 表が陳腐化した状態） |
 
-### 29-2. WF→カテゴリ正規対応表（`data/wp-taxonomy.json` の唯一の正）
+### 30-2. WF→カテゴリ正規対応表（`data/wp-taxonomy.json` の唯一の正）
 
 | WF | slug | 表示名 | 根拠 |
 |---|---|---|---|
@@ -1141,14 +1142,15 @@ reporters 系（WF-10〜13: `breaking-news` / `reader-qa` / `changelog-tracker` 
 `factcheck` / `hands-on-review` / `comparison`）は §27 の判断どおり削除する。本番 WordPress.com に既に
 作成済みのカテゴリは `wp-init` が slug で冪等スキップするため残っても害はない（不要分の削除は操作者判断）。
 
-現時点で WP 整形ノードはカテゴリを送っていない（`title/content/wp_status/source_url` のみ）。カテゴリ付与は
-WordPress 側の数値 ID が必要なため T-17（WF JSON 変更・手動検証）で扱う。
+WordPress 側の数値カテゴリ ID の付与は §29（PR #9、WF01〜06 に `category_id` を固定値で埋め込み）が扱う。
+ID は `data/wp-taxonomy.json` の各 category に `wp_id` として記録し**単一の正**とする（T-07）。WF07〜09 の ID は
+T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワークフロー JSON 側の固定値と `wp_id` の不一致は W11 が検出する。
 
 ---
 
-## 30. Mermaid → Kroki 図解埋め込み（§7「80%」の実装確定）
+## 31. Mermaid → Kroki 図解埋め込み（§7「80%」の実装確定）
 
-### 30-1. 方式
+### 31-1. 方式
 
 - 生成プロンプト（`n8n/prompts/article-base.md`、T-11）で「図解が有効な場合のみ ```mermaid フェンスを最大1つ」を許可。
 - `scripts/kroki_embed.py` の `embed_diagrams(html: str) -> tuple[str, int]` が ```mermaid フェンスを
@@ -1159,27 +1161,27 @@ WordPress 側の数値 ID が必要なため T-17（WF JSON 変更・手動検�
 - 同一プロセス（§28 サービス）の `POST /embed-diagrams` として公開するが、モジュールは分離し **verdict に一切関与しない**。
 - パイプライン順序: WP整形 → **図解埋め込み** → Auditor Gate → WP投稿。Auditor は埋め込み後の最終 HTML を審査する。
 
-### 30-2. 未確定・制約
+### 31-2. 未確定・制約
 
 - n8n Code ノードで `zlib` が使えるか未検証のため、変換は n8n 側ではなくサービス側で行う（§28 と同じ到達性前提）。
 - WordPress.com が `<img src="https://kroki.io/...">` を外部画像として表示できることは T-11 の手動実行で確認する（現時点で未確認）。
 - ワークフロー JSON への配線（T-11）は CLAUDE.md §F により**操作者の n8n 手動実行→WP下書き確認後にのみ push**。
   T-10 完了時点では `/embed-diagrams` は本番パスから未消費（ROADMAP に明記、T-11 で解消）。
 
-### 30-3. テスト（T-10）
+### 31-3. テスト（T-10）
 
 `tests/test_kroki_embed.py` — フェンス1つ→`<figure>`1つ / フェンスなし→無変更 / エンコード結果が `zlib.decompress(base64.urlsafe_b64decode())` で原文に戻る /
 4000 超は `<pre>` フォールバック / `/embed-diagrams` 経由で同じ結果。
 
 ---
 
-## 31. Auditor 自己改善ループ — 仕様⇄実装の整合（2026-09-12 自己適用で検出）
+## 32. Auditor 自己改善ループ — 仕様⇄実装の整合（2026-09-12 自己適用で検出）
 
 > ハーネス原則「ラチェット」「Worker-Evaluator 分離」を Auditor 自身に適用する。
 > 変更は必ず **評価セット先行**（§22-2: 期待 verdict をラベル付けした事例を先に追加し、
 > FP=0/FN=0 を保ったまま実装）で行う。LLM は使わない（INV-R2）。
 
-### 31-1. 検出したドリフト（コードで確認）
+### 32-1. 検出したドリフト（コードで確認）
 
 | # | 項目 | 仕様側 | 実装側（`scripts/content_audit.py`） | 決定 |
 |---|---|---|---|---|
@@ -1190,7 +1192,7 @@ WordPress 側の数値 ID が必要なため T-17（WF JSON 変更・手動検�
 | D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で実装。§28 サービスが facts に `content_hash` を保存し、再提出時 `FAIL:ALREADY_REJECTED` |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
 
-### 31-2. ループの運用
+### 32-2. ループの運用
 
 ```
 自己適用（コードで裏取り） → ドリフト表に追記 → 評価セットに期待事例を追加（先）

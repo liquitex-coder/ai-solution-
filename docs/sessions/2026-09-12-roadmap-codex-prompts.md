@@ -3,7 +3,7 @@ title: "ai-solution- roadmap session — Codex prompts"
 date: 2026-09-12
 tags: [ai-solution, roadmap, codex, claim-auditor, session-log]
 branch: claude/awesome-curie-mu3e69
-related: ["[[ROADMAP]]", "docs/requirements.md §26 §28 §29 §30 §31"]
+related: ["[[ROADMAP]]", "docs/requirements.md §26 §28 §30 §31 §31"]
 ---
 
 # Session 2026-09-12 — Roadmap to Phase 1 + Codex implementation prompts
@@ -104,12 +104,13 @@ CONSTRAINTS: common.
 ## T-05 — check_wired.py W8 / W9 / W10
 
 ```
-GOAL: Extend the design-vs-wired gate per docs/requirements.md §29-1 so the "gate without a callee" and taxonomy drift can never recur.
+GOAL: Extend the design-vs-wired gate per docs/requirements.md §30-1 so the "gate without a callee" and taxonomy drift can never recur.
 FILES: scripts/check_wired.py (edit)
 SPEC:
   - W8: for each workflow, extract skill_ref from the Auditor Gate jsCode (regex skill_ref:\s*'([^']+)'); FAIL if missing or not in ratchet_check.SKILL_PROMPTS (import ratchet_check via sys.path insert of scripts/).
   - W9: FAIL unless scripts/auditor_server.py exists AND docker-compose.yml contains a service named auditor AND the n8n service environment contains CLAIM_AUDITOR_URL. Parse docker-compose.yml with a minimal line-based scan (no PyYAML).
   - W10: load data/wp-taxonomy.json; FAIL if set(workflow_category_map) != {"WF-01".."WF-09"} or any mapped slug is not in categories[].slug or any categories[].source_workflow is outside WF-01..09.
+  - W11: for each workflow, regex `category_id:\s*(\d+)` in the WP整形 jsCode; look up the category whose source_workflow matches the WF number; if that category has a numeric `wp_id`, FAIL unless equal; if no `wp_id` or no category_id in the workflow, print PASS with "(skipped: no wp_id)" and do not fail.
   - Keep output format ("  PASS  W8 ...") and Summary line; docstring lists W8-W10.
 ACCEPTANCE:
   python3 scripts/check_wired.py ; echo exit=$?   # W10 must FAIL until T-07 lands; W9 must PASS if T-03/T-04 are in the tree. Report the exact FAIL lines.
@@ -124,7 +125,7 @@ FILES: .github/workflows/wired-check.yml (edit), .githooks/pre-push (edit), CLAU
 SPEC:
   - CI job steps after check_wired: "Run content-audit eval set" python3 scripts/run_eval.py; "Run unit tests" python3 -m unittest discover -s tests -v. Keep pure stdlib, no pip.
   - pre-push: add python3 -m unittest discover -s tests after run_eval.
-  - CLAUDE.md §D: add the unittest line with a one-line comment "unit tests（要件§28-4・§30-3）". Change nothing else in CLAUDE.md.
+  - CLAUDE.md §D: add the unittest line with a one-line comment "unit tests（要件§28-4・§31-3）". Change nothing else in CLAUDE.md.
 ACCEPTANCE:
   bash -n .githooks/pre-push && grep -n unittest .github/workflows/wired-check.yml .githooks/pre-push CLAUDE.md
 CONSTRAINTS: common.
@@ -133,14 +134,15 @@ CONSTRAINTS: common.
 ## T-07 — data/wp-taxonomy.json alignment
 
 ```
-GOAL: Make data/wp-taxonomy.json match the canonical WF→category table in docs/requirements.md §29-2 (drop reporters-era WF-10..13).
+GOAL: Make data/wp-taxonomy.json match the canonical WF→category table in docs/requirements.md §30-2 (drop reporters-era WF-10..13).
 FILES: data/wp-taxonomy.json (edit)
 SPEC:
   - categories: keep WF-01..06 entries unchanged; replace WF-07 with {name:"使い方ガイド", slug:"howto-guide", description:"AIツール・自動化のステップバイステップ解説（手動トリガーの任意テーマ記事）", source_workflow:"WF-07"};
     WF-08 with {name:"海外AI動向", slug:"overseas-ai", description:"中国語圏などのAI情報源をKimi経由で翻訳・要約（翻訳ラベル付き）", source_workflow:"WF-08"};
     WF-09 with {name:"深掘り解説", slug:"deep-dive", description:"9媒体横断取材に基づく確度スコア付きの深掘り記事", source_workflow:"WF-09"}.
     Remove factcheck / hands-on-review / comparison / breaking-news / reader-qa / changelog-tracker and the WF-13 deep-dive entry.
-  - workflow_category_map: exactly WF-01..WF-09 with the slugs above. tags unchanged. Update _comment to mention §29-2.
+  - Add `wp_id` (integer) to the six WF01–06 categories using the IDs in docs/requirements.md §29-2 (PR #9 table): github-trending 790464620, ai-official-news 790464621, youtube-summary 1564589, sns-pickup 790464623, note-creator 13765228, weekly-trend-report 130534926. WF07–09 get no wp_id yet (assigned after wp-init re-run, T-14).
+  - workflow_category_map: exactly WF-01..WF-09 with the slugs above. tags unchanged. Update _comment to mention §30-2 and that wp_id is the single source of truth for W11.
 ACCEPTANCE:
   python3 -c "import json;json.load(open('data/wp-taxonomy.json'))" && python3 scripts/check_wired.py | grep W10   # all PASS
 CONSTRAINTS: common.
@@ -186,7 +188,7 @@ CONSTRAINTS: common + Japanese prose is fine in SETUP_GUIDE (existing language);
 ## T-10 — kroki_embed.py + POST /embed-diagrams
 
 ```
-GOAL: Implement docs/requirements.md §30: convert ```mermaid fences into Kroki <img> figures, exposed on the §28 service as POST /embed-diagrams, without affecting verdicts.
+GOAL: Implement docs/requirements.md §31: convert ```mermaid fences into Kroki <img> figures, exposed on the §28 service as POST /embed-diagrams, without affecting verdicts.
 FILES: scripts/kroki_embed.py (new), scripts/auditor_server.py (edit: register route only), tests/test_kroki_embed.py (new)
 SPEC:
   - embed_diagrams(html: str, base_url: str | None = None) -> tuple[str, int]. base_url defaults to env KROKI_BASE_URL or "https://kroki.io".
@@ -202,13 +204,13 @@ ACCEPTANCE:
 CONSTRAINTS: common + no network calls anywhere in this module.
 ```
 
-## T-24 — Auditor spec/code parity (§31-1), eval cases first
+## T-24 — Auditor spec/code parity (§32-1), eval cases first
 
 ```
-GOAL: Close the drift rows D1, D2, D3, D5 in docs/requirements.md §31-1 with an evaluation-set-first change; new checks are WARN-only until 30-day observation.
+GOAL: Close the drift rows D1, D2, D3, D5 in docs/requirements.md §32-1 with an evaluation-set-first change; new checks are WARN-only until 30-day observation.
 FILES: data/eval_set.json (edit: append cases), scripts/content_audit.py (edit), scripts/auditor_server.py (edit: pass-through of source_text/source_lang, ALREADY_REJECTED lookup), tests/test_content_audit.py (new)
 SPEC (do steps in this order and keep run_eval GREEN after each):
-  1. Append eval cases with ids q-ratio-30-pass (blockquote ≈30% of text, has link → expected PASS), q-ratio-35-fail (≈35% → expected FAIL). Then change QUOTE_DOMINANCE_RATIO to 0.34 (one third, §17-1). Update the comment to cite §17-1/§31-1 D1. Adjust any existing case that now flips ONLY if its label was wrong under §17-1; report each such case id.
+  1. Append eval cases with ids q-ratio-30-pass (blockquote ≈30% of text, has link → expected PASS), q-ratio-35-fail (≈35% → expected FAIL). Then change QUOTE_DOMINANCE_RATIO to 0.34 (one third, §17-1). Update the comment to cite §17-1/§32-1 D1. Adjust any existing case that now flips ONLY if its label was wrong under §17-1; report each such case id.
   2. audit(content, source_urls=None, source_text=None, source_lang=None). D2: when source_text given and source_lang in (None,"ja"): for each blockquote, difflib.SequenceMatcher(None, quote, best-matching window of source_text).ratio() < 0.85 → append "WARN:VERBATIM_COPY" (WARN prefix: does NOT change verdict). D3: when source_lang in ("en","zh"): require ("本記事は" in text and "翻訳" in text and any(url in content for url in source_urls)) else append "WARN:MISSING_TRANSLATION_LABEL". Warnings are returned in a new key "warnings": [...] and never in "reasons".
   3. D5: auditor_server computes sha256(content); before auditing, if a facts row with that content_hash and verdict FAIL exists → respond verdict "FAIL", reasons ["FAIL:ALREADY_REJECTED"], do not insert a second row. Add tests.
   4. tests/test_content_audit.py: unit tests for each new branch incl. that warnings never change verdict.
@@ -227,7 +229,7 @@ After T-10 is merged, ask Codex to patch `n8n/workflows/*.json` (insert "図解�
 <details>
 <summary>🇯🇵 日本語まとめ</summary>
 
-- このノートは 2026-09-12 セッションの成果物。要件 §28〜§31 と `docs/ROADMAP.md` を先に確定し、実装は Codex に委譲する（§26）。
+- このノートは 2026-09-12 セッションの成果物。要件 §28〜§32 と `docs/ROADMAP.md` を先に確定し、実装は Codex に委譲する（§26）。
 - 各プロンプトは GOAL / FILES / SPEC / ACCEPTANCE / CONSTRAINTS 形式。1回の `codex` 呼び出しで1タスク。毎回 `git diff` を確認してから次へ。
 - 実行順: T-02 → T-03 → T-04 → T-05 → T-07（W10 を緑にする）→ T-06 → T-08 → T-09 → T-10 → T-24。T-11 以降の workflow JSON 変更は操作者の n8n 手動実行後にのみ push。
 - 未検証事項（推測しない）: n8n cloud での `$env` 可用性、WordPress.com での Kroki 外部画像表示。どちらも T-11/T-13 の実機確認で確定する。
