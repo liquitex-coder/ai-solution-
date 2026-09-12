@@ -41,7 +41,7 @@ Gaps verified in code (details in requirements §28-1, §29, §30):
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-01 | Claude | Requirements §28–§30, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
-| T-02 | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | `python3 -m unittest discover -s tests` exit 0 |
+| T-02 ✅ | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | done 2026-09-12 (`114bcb8`): unittest 5/5 OK on Linux; legacy-DB migration verified |
 | T-03 | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | unittest green; `curl localhost:8090/health` returns ok |
 | T-04 | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | `docker compose config` valid; W9 (T-05) PASS |
 | T-05 | Codex | `scripts/check_wired.py` W8/W9/W10 per §29-1 | check_wired green **after** T-04 and T-07 (red before — that is the point) |
@@ -98,12 +98,12 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 
 | Scope | Done | Total | % |
 |---|---|---|---|
-| Phase A | 1 | 6 | 17% |
+| Phase A | 2 | 6 | 33% |
 | Phase B | 0 | 4 | 0% |
 | Phase C | 0 | 2 | 0% |
 | Phase D | 0 | 5 | 0% |
-| Phase 1 definition (A–D) | 1 | 17 | 6% |
-| Whole roadmap (A–F) | 1 | 24 | 4% |
+| Phase 1 definition (A–D) | 2 | 17 | 12% |
+| Whole roadmap (A–F) | 2 | 24 | 8% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
