@@ -25,19 +25,17 @@ $Headers = @{
     "Content-Type"  = "application/json"
 }
 
-# name -> (header name, env var, value prefix, required)
+# name -> (credential type, header/query param name, env var, value prefix, required)
 $CredentialDefs = [ordered]@{
-    "Claude API Key"           = @{ Header = "x-api-key";     EnvVar = "ANTHROPIC_API_KEY";     Prefix = "";       Required = $true  }
-    "WordPress App Password"   = @{ Header = "Authorization"; EnvVar = "WP_BEARER_TOKEN";        Prefix = "Bearer "; Required = $true  }
-    "GitHub API Token"         = @{ Header = "Authorization"; EnvVar = "GITHUB_TOKEN";           Prefix = "token ";  Required = $false }
-    "Perplexity API Key"       = @{ Header = "Authorization"; EnvVar = "PERPLEXITY_API_KEY";     Prefix = "Bearer "; Required = $false }
-    "Kimi API Key"             = @{ Header = "Authorization"; EnvVar = "KIMI_API_KEY";           Prefix = "Bearer "; Required = $false }
-    "Threads API Token"        = @{ Header = "Authorization"; EnvVar = "THREADS_ACCESS_TOKEN";   Prefix = "Bearer "; Required = $false }
-    # known mismatch (requirements §25-4): the wired node expects header auth,
-    # but Google's YouTube Data API wants the key as a query param. Created
-    # as-is to match what's wired; will not actually authenticate against
-    # Google until the node is fixed to httpQueryAuth.
-    "YouTube Data API Key"     = @{ Header = "key";           EnvVar = "YOUTUBE_API_KEY";        Prefix = "";       Required = $false }
+    "Claude API Key"           = @{ Type = "httpHeaderAuth"; Header = "x-api-key";     EnvVar = "ANTHROPIC_API_KEY";     Prefix = "";       Required = $true  }
+    "WordPress App Password"   = @{ Type = "httpHeaderAuth"; Header = "Authorization"; EnvVar = "WP_BEARER_TOKEN";        Prefix = "Bearer "; Required = $true  }
+    "GitHub API Token"         = @{ Type = "httpHeaderAuth"; Header = "Authorization"; EnvVar = "GITHUB_TOKEN";           Prefix = "token ";  Required = $false }
+    "Perplexity API Key"       = @{ Type = "httpHeaderAuth"; Header = "Authorization"; EnvVar = "PERPLEXITY_API_KEY";     Prefix = "Bearer "; Required = $false }
+    "Kimi API Key"             = @{ Type = "httpHeaderAuth"; Header = "Authorization"; EnvVar = "KIMI_API_KEY";           Prefix = "Bearer "; Required = $false }
+    "Threads API Token"        = @{ Type = "httpHeaderAuth"; Header = "Authorization"; EnvVar = "THREADS_ACCESS_TOKEN";   Prefix = "Bearer "; Required = $false }
+    # requirements §25-4 resolved: the node now uses httpQueryAuth, matching
+    # how Google's YouTube Data API actually expects the key (query param).
+    "YouTube Data API Key"     = @{ Type = "httpQueryAuth";  Header = "key";           EnvVar = "YOUTUBE_API_KEY";        Prefix = "";       Required = $false }
 }
 
 Write-Host "=== n8n Deployment (requirements section 25) ==="
@@ -73,7 +71,7 @@ foreach ($name in $CredentialDefs.Keys) {
 
     $body = @{
         name = $name
-        type = "httpHeaderAuth"
+        type = $def.Type
         data = @{
             name  = $def.Header
             value = "$($def.Prefix)$value"

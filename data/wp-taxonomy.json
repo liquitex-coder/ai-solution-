@@ -38,16 +38,46 @@
       "source_workflow": "WF-06"
     },
     {
-      "name": "AI活用事例",
-      "slug": "ai-use-cases",
-      "description": "企業・個人によるAIツールの実践的な活用事例・成功事例",
-      "source_workflow": null
+      "name": "体験レビュー",
+      "slug": "hands-on-review",
+      "description": "実際にAIツールをサンドボックス/APIで動かした実行ログに基づくハンズオンレビュー",
+      "source_workflow": "WF-08"
     },
     {
-      "name": "AIツールレビュー",
-      "slug": "ai-tool-review",
-      "description": "AIツール・サービスの機能・料金・使い勝手を比較・レビュー",
-      "source_workflow": null
+      "name": "ツール比較",
+      "slug": "comparison",
+      "description": "既存ツールカタログの情報のみを用いたAIツール同士の比較記事",
+      "source_workflow": "WF-09"
+    },
+    {
+      "name": "ファクトチェック",
+      "slug": "factcheck",
+      "description": "AIツールの誇大な主張を検証する記事。判定はLLM-freeな上流エンジン（Claim-Auditor）に基づく",
+      "source_workflow": "WF-07"
+    },
+    {
+      "name": "AI速報",
+      "slug": "breaking-news",
+      "description": "主要ソース横断で検知した発表を短報として即時に伝える速報",
+      "source_workflow": "WF-10"
+    },
+    {
+      "name": "読者Q&A",
+      "slug": "reader-qa",
+      "description": "読者から寄せられた質問に回答する記事",
+      "source_workflow": "WF-11"
+    },
+    {
+      "name": "アップデート情報",
+      "slug": "changelog-tracker",
+      "description": "主要AIツールのリリースノート・changelogを追跡し、変更点と重要性を解説",
+      "source_workflow": "WF-12"
+    },
+    {
+      "name": "深掘り解説",
+      "slug": "deep-dive",
+      "description": "1トピックを体系的に解説する長文ピラーコンテンツ。内部リンクを配置",
+      "source_workflow": "WF-13"
     }
   ],
   "tags": [
@@ -88,6 +118,13 @@
     "WF-03": "youtube-summary",
     "WF-04": "sns-pickup",
     "WF-05": "note-creator",
-    "WF-06": "weekly-trend-report"
+    "WF-06": "weekly-trend-report",
+    "WF-07": "factcheck",
+    "WF-08": "hands-on-review",
+    "WF-09": "comparison",
+    "WF-10": "breaking-news",
+    "WF-11": "reader-qa",
+    "WF-12": "changelog-tracker",
+    "WF-13": "deep-dive"
   }
 }

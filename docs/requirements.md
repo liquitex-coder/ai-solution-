@@ -967,21 +967,90 @@ Active化はスクリプトでは行わず、人間が手動実行で確認し�
 本スクリプトのCredential作成とは別系統。Proプランで対応するUIから手動設定が必要
 （`n8n/SETUP_GUIDE.md` に手順追記）。
 
-### 25-4. 既知の不整合（要修正・別タスク）
+### 25-4. 既知の不整合（解消済み・2026-07-12）
 
 `03-youtube-summary.json` の「YouTube Data API動画取得」ノードは
-`genericAuthType: httpHeaderAuth` で配線されているが、Google の YouTube Data API
-はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求する。現状のヘッダー
-認証では実際には認証が通らない可能性が高い（`SETUP_GUIDE.md` 旧記述との齟齬も
-未解消のまま残っていた）。本タスクでは配線済みの形（Header Auth）に合わせて
-Credential だけ作成するが、WF03/WF09 の実行時に401/403が出た場合はこの不整合が
-原因である可能性が高く、ノードを `httpQueryAuth` に変更する別タスクが必要。
+`genericAuthType: httpHeaderAuth` で配線されていたが、Google の YouTube Data API
+はAPIキーをヘッダーではなく **クエリパラメータ `key`** で要求するため認証が通らない
+不整合があった。ノードを `genericAuthType: httpQueryAuth` に修正し、
+`scripts/n8n_deploy.ps1` の YouTube Credential定義も対応する型（`httpQueryAuth`）で
+作成するよう修正した。`09-multi-source-research.json` は元々Codeノード内で
+`fetch()` に直接クエリパラメータとして `key=${YOUTUBE_API_KEY}` を付与しており、
+この不整合の対象外だった。
 
 ---
 
-## 26. WordPressカテゴリ自動割当（Phase C2: WF01〜06）
+## 26. Claude Code × Codex 協業ルール（開発ツール連携・MCP経由）
 
-### 26-1. 背景
+> 本節はAIナビ・パイプライン自体の仕様ではなく、**このリポジトリを開発する際の
+> ツール連携方針**（操作者のローカル開発環境向け）。2026-09-12、操作者が
+> 個人wikiで検証済みの構成を本リポジトリのCLAUDE.md/AGENT_WORKFLOW.mdに反映。
+
+### 26-1. 役割分担
+
+| 役割 | 担当 | 内容 |
+|---|---|---|
+| 司令塔（Orchestrator） | Claude Code | 要件整理・設計・作業分解・PRレビュー・リスク洗い出し・「本当にそれでいい？」の壁打ち |
+| 実装者（Implementer） | Codex（MCP経由） | 実装・差分作成・リファクタの下ごしらえ・既存コードに沿った修正案生成・小さな修正の高速反復 |
+
+Claude Codeは実装コードを直接書かず、Codexへの委譲・レビュー・統合に徹する
+（Worker-Evaluator分離の原則をツール連携にも適用）。
+
+### 26-2. 接続方式
+
+Codexを MCP サーバーとして登録する（**操作者のローカル環境**で実行。クラウド
+サンドボックスセッションでは Codex 未インストールのため適用不可）:
+
+```bash
+claude mcp add codex --scope user -- codex mcp-server
+```
+
+呼び出し時は必ず `approval-policy: never` / `sandbox: workspace-write` を渡す
+（Codexの承認プロンプトは MCP elicitation 経由で非対応クライアントでは失敗するため）。
+
+### 26-3. 呼び出し規律
+
+1. 1回の `codex` 呼び出しにつき1サブタスクのみ。
+2. 毎回 `cwd`（絶対パス）・`approval-policy=never`・`sandbox=workspace-write` を渡す。
+3. プロンプトに以下を必ず含める: GOAL（目的）/ FILES（対象ファイル、それ以外は触らない）/
+   ACCEPTANCE（成功基準となるコマンド）/ CONSTRAINTS（禁止事項）。
+4. 呼び出し後は必ず `git diff` を確認してから次の指示を出す。
+5. 継続作業は新規セッションでなく `codex-reply` + 既存thread idを使う。
+
+詳細な運用契約テンプレート → `docs/AGENT_WORKFLOW.md` §9。
+
+---
+
+## 27. アーキテクチャ方向性の確定（2026-09-12・main分岐の解消）
+
+main に別PR系列（#4〜#7）で並行開発されていた Node.js製「reporters」フレームワーク
+（WF07〜13・disclosure gate・品質ベースライン・独自CLAUDE.md）と、本ブランチの
+n8n + Auditor Gate パイプライン（WF01〜09・配線ゲート・評価セット・ラチェット・
+規約ドリフト検出）が、共通の祖先から独立に分岐し重複していた。
+
+**操作者の判断（2026-09-12）**: 本ブランチ（n8n + Auditor Gate 一式）を正とする。
+reporters フレームワークの重複部分（`reporters/`, WF07-13の reporters 側実装,
+`package.json`, `scripts/check_reporters.mjs` 等, `.github/workflows/reporters.yml`,
+`data/wp-taxonomy.json` の reporters 向け拡張, 旧構成の README.md）は本マージで
+削除。マネタイズ設計など reporters 側 requirements.md に存在した独自コンテンツで
+拾う価値があるものは、必要になった時点で `main`（マージ前）または当該PRの履歴から
+個別に参照する（今回は移植しない）。
+
+理由: 両実装は `n8n/workflows/` 等のファイルパスを共有しない部分でも機能的に重複
+しており（同じ「WF01-06に続く追加コンテンツタイプ」という役割）、両方を残すと
+本ブランチの配線ゲート（`scripts/check_wired.py` W2/W3/W4/W7）が reporters 側の
+ワークフローJSON（Auditor Gate 非搭載）を誤って評価しFAILする。
+
+---
+
+## 29. WordPressカテゴリ自動割当（Phase C2: WF01〜06）
+
+> 番号注記: 実装時点でのローカル作業環境が §26/§27（本ドキュメント）および
+> §28（PR #8、本PR作成時点で未マージ）を反映していない古いチェックアウトだった
+> ため、当初「§26」として作成された。mainへの統合時に §29 へ採番し直した
+> （§26〜§28 との重複を避けるため）。
+
+### 29-1. 背景
 
 `scripts/wp-init.ps1`（§24-5）の実行により、`data/wp-taxonomy.json` の
 `categories` に定義された8カテゴリがWordPress.com本番サイトに作成済みで、
@@ -994,7 +1063,7 @@ Credential だけ作成するが、WF03/WF09 の実行時に401/403が出た場�
 WF-07〜WF-09（記事ライター・ZH処理・複数ソース調査などの中間/汎用ワークフロー）
 はカテゴリ名が未決定のため本タスクの対象外とする（別タスクで扱う）。
 
-### 26-2. 実際に発行済みのカテゴリID（wp-init.ps1 実行結果より）
+### 29-2. 実際に発行済みのカテゴリID（wp-init.ps1 実行結果より）
 
 | ワークフロー | slug（wp-taxonomy.json） | WordPressカテゴリID |
 |---|---|---|
@@ -1005,7 +1074,7 @@ WF-07〜WF-09（記事ライター・ZH処理・複数ソース調査などの�
 | WF05: note-monitor | note-creator | 13765228 |
 | WF06: weekly-trend-report | weekly-trend-report | 130534926 |
 
-### 26-3. 実装方針
+### 29-3. 実装方針
 
 各ワークフローの「WordPress投稿データ整形」Codeノード（jsCode の `return`文）に
 固定値 `category_id`（上記表の数値）を出力データへ追加し、後段の
@@ -1017,7 +1086,7 @@ WF-07〜WF-09（記事ライター・ZH処理・複数ソース調査などの�
 ローカルファイルアクセスを行わないため。将来カテゴリ体系を変更する場合は
 本ドキュメントの表とワークフローJSON双方を手動更新する）。
 
-### 26-4. 対象外（別タスク）
+### 29-4. 対象外（別タスク）
 
 WF07（article-writer）・WF08（kimi-zh）・WF09（multi-source-research）は
 中間処理ワークフローで直接WordPressへ投稿するケースのカテゴリ名が未確定のため、
