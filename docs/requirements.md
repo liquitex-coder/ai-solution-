@@ -977,3 +977,44 @@ Active化はスクリプトでは行わず、人間が手動実行で確認し�
 作成するよう修正した。`09-multi-source-research.json` は元々Codeノード内で
 `fetch()` に直接クエリパラメータとして `key=${YOUTUBE_API_KEY}` を付与しており、
 この不整合の対象外だった。
+
+---
+
+## 26. Claude Code × Codex 協業ルール（開発ツール連携・MCP経由）
+
+> 本節はAIナビ・パイプライン自体の仕様ではなく、**このリポジトリを開発する際の
+> ツール連携方針**（操作者のローカル開発環境向け）。2026-09-12、操作者が
+> 個人wikiで検証済みの構成を本リポジトリのCLAUDE.md/AGENT_WORKFLOW.mdに反映。
+
+### 26-1. 役割分担
+
+| 役割 | 担当 | 内容 |
+|---|---|---|
+| 司令塔（Orchestrator） | Claude Code | 要件整理・設計・作業分解・PRレビュー・リスク洗い出し・「本当にそれでいい？」の壁打ち |
+| 実装者（Implementer） | Codex（MCP経由） | 実装・差分作成・リファクタの下ごしらえ・既存コードに沿った修正案生成・小さな修正の高速反復 |
+
+Claude Codeは実装コードを直接書かず、Codexへの委譲・レビュー・統合に徹する
+（Worker-Evaluator分離の原則をツール連携にも適用）。
+
+### 26-2. 接続方式
+
+Codexを MCP サーバーとして登録する（**操作者のローカル環境**で実行。クラウド
+サンドボックスセッションでは Codex 未インストールのため適用不可）:
+
+```bash
+claude mcp add codex --scope user -- codex mcp-server
+```
+
+呼び出し時は必ず `approval-policy: never` / `sandbox: workspace-write` を渡す
+（Codexの承認プロンプトは MCP elicitation 経由で非対応クライアントでは失敗するため）。
+
+### 26-3. 呼び出し規律
+
+1. 1回の `codex` 呼び出しにつき1サブタスクのみ。
+2. 毎回 `cwd`（絶対パス）・`approval-policy=never`・`sandbox=workspace-write` を渡す。
+3. プロンプトに以下を必ず含める: GOAL（目的）/ FILES（対象ファイル、それ以外は触らない）/
+   ACCEPTANCE（成功基準となるコマンド）/ CONSTRAINTS（禁止事項）。
+4. 呼び出し後は必ず `git diff` を確認してから次の指示を出す。
+5. 継続作業は新規セッションでなく `codex-reply` + 既存thread idを使う。
+
+詳細な運用契約テンプレート → `docs/AGENT_WORKFLOW.md` §9。
