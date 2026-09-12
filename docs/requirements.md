@@ -433,42 +433,51 @@ docker-compose up -d
 
 ## 13. 実装フェーズ
 
-### Phase 0：サンドボックス構築（進行中）
+> 2026-09-12 実態確認: 以下は当時のチェックリストが実装から乖離していたため、
+> ファイル存在・ゲート出力で裏取りして更新した（ロードマップ §28 参照）。
+
+### Phase 0：サンドボックス構築（ほぼ完了）
 - [x] 要件定義書作成
 - [x] docker-compose.yml 作成（WordPress + n8n + MySQL）
 - [x] .env.example 作成
-- [x] n8nワークフロー雛形作成（01〜06）
-- [x] n8n/prompts/ ディレクトリ作成（9ファイル）
+- [x] n8nワークフロー作成（01〜09、当初計画の06までから拡張）
+- [x] n8n/prompts/ ディレクトリ作成
 - [x] SETUP_GUIDE.md エラーハンドリング拡充
 - [x] MCP サーバー設定（Claude Code ↔ WordPress）
-- [x] 著作権コンプライアンスプロンプト（00-copyright-transform.md）
-- [ ] Claim-Auditorゲートをn8nに組み込み（WF01〜09）
-- [ ] Mermaid + Kroki.io 図解自動挿入実装
-- [ ] yt-dlp 字幕取得ノード実装（WF03）
-- [ ] エージェント記憶層 SQLite 初期化スクリプト
-- [ ] n8n/skills/ ディレクトリ作成（SKILL.md 10ファイル）
-- [ ] WordPress 初回セットアップ（Application Password 発行）
-- [ ] エンドツーエンドサンドボックステスト
+- [x] 著作権コンプライアンスプロンプト（00-copyright-transform.md、全WFに配線済み）
+- [x] Claim-Auditorゲート（簡易版）をn8nに組み込み（WF01〜09、`scripts/content_audit.py` ベース）
+- [x] エージェント記憶層 SQLite 初期化スクリプト（`scripts/memory_init.py`）
+- [x] n8n/skills/ ディレクトリ作成（SKILL.md 10ファイル）
+- [x] WordPress 初回セットアップ（二段階認証 + Application Password + OAuth2 Bearer、実運用確認済み）
+- [x] `scripts/wp-init.ps1` によるカテゴリ・タグ投入（実機検証済み、§24-5）
+- [ ] Mermaid + Kroki.io 図解自動挿入実装（**未着手**）
+- [ ] yt-dlp 字幕取得ノード実装（WF03、**未着手** — 現状はYouTube Data API descriptionで代替中）
+- [ ] n8n cloud への9ワークフロー実インポート・手動実行・WordPress下書き確認（**T-06、最優先の残タスク**）
 
-### Phase 1：コアパイプライン（ホスティング確定後）
-- [ ] 本番WordPressセットアップ
-- [ ] WF01-02 稼働（Auditorゲート付き）
-- [ ] NoimosAI初期連携（WF07）
-- [ ] WF08稼働（知乎/CSDN/B站 → Kimi → JA記事）
-- [ ] Flux.1アイキャッチ実装
-- [ ] 英語SEOメタ並行生成
-- [ ] SKILL.md形式への移行（n8n/skills/ 運用開始）
+### Phase 1：コアパイプライン
+- [x] 本番WordPressセットアップ（`aiguide.blog`、WordPress.com Business プラン）
+- [ ] WF01-09 が n8n cloud 上で実際に稼働（Active化はT-06完了後、段階的に）
+- [ ] NoimosAI連携の方針決定（**要判断** — §28 D系タスク参照。現WF07はGoogle Docs連携なしの汎用ライター）
+- [ ] WF08稼働確認（Kimi ZH→JA、実行はまだ未実施）
+- [ ] Flux.1アイキャッチ実装（**未着手**）
+- [ ] 英語SEOメタ並行生成（**未配線** — `n8n/skills/11-seo-meta-writer.md` はスキル定義のみでWFに未接続）
+- [x] SKILL.md形式の整備（n8n/skills/ 運用開始済み、n8n WF側への実接続は今後）
+- [ ] WordPress カテゴリ自動割当（`data/wp-taxonomy.json` の `workflow_category_map` が未使用）
 
-### Phase 2：SNS拡張・EN市場・記憶層
-- [ ] WF03-05 稼働（YouTube/Threads/note）
-- [ ] WF09 稼働（9媒体横断調査・確度スコア付き）
-- [ ] エージェント記憶層本番稼働（claim-crew 4層記憶）
-- [ ] NoimosAI SNSエージェント全連携
-- [ ] Higgsfield動画実装（英語圈SNS）
-- [ ] claim-crew 記者エージェント本格統合
-- [ ] claim-evolve SKILL.md自律改善ループ稼働
+### Phase 2：SNS拡張・EN市場・記憶層・Auditor本接続
+- [ ] WF03-05 稼働確認（YouTube/Threads/note）
+- [ ] WF09 稼働確認（9媒体横断調査・確度スコア付き）
+- [ ] Auditor Gateの本接続 — `CLAIM_AUDITOR_URL` が指す実サービスが存在しない
+      （現状は未設定 → 全件draft保存に自動縮退。§28 B系タスク参照）
+- [ ] エージェント記憶層の本番接続（`memory_init.py` は現状CLIスタンドアロン、
+      n8n WFからは呼ばれていない）
+- [ ] NoimosAI SNSエージェント全連携（NoimosAI導入自体が未決定）
+- [ ] Higgsfield動画実装（英語圏SNS、コスト確認後）
+- [ ] claim-crew 記者エージェント本格統合（現状n8n Codeノードで代替）
+- [ ] claim-evolve 本統合（現状 `scripts/ratchet_check.py` Phase R0 report-only版で代替中）
+- [ ] 段階的ロールアウト昇格（`CLAIM_AUDITOR_MODE`: report_only → canary → full、§22-3）
 
-### Phase 3：マネタイズ・ノウハウ化
+### Phase 3：マネタイズ・ノウハウ化（後回しでよい）
 - [ ] このサイト構築プロセスの記事化
 - [ ] 「Claim Platformで動くメディア」としてブランド化
 - [ ] 有料SNSソース（X API等）追加
@@ -499,15 +508,17 @@ docker-compose up -d
 
 | 項目 | ステータス | 確認予定 |
 |---|---|---|
-| WordPressホスティング先 | **未確定** | オーナー確認後 |
-| n8n運用方式（セルフホスト or クラウド） | 未確定 | ホスティング決定後 |
-| サイト正式名称 | 仮「AIナビ」 | 要相談 |
-| ドメイン | 未確定 | 要相談 |
+| WordPressホスティング先 | **確定**（`aiguide.blog`、WordPress.com Business） | — |
+| n8n運用方式 | **確定**（n8n cloud Proプラン、`liquitex-coder.app.n8n.cloud`） | — |
+| サイト正式名称 | 「AIナビ」 | — |
+| ドメイン | **確定**（`aiguide.blog`） | — |
 | Higgsfield APIアクセス・コスト | 要確認 | Phase 2開始前 |
-| claim-auditorのn8n組み込み方法 | HTTP API or CLI | 要設計 |
-| ZHソースのスクレイピング方法 | RSS or Apify | WF08実装時に決定 |
-| 日本語Embeddingモデル選定 | multilingual-e5-small 候補 | 記憶層実装時に決定 |
-| Reddit API レート制限 | 無料枠確認必要 | WF09実装時 |
+| Claim-Auditorのn8n組み込み方法 | 簡易版（`scripts/content_audit.py`）で暫定運用中。
+  本物のClaim-AuditorへのHTTP接続は未着手 | §28 B系タスクで判断 |
+| NoimosAI導入の要否 | **未決定** | §28 D系タスクで判断 |
+| ZHソースのスクレイピング方法 | RSS（3ソース）で実装済み | — |
+| 日本語Embeddingモデル選定 | 未着手（現状BM25のみ、ベクトル検索は未使用） | 記憶層本接続時 |
+| Reddit API レート制限 | WF09で無認証利用中、実運用未確認 | 稼働確認時 |
 
 ---
 
@@ -1040,3 +1051,74 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 しており（同じ「WF01-06に続く追加コンテンツタイプ」という役割）、両方を残すと
 本ブランチの配線ゲート（`scripts/check_wired.py` W2/W3/W4/W7）が reporters 側の
 ワークフローJSON（Auditor Gate 非搭載）を誤って評価しFAILする。
+
+---
+
+## 28. 完成へ向けたロードマップ（2026-09-12）
+
+「完成」の定義: WF01-09が n8n cloud 上で実際にスケジュール稼働し、Auditor Gateが
+実サービスと接続してPASS/FAILを判定し、生成記事が段階的ロールアウト（report_only
+→ canary → full）を経て自動公開まで到達している状態。マネタイズ（Phase 3）は
+「完成」の必須条件に含めない。
+
+### Phase A — 稼働の実証（最優先・今すぐ着手可能）
+
+| # | タスク | 内容 |
+|---|---|---|
+| A1 | n8n cloud への実デプロイ | `scripts/n8n_deploy.ps1` を実行し、9ワークフロー + Credential(Claude/WordPress Bearer必須、他は任意)を投入 |
+| A2 | WF01 手動実行 | GitHub trending → Claude → WordPress下書き作成を確認（実行ログが証拠） |
+| A3 | WF02/05 手動実行 | 低コスト・高頻度なRSS/note系で追加確認 |
+| A4 | 残りのWF確認 | 03/04/06/07/08/09 を、対応するAPIキーが揃い次第、順次手動実行確認 |
+| A5 | 段階的Active化 | 確認できたWFから1本ずつ Active ON（一括ONはしない） |
+
+### Phase B — Auditor Gateの実接続
+
+| # | タスク | 内容 |
+|---|---|---|
+| B1 | `content_audit.py` のHTTPサービス化 | `{content, source_urls, skill_ref}` → `{verdict, reasons}` の契約のまま、軽量Webサーバーとして公開（例: 無料枠のFly.io/Render、またはCloudflare Workers） |
+| B2 | `CLAIM_AUDITOR_URL` 設定 | n8n環境変数にB1のURLを設定。未設定時の「全件draft」からの卒業 |
+| B3 | 30日運用 | report_onlyのまま運用し、verdict記録を貯める（`data/eval_set.json` の実績版に相当するものを本番ログから作る） |
+| B4（将来） | 本物のClaim-Auditor統合 | 現状の簡易ルールベースから、Claim-Auditor製品自体への置き換えを検討（Claim Platform連携戦略 §5 の本来像） |
+
+### Phase C — 設計と実装の差分を埋める
+
+| # | タスク | 内容 |
+|---|---|---|
+| C1 | WF03 yt-dlp実装 | `n8n/skills/03-video-reporter.md` の設計通り、字幕抽出に切り替え（現状はAPI description要約で質が低い） |
+| C2 | カテゴリ自動割当 | `data/wp-taxonomy.json` の `workflow_category_map` をWordPress投稿時に実際に使う |
+| C3 | 英語SEOメタ生成 | `n8n/skills/11-seo-meta-writer.md` を各WFのWordPress投稿ステップに接続 |
+| C4 | WF07方針決定 | NoimosAI（Google Docs連携）を実際に導入するか、汎用ライターのまま運用するか（**要判断**） |
+
+### Phase D — ビジュアル自動化（§7 80/15/5ルール、未着手）
+
+| # | タスク | 内容 |
+|---|---|---|
+| D1 | Mermaid + Kroki.io | 図解自動挿入（全体の80%、無料） |
+| D2 | Flux.1 / fal.ai | アイキャッチ画像（15%、有料・低コスト） |
+| D3 | Higgsfield | 英語圏SNS向け動画（5%、Phase 2判断・コスト確認後） |
+
+### Phase E — 記憶層・evolveループの本番接続
+
+| # | タスク | 内容 |
+|---|---|---|
+| E1 | 記憶層のWF接続 | `memory_init.py` のDBをn8n実行フローから読み書き（現状CLIスタンドアロン） |
+| E2 | claim-crew統合 | 4層記憶の本統合（現状n8n Codeノードで代替） |
+| E3 | ラチェットPhase R1昇格 | Report-Only提案器 → Draft PR自動起票（人間署名でmerge） |
+
+### Phase F — 運用ループ
+
+| # | タスク | 内容 |
+|---|---|---|
+| F1 | ハーネス健全性ダッシュボード更新 | Claim-console の `data.js` を定期的に実データ同期 |
+| F2 | 段階的ロールアウト昇格判断 | 評価セットFP=0/FN=0 + 30日運用実績 → canary → full |
+
+### 実行順序の推奨
+
+```
+Phase A（稼働実証）→ Phase B（Auditor実接続）→ Phase C（設計差分）
+                                              → Phase D（ビジュアル、並行可）
+                                              → Phase E（記憶層、並行可）
+→ Phase F（継続運用）→ Phase 3（マネタイズ、任意）
+```
+
+Phase A・Bが「完成」の骨格。C/D/Eは並行して進められる独立した改善。
