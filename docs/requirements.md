@@ -747,6 +747,23 @@ WordPress 投稿
 
 ---
 
+### 19-8. ライブラリ API（`scripts/memory_init.py`、§28 サービスからの本番書込み経路）
+
+§28-2 の事実層書込みは、CLI をサブプロセス起動せず **同一プロセスから関数呼び出し**で行う
+（LLM-free・stdlib のみ・失敗時は §14 の「ログを出して継続」）。CLI サブコマンド・フラグ・
+出力 JSON キーは従来どおりで、CLI ハンドラは以下の関数を呼ぶだけの薄いラッパーとする。
+
+| 関数 | 役割 | 呼び出し元（本番） |
+|---|---|---|
+| `ensure_schema(conn) -> None` | `SCHEMA` を冪等適用。既存 DB に `facts.content_hash` が無ければ `PRAGMA table_info` で検出して `ALTER TABLE` で追加（移行） | `auditor_server.py` 起動時 |
+| `insert_fact(conn, content, source_url="", confidence="LOW", verdict="", fail_reason="", skill_ref="", content_hash="") -> int` | 事実層へ1行挿入し id を返す | `/audit` の FAIL / UNVERIFIABLE 時（§28-2） |
+| `insert_scene(conn, title, url, summary="") -> int` | シーン層へ upsert（同一 url は更新） | WordPress 投稿後（T-17） |
+| `find_duplicate(conn, title, summary="") -> dict` | §19-4 の類似度判定（`check-dup` と同じ payload） | `/check-dup`（T-17） |
+
+- `facts.content_hash TEXT DEFAULT ''`（+ index）を追加する。§31-1 D5 `ALREADY_REJECTED` の検索キー。
+- テスト: `tests/test_memory.py`（スキーマ冪等 / insert_fact の id / insert_scene の upsert / find_duplicate の真偽 / 旧スキーマ DB への移行）。
+- 実装タスク: ROADMAP T-02（Codex）。
+
 ## 20. オープンソース活用ポリシー
 
 本プロジェクトで参考にしたOSSの権利関係:
