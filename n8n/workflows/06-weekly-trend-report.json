@@ -140,7 +140,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst weekStr = $('トレンドデータ集約').first().json.weekStr;\nconst now = new Date();\nconst monthDay = `${now.getMonth()+1}月${now.getDate()}日`;\n// wp_status is draft; Auditor Gate decides publish vs draft\nreturn [{ json: { title: `【週次AIトレンド】${monthDay}週 - 注目のAIニュース・ツールまとめ`, content, wp_status: 'draft' } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst weekStr = $('トレンドデータ集約').first().json.weekStr;\nconst now = new Date();\nconst monthDay = `${now.getMonth()+1}月${now.getDate()}日`;\n// wp_status is draft; Auditor Gate decides publish vs draft\nreturn [{ json: { title: `【週次AIトレンド】${monthDay}週 - 注目のAIニュース・ツールまとめ`, content, wp_status: 'draft', category_id: 130534926 } }];"
       },
       "id": "66667777-8888-9999-0000-111122223333",
       "name": "WordPress投稿データ整形",
@@ -162,7 +162,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },
