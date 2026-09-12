@@ -42,16 +42,18 @@ docker compose up -d
 1. http://localhost:5678 にアクセス（Basic Auth: `admin` / `.env` の `N8N_PASSWORD`）
 2. 左メニュー「Workflows」→「Add workflow」
 3. 右上「…」→「Import from file」
-4. `n8n/workflows/01〜06` を順番にインポート
+4. `n8n/workflows/01〜09` を順番にインポート
 
 ### 0-6. e2e 動作確認チェックリスト
 
 ```
 [ ] docker compose ps で全サービスが Up
+[ ] docker compose ps で auditor が (healthy) と表示される
 [ ] http://localhost:8080 で WordPress トップページ表示
 [ ] http://localhost:5678 で n8n ログイン成功
 [ ] ワークフロー01 を手動実行 → WordPress に下書き記事が作成される
 [ ] ワークフロー02 を手動実行 → RSS 取得 → Claude API → WordPress 下書き
+[ ] ワークフロー07 を手動実行 → 「Auditor Gate」ノードの出力で verdict が SKIP 以外
 [ ] wp-admin/edit.php?post_status=draft で記事一覧を確認
 ```
 
@@ -251,6 +253,33 @@ n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外�
 
 ---
 
+## Step 4b: Claim-Auditor gate 変数
+
+各ワークフローの「Auditor Gate」Codeノードは `$env.CLAIM_AUDITOR_URL` / `$env.CLAIM_AUDITOR_MODE`
+を参照し、`${CLAIM_AUDITOR_URL}/audit` にPOSTして判定結果（`verdict`/`reasons`）を受け取る
+（要件§28）。
+
+- **ローカルサンドボックス（`docker-compose up`）**: `docker-compose.yml` の `n8n` サービスに
+  `CLAIM_AUDITOR_URL=http://auditor:8090` と `CLAIM_AUDITOR_MODE=report_only` が既に設定済みで、
+  **手動設定は不要**。
+- **本番（n8n cloud）**: ローカルのDockerネットワークが無いため、`auditor` サービス
+  （`scripts/auditor_server.py`）を到達可能な場所にHTTPSで公開し、そのURLを n8n の
+  Environment/Variables に `CLAIM_AUDITOR_URL` として手動設定する必要がある（公開先の確定は
+  未了・要件§28-3 T-12）。まずは `CLAIM_AUDITOR_MODE=report_only` で運用を開始する。
+
+### 動作確認
+
+1. ワークフロー07（`07-article-writer.json`）を手動実行
+2. 実行結果で「Auditor Gate」ノードの出力を開く
+3. `verdict` が `"SKIP"` **ではない**ことを確認する（`SKIP` は `CLAIM_AUDITOR_URL` が
+   未設定/到達不可であることを示す）
+
+> **未確認事項**: n8n cloud の Code ノードが `$env` を参照できるかどうかは未検証。
+> もし参照できない場合、Auditor Gate ノードを `$vars` 参照へ改修するフォールバックが
+> 必要になる（ROADMAP T-11、未着手）。現時点ではどちらとも断定しない。
+
+---
+
 ## Step 5: ワークフロー動作確認
 
 ### テスト実行順序
@@ -259,7 +288,10 @@ n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外�
 2. 「Execute workflow」ボタンで手動実行テスト
 3. エラーがないか確認
 4. WordPress.com の下書き記事に記事が作成されているか確認
-5. 問題なければ「Active」をONにする
+5. ワークフロー01〜06については、作成された下書きに要件§29-2のカテゴリ
+   （例: WF01なら「GitHubトレンド」）が正しく付与されているか確認する
+   （WF07〜09はカテゴリID未発行のため対象外）
+6. 問題なければ「Active」をONにする
 
 ### 推奨テスト順序
 
@@ -278,20 +310,27 @@ n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外�
 1. https://liquitex929aa21393-eyqci.wordpress.com/wp-admin/
 2. 「投稿」→「下書き」
 
-週次レポート（ワークフロー06）のみ `status: publish` で即公開されます。
+全ワークフローが既定（`CLAIM_AUDITOR_MODE=report_only`）では下書き（`draft`）として投稿される
+（週次レポート含め、自動公開されるワークフローは無い）。各実行結果の「Auditor Gate」ノードの
+出力に `verdict`（判定結果）・`audit_mode`（適用中のロールアウトモード）・`fact_id`（判定が
+FAIL/UNVERIFIABLEの場合に記憶層へ書き込まれた行のID、PASS時はnull）が表示されるので、
+そこで監査結果を確認できる。
 
 ---
 
 ## ワークフロー一覧と実行スケジュール
 
-| # | ワークフロー | スケジュール | 必須API |
-|---|---|---|---|
-| 01 | GitHub AI Trending | 毎朝8時 (JST) | GitHub, Claude, WordPress |
-| 02 | RSS Monitor | 30分ごと | Claude, WordPress |
-| 03 | YouTube新動画 | 1時間ごと | YouTube, Claude, WordPress |
-| 04 | Threadsインフルエンサー | 3時間ごと | Threads, Claude, WordPress |
-| 05 | note監視 | 1時間ごと | Claude, WordPress |
-| 06 | 週次トレンドレポート | 毎週月曜9時 (JST) | Perplexity, Claude, WordPress |
+| # | ワークフロー | スケジュール | 必須API | カテゴリースラッグ |
+|---|---|---|---|---|
+| 01 | GitHub AI Trending | 毎朝8時 (JST) | GitHub, Claude, WordPress | `github-trending` |
+| 02 | RSS Monitor | 30分ごと | Claude, WordPress | `ai-official-news` |
+| 03 | YouTube新動画 | 1時間ごと | YouTube, Claude, WordPress | `youtube-summary` |
+| 04 | Threadsインフルエンサー | 3時間ごと | Threads, Claude, WordPress | `sns-pickup` |
+| 05 | note監視 | 1時間ごと | Claude, WordPress | `note-creator` |
+| 06 | 週次トレンドレポート | 毎週月曜9時 (JST) | Perplexity, Claude, WordPress | `weekly-trend-report` |
+| 07 | 記事ライター | 手動トリガーのみ | Claude, WordPress | `howto-guide` |
+| 08 | Kimi ZH翻訳 | 6時間ごと | Kimi(Moonshot), Claude, WordPress | `overseas-ai` |
+| 09 | 複数ソース調査 | 毎週金曜7時 (JST) | Claude, WordPress（YouTube・GitHubは任意） | `deep-dive` |
 
 ---
 
