@@ -1113,6 +1113,58 @@ UNVERIFIABLE が `confidence=UNVERIFIABLE` で書かれる / 不正 JSON → 400
 
 ---
 
+## 29. WordPressカテゴリ自動割当（Phase C2: WF01〜06）
+
+> 番号注記: 実装時点でのローカル作業環境が §26/§27（本ドキュメント）および
+> §28（PR #8、本PR作成時点で未マージ）を反映していない古いチェックアウトだった
+> ため、当初「§26」として作成された。mainへの統合時に §29 へ採番し直した
+> （§26〜§28 との重複を避けるため）。
+> 2026-09-12 追記: PR #8 は #10 に置き換えて close。§28 は Auditor Gate HTTP サービスとなった。
+
+### 29-1. 背景
+
+`scripts/wp-init.ps1`（§24-5）の実行により、`data/wp-taxonomy.json` の
+`categories` に定義された8カテゴリがWordPress.com本番サイトに作成済みで、
+実際のカテゴリIDが判明した。しかし各ワークフローの「WordPressに下書き投稿」
+ノードは `title`/`content`/`status` のみを送信しており、`categories` は
+未指定のまま（WordPress側のデフォルト「未分類」に入る）。
+
+`data/wp-taxonomy.json` の `workflow_category_map` は WF-01〜WF-06 の6件のみ
+カテゴリが確定しており（`source_workflow` が埋まっている6カテゴリに対応）、
+WF-07〜WF-09（記事ライター・ZH処理・複数ソース調査などの中間/汎用ワークフロー）
+はカテゴリ名が未決定のため本タスクの対象外とする（別タスクで扱う）。
+
+### 29-2. 実際に発行済みのカテゴリID（wp-init.ps1 実行結果より）
+
+| ワークフロー | slug（wp-taxonomy.json） | WordPressカテゴリID |
+|---|---|---|
+| WF01: github-ai-trending-daily | github-trending | 790464620 |
+| WF02: rss-monitor | ai-official-news | 790464621 |
+| WF03: youtube-summary | youtube-summary | 1564589 |
+| WF04: threads-influencer | sns-pickup | 790464623 |
+| WF05: note-monitor | note-creator | 13765228 |
+| WF06: weekly-trend-report | weekly-trend-report | 130534926 |
+
+### 29-3. 実装方針
+
+各ワークフローの「WordPress投稿データ整形」Codeノード（jsCode の `return`文）に
+固定値 `category_id`（上記表の数値）を出力データへ追加し、後段の
+「WordPressに下書き投稿」httpRequestノードの `jsonBody` に
+`"categories": "={{ [$json.category_id] }}"` を追加してWordPress REST APIの
+`categories` フィールド（配列指定）に渡す。カテゴリIDはワークフロー間で
+再利用されない固定値のため、Codeノード側にハードコードする
+（`data/wp-taxonomy.json` を実行時に読み込む仕組みは無く、n8n Code node は
+ローカルファイルアクセスを行わないため。将来カテゴリ体系を変更する場合は
+本ドキュメントの表とワークフローJSON双方を手動更新する）。
+
+### 29-4. 対象外（別タスク）
+
+WF07（article-writer）・WF08（kimi-zh）・WF09（multi-source-research）は
+中間処理ワークフローで直接WordPressへ投稿するケースのカテゴリ名が未確定のため、
+本タスクでは変更しない。
+
+---
+
 ## 30. 配線ゲート拡張（W8〜W11）と WF→カテゴリ正規対応表
 
 ### 30-1. 追加チェック（`scripts/check_wired.py`）
@@ -1202,4 +1254,3 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 - 新しいチェックは **report_only の本番 verdict を30日観察してから** `FAIL` 判定に昇格させる（§22-3 と同じ段階的ロールアウト）。
   それまでは `reasons` に `WARN:` 接頭辞で記録し verdict に影響させない。
 - 本節の表は「未実装」が残っている限り削除しない（ラチェット）。
-

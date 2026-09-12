@@ -143,7 +143,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.content[0].text;\nconst noteData = $('新記事フィルタリング').item.json;\nreturn [{ json: { title: `【note】${noteData.title}`, content, wp_status: 'draft', source_url: noteData.link || '' } }];"
+        "jsCode": "const content = $json.content[0].text;\nconst noteData = $('新記事フィルタリング').item.json;\nreturn [{ json: { title: `【note】${noteData.title}`, content, wp_status: 'draft', source_url: noteData.link || '', category_id: 13765228 } }];"
       },
       "id": "aaaa7777-bbbb-8888-cccc-999900001111",
       "name": "WordPress投稿データ整形",
@@ -165,7 +165,8 @@
           "jsonBody": {
             "title": "={{ $json.title }}",
             "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
+            "status": "={{ $json.wp_status }}",
+            "categories": "={{ [$json.category_id] }}"
           }
         }
       },

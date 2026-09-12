@@ -43,7 +43,7 @@ Three open PRs touch `docs/requirements.md` and all append new sections at the e
 
 | PR | Content | Proposed handling |
 |---|---|---|
-| [#9](https://github.com/liquitex-coder/ai-solution-/pull/9) | §29 WordPress category IDs + `category_id` in WF01–06 JSON | **Merge first.** This branch keeps §29 free for it and adds W11 / `wp_id` (T-05, T-07) on top |
+| [#9](https://github.com/liquitex-coder/ai-solution-/pull/9) | §29 WordPress category IDs + `category_id` in WF01–06 JSON | **Merged 2026-09-12** (`fbf96ed`, operator decision). This branch merged `main` afterwards; §29 is its section, W11 / `wp_id` (T-05, T-07) build on it |
 | [#8](https://github.com/liquitex-coder/ai-solution-/pull/8) | §13/§15 corrections + §28 completion roadmap | **Closed 2026-09-12 as superseded by this PR** (operator decision): verified facts ported into §13/§15 here; its §28 roadmap replaced by this file |
 | [#10](https://github.com/liquitex-coder/ai-solution-/pull/10) (this) | §28 Auditor service, §30 W8–W11, §31 Kroki, §32 auditor drift | Renumbered on 2026-09-12 to avoid #9's §29; merge after #9 (merge `main` in, no rebase) |
 
