@@ -55,7 +55,7 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 |---|---|---|---|
 | T-01 | Claude | Requirements §28–§31, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
 | T-02 ✅ | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | done 2026-09-12 (`114bcb8`): unittest 5/5 OK on Linux; legacy-DB migration verified |
-| T-03 | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | unittest green; `curl localhost:8090/health` returns ok |
+| T-03 ✅ | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | done 2026-09-12 (`0763a20`): unittest 12/12 OK on Linux; live `/health`, PASS/FAIL/400/404 verified; facts row + ratchet read confirmed |
 | T-04 | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | `docker compose config` valid; W9 (T-05) PASS |
 | T-05 | Codex | `scripts/check_wired.py` W8/W9/W10/W11 per §30-1 (W11 = workflow `category_id` ⇄ taxonomy `wp_id`) | check_wired green **after** T-04 and T-07 (red before — that is the point) |
 | T-06 | Codex | CI `wired-check.yml` + `.githooks/pre-push` + `CLAUDE.md §D` run `check_wired`, `run_eval`, `unittest` | all three visible in workflow file and hook |
@@ -111,12 +111,12 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 
 | Scope | Done | Total | % |
 |---|---|---|---|
-| Phase A | 2 | 6 | 33% |
+| Phase A | 3 | 6 | 50% |
 | Phase B | 0 | 4 | 0% |
 | Phase C | 0 | 2 | 0% |
 | Phase D | 0 | 5 | 0% |
-| Phase 1 definition (A–D) | 2 | 17 | 12% |
-| Whole roadmap (A–F) | 2 | 24 | 8% |
+| Phase 1 definition (A–D) | 3 | 17 | 18% |
+| Whole roadmap (A–F) | 3 | 24 | 13% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

@@ -84,6 +84,9 @@ ACCEPTANCE:
 CONSTRAINTS: common + do not modify scripts/content_audit.py in this task.
 ```
 
+### Review notes on T-03 (carried into T-10, which edits the same file)
+- `AuditorHTTPServer.store_fact` latches `memory_db = False` after any write error, so one transient SQLite error (e.g. `database is locked`) disables fact writes until restart. Requirements §28-2 only asks to log and continue; T-10 should drop the latch (keep trying on the next request) and add a test.
+
 ## T-04 — docker-compose auditor service + env
 
 ```
