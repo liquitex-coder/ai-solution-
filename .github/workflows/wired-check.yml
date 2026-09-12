@@ -16,3 +16,7 @@ jobs:
           python-version: "3.11"
       - name: Run design-vs-wired gate
         run: python3 scripts/check_wired.py
+      - name: Run content-audit eval set
+        run: python3 scripts/run_eval.py
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
