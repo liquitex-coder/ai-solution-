@@ -70,6 +70,8 @@ F5 §32-1 D2 conflated ⑤改変禁止 with verbatim copying (now D7); F6 no Doc
 
 Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 → T-13 → T-11 → T-14 → T-28 → T-15 → T-16**.
 
+PR #10 was merged by the operator on 2026-09-13 (`fb688b1`) with T-24 and T-26 still in round 2; round 2 continues on the same branch name as a new PR. T-12 can start in parallel: on Fly.io the `internal_port` can be pinned to 8090 so the T-26 `PORT` defect does not block it; on Render it does until round 2 lands.
+
 Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
 
 ## Phase B — Drift cleanup
