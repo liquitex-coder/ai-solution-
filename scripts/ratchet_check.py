@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ratchet automation, Phase R0 — report-only proposer (requirements §23).
+"""Ratchet automation, Phase R0 - report-only proposer (requirements §23).
 
 Reads the §19 memory layer, aggregates 30-day Auditor FAILs by
 (skill_ref, fail_reason), and when the same combination hits the
@@ -46,7 +46,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if not args.db.exists():
-        print(f"no memory db at {args.db} — nothing to ratchet (run workflows first)")
+        print(f"no memory db at {args.db} - nothing to ratchet (run workflows first)")
         return 0
 
     conn = sqlite3.connect(str(args.db))
@@ -65,15 +65,15 @@ def main() -> int:
               f"FAILs in 30 days)")
         return 0
 
-    print("# Ratchet proposals (Phase R0 — report only, nothing was changed)\n")
+    print("# Ratchet proposals (Phase R0 - report only, nothing was changed)\n")
     for r in rows:
         prompt = SKILL_PROMPTS.get(r["skill_ref"], "(unknown skill_ref)")
         prompt_path = PROMPT_DIR / prompt
         exists = "exists" if prompt_path.exists() else "MISSING"
-        print(f"## {r['skill_ref']} — {r['fail_reason']} × {r['n']} (last: {r['last_seen']})")
+        print(f"## {r['skill_ref']} - {r['fail_reason']} × {r['n']} (last: {r['last_seen']})")
         print()
         print("Proposed CLAUDE.md §C line:")
-        print(f"> N. `{r['skill_ref']}` で `{r['fail_reason']}` が30日間に{r['n']}回発生 — "
+        print(f"> N. `{r['skill_ref']}` で `{r['fail_reason']}` が30日間に{r['n']}回発生 - "
               f"生成時にこの失敗様式を避けること（記憶層より自動起票）。")
         print()
         print(f"Prompt to review: `n8n/prompts/{prompt}` ({exists})")

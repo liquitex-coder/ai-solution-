@@ -87,7 +87,7 @@ def main() -> int:
     workflows: dict[str, dict] = {}
     for path in sorted(WF_DIR.glob("*.json")):
         try:
-            workflows[path.name] = json.loads(path.read_text())
+            workflows[path.name] = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
             fail(f"W0 {path.name}: invalid JSON ({e})")
 
@@ -182,7 +182,7 @@ def main() -> int:
     current_service = ""
     in_n8n_environment = False
     if compose_path.exists():
-        for line in compose_path.read_text().splitlines():
+        for line in compose_path.read_text(encoding="utf-8").splitlines():
             service = re.match(r"^  ([^ :]+):", line)
             if service:
                 current_service = service.group(1)
@@ -207,7 +207,7 @@ def main() -> int:
 
     print("== W10: workflow/category taxonomy map agrees ==")
     taxonomy_path = ROOT / "data" / "wp-taxonomy.json"
-    taxonomy = json.loads(taxonomy_path.read_text())
+    taxonomy = json.loads(taxonomy_path.read_text(encoding="utf-8"))
     categories = taxonomy.get("categories", [])
     workflow_category_map = taxonomy.get("workflow_category_map", {})
     required_wfs = {f"WF-{num}" for num in REQUIRED_WORKFLOWS}

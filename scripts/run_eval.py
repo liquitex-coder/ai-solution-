@@ -19,7 +19,7 @@ EVAL_SET = pathlib.Path(__file__).resolve().parent.parent / "data" / "eval_set.j
 
 
 def main() -> int:
-    cases = json.loads(EVAL_SET.read_text())
+    cases = json.loads(EVAL_SET.read_text(encoding="utf-8"))
     fp, fn, mismatch, exact = [], [], [], 0
     for case in cases:
         result = audit(case["content"], case.get("source_urls", []))

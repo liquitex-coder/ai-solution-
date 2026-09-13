@@ -88,7 +88,7 @@ def auditor_gate_node(node_id: str, name: str, x: int, y: int, skill_ref: str) -
 
 def patch_wf01():
     path = WF_DIR / "01-github-ai-trending-daily.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -130,7 +130,7 @@ def patch_wf01():
         "main": [[{"node": "WordPressに下書き投稿", "type": "main", "index": 0}]]
     }
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF01 patched")
 
 
@@ -138,7 +138,7 @@ def patch_wf01():
 
 def patch_wf02():
     path = WF_DIR / "02-rss-monitor.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -177,7 +177,7 @@ def patch_wf02():
         "main": [[{"node": "WordPressに下書き投稿", "type": "main", "index": 0}]]
     }
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF02 patched")
 
 
@@ -185,7 +185,7 @@ def patch_wf02():
 
 def patch_wf03():
     path = WF_DIR / "03-youtube-summary.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -218,7 +218,7 @@ def patch_wf03():
         "main": [[{"node": "WordPressに下書き投稿", "type": "main", "index": 0}]]
     }
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF03 patched")
 
 
@@ -226,7 +226,7 @@ def patch_wf03():
 
 def patch_wf04():
     path = WF_DIR / "04-threads-influencer.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -260,7 +260,7 @@ def patch_wf04():
         "main": [[{"node": "WordPressに下書き投稿", "type": "main", "index": 0}]]
     }
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF04 patched")
 
 
@@ -268,7 +268,7 @@ def patch_wf04():
 
 def patch_wf05():
     path = WF_DIR / "05-note-monitor.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -301,7 +301,7 @@ def patch_wf05():
         "main": [[{"node": "WordPressに下書き投稿", "type": "main", "index": 0}]]
     }
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF05 patched")
 
 
@@ -309,7 +309,7 @@ def patch_wf05():
 
 def patch_wf06():
     path = WF_DIR / "06-weekly-trend-report.json"
-    wf = json.loads(path.read_text())
+    wf = json.loads(path.read_text(encoding="utf-8"))
 
     for node in wf["nodes"]:
         nid = node.get("id", "")
@@ -354,7 +354,7 @@ def patch_wf06():
         "Auditor Gate now controls publish vs draft (INV-R2 compliance)."
     )
 
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF06 patched (CRITICAL: publish→draft fix applied)")
 
 
@@ -501,7 +501,7 @@ def create_wf07():
             "2. WordPress App Password (httpHeaderAuth): Authorization: Basic base64(username:app_password)"
         )
     }
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF07 created")
 
 
@@ -731,7 +731,7 @@ def create_wf08():
             "スケジュール: 6時間ごと"
         )
     }
-    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    path.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print("✅ WF08 created")
 
 
