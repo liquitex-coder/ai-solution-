@@ -116,7 +116,10 @@ class AuditorServerTests(unittest.TestCase):
 
         def flaky_connect(path):
             call_count["n"] += 1
-            if call_count["n"] == 1:
+            # Call #1 is the find_rejected_fact lookup (must succeed so the
+            # audit proceeds); call #2 is the store_fact write we want to
+            # fail transiently.
+            if call_count["n"] == 2:
                 raise sqlite3.OperationalError("database is locked")
             return original_connect(path)
 
@@ -141,6 +144,33 @@ class AuditorServerTests(unittest.TestCase):
             self.assertIsNotNone(body2["fact_id"])
         finally:
             auditor_server.memory_init.connect = original_connect
+
+    def test_resubmitting_rejected_content_is_already_rejected(self):
+        content = "革命的な記事の再提出テスト"
+        status1, body1 = self.request("/audit", "POST", {"content": content})
+        self.assertEqual(status1, 200)
+        self.assertEqual(body1["verdict"], "FAIL")
+        self.assertIsNotNone(body1["fact_id"])
+        self.assertEqual(len(self.facts()), 1)
+
+        status2, body2 = self.request("/audit", "POST", {"content": content})
+        self.assertEqual(status2, 200)
+        self.assertEqual(body2["verdict"], "FAIL")
+        self.assertEqual(body2["reasons"], body1["reasons"] + [f"WARN:ALREADY_REJECTED:{body1['fact_id']}"])
+        self.assertEqual(body2["fact_id"], body1["fact_id"])
+        # no duplicate row was written for the resubmission
+        self.assertEqual(len(self.facts()), 1)
+
+    def test_zh_without_translation_label_warns_but_keeps_verdict(self):
+        content = "<h2>A</h2><h2>B</h2><h2>C</h2><p>本文には翻訳ラベルがありません。</p>"
+        status, body = self.request("/audit", "POST", {
+            "content": content,
+            "source_urls": ["https://example.cn/article"],
+            "source_lang": "zh",
+        })
+        self.assertEqual(status, 200)
+        self.assertIn("WARN:MISSING_TRANSLATION_LABEL", body["reasons"])
+        self.assertEqual(body["verdict"], "PASS")
 
 
 if __name__ == "__main__":

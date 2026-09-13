@@ -1239,11 +1239,11 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 
 | # | 項目 | 仕様側 | 実装側（`scripts/content_audit.py`） | 決定 |
 |---|---|---|---|---|
-| D1 | 引用比率閾値 | §17-1「生成/引用 > 2.0」(引用 ≤ 1/3) / `n8n/skills/skill-base.md` L49「≤ 30%」/ §22-1「> 40%」 | `QUOTE_DOMINANCE_RATIO = 0.40` | **正は §17-1（1/3）**。T-24 で eval に「35% → FAIL」「30% → PASS」を追加してから 0.34 に変更。skill-base と §22-1 の数値は §17-1 参照に統一 |
-| D2 | 丸写し検出 `VERBATIM_COPY`（`20-auditor-gate.md` PLAN の ⑤ 行を由来とするが、内容は「blockquote **外**の本文が原文と ≥ 0.85 で一致」の検出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で **WARN** として実装（§32-2）。`/audit` の任意フィールド `source_text` が無い場合はチェックをスキップ。⑤改変禁止そのものは D7 に分離 |
-| D3 | 翻訳ラベル（§17-3 `MISSING_TRANSLATION_LABEL`） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で実装。`/audit` に任意 `source_lang: ja|en|zh` を追加。`en|zh` で「本記事は」∧「翻訳」∧ source_url 本文内出現 が揃わなければ FAIL。WF08 ゲートが `source_lang:'zh'` を送る改修は T-11（WF JSON 変更） |
+| D1 | 引用比率閾値 | §17-1「生成/引用 > 2.0」(引用 ≤ 1/3) / `n8n/skills/skill-base.md` L49「≤ 30%」/ §22-1「> 40%」 | **実装済み（2026-09-13, T-24）**: `QUOTE_DOMINANCE_RATIO = 0.34` | eval に「35% → FAIL」「30% → PASS」を追加してから 0.34 に変更。skill-base と §22-1 の数値は §17-1 参照に統一 |
+| D2 | 丸写し検出 `VERBATIM_COPY`（`20-auditor-gate.md` PLAN の ⑤ 行を由来とするが、内容は「blockquote **外**の本文が原文と ≥ 0.85 で一致」の検出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: `audit()` に任意 `source_text`/`source_lang` 引数 | `source_text` が無い場合はチェックをスキップ。ヒットしても verdict は変えず `reasons` 末尾に `WARN:VERBATIM_COPY:<ratio>` を追加（§32-2 の30日観察期間中）。⑤改変禁止そのものは D7 に分離 |
+| D3 | 翻訳ラベル（§17-3 `MISSING_TRANSLATION_LABEL`） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: `/audit` の任意 `source_lang: ja|en|zh` | `en|zh` で「本記事は」∧「翻訳」∧ source_url 本文内出現 が揃わなければ verdict は変えず `reasons` 末尾に `WARN:MISSING_TRANSLATION_LABEL` を追加。WF08 ゲートが `source_lang:'zh'` を送る改修は T-11（WF JSON 変更） |
 | D4 | `INSUFFICIENT_LENGTH`（JA 2000字未満） | `20-auditor-gate.md` PLAN | 未実装 | **採用しない**（§22-1 の FAIL 一覧に無く、WF04 Threads まとめ等の短文フォーマットと衝突）。skill 文書から削除 |
-| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で **WARN** として実装: §28 サービスが `facts.content_hash` を照合し、既存行があれば `WARN:ALREADY_REJECTED:<fact_id>` を reasons 末尾に付け、facts への二重挿入はしない。verdict は content の純関数のまま再計算する（INV-R2） |
+| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: §28 サービスが facts に `content_hash` を保存 | 再提出時も verdict は再計算し（固定 FAIL にはしない）、一致する既存 FAIL 行があれば `reasons` 末尾に `WARN:ALREADY_REJECTED:<fact_id>` を追加。同一ハッシュへの facts 重複書き込みはしない |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
 | D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | 未実装 | `source_text` 内の対応箇所特定が必要で誤検出リスクが高いため T-24 では実装せず**保留**（仕様判断、Codex 課題ではない）。2026-09-13 に D2 から分離 |
 

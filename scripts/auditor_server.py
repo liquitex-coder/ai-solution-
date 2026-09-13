@@ -64,6 +64,28 @@ class AuditorHTTPServer(ThreadingHTTPServer):
                   flush=True)
             return None
 
+    def find_rejected_fact(self, content_hash: str) -> int | None:
+        """§32-1 D5: look up a prior FAIL for this exact content hash."""
+        if not self.memory_db:
+            return None
+        try:
+            with self.db_lock:
+                conn = memory_init.connect(self.db_path)
+                try:
+                    row = conn.execute(
+                        "SELECT id FROM facts WHERE content_hash = ? AND verdict = 'FAIL' "
+                        "ORDER BY id DESC LIMIT 1",
+                        (content_hash,),
+                    ).fetchone()
+                    return row[0] if row else None
+                finally:
+                    conn.close()
+        except Exception as exc:
+            # A lookup failure must never block the gate: treat as "not found".
+            print(f"auditor memory database read failed: {exc}", file=sys.stderr,
+                  flush=True)
+            return None
+
     def server_close(self) -> None:
         super().server_close()
 
@@ -155,12 +177,28 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     skill_ref = payload.get("skill_ref", "")
     if not isinstance(skill_ref, str):
         skill_ref = ""
+    source_text = payload.get("source_text")
+    if not isinstance(source_text, str):
+        source_text = None
+    source_lang = payload.get("source_lang")
+    if not isinstance(source_lang, str):
+        source_lang = None
 
-    result = content_audit.audit(content, source_urls)
+    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    # §32-1 D5: a previously rejected submission is still re-scored (verdict
+    # is never skipped), but resubmitting the identical content is flagged as
+    # a WARN and does not write a second facts row for the same hash.
+    rejected_fact_id = handler.server.find_rejected_fact(content_hash)
+
+    result = content_audit.audit(content, source_urls, source_text, source_lang)
     verdict = result["verdict"]
-    fact_id = None
-    if verdict != "PASS":
-        first_reason = result["reasons"][0] if result["reasons"] else ""
+    reasons = list(result["reasons"])
+    fact_id = rejected_fact_id
+    if rejected_fact_id is not None:
+        reasons.append(f"WARN:ALREADY_REJECTED:{rejected_fact_id}")
+    elif verdict != "PASS":
+        first_reason = reasons[0] if reasons else ""
         pieces = first_reason.split(":")
         fail_reason = ":".join(pieces[:2]) if len(pieces) >= 3 else first_reason
         fact_id = handler.server.store_fact(
@@ -170,11 +208,11 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
             verdict=verdict,
             fail_reason=fail_reason,
             skill_ref=skill_ref,
-            content_hash=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            content_hash=content_hash,
         )
     handler._send_json(200, {
         "verdict": verdict,
-        "reasons": result["reasons"],
+        "reasons": reasons,
         "skill_ref": skill_ref,
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "fact_id": fact_id,
