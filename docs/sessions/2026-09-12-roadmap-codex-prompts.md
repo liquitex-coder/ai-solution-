@@ -209,6 +209,8 @@ CONSTRAINTS: common + no network calls anywhere in this module.
 
 ## T-24 — Auditor spec/code parity (§32-1), eval cases first
 
+> **Superseded 2026-09-13**: use the T-24 prompt in `2026-09-13-roadmap-v2-codex-prompts.md` (ALREADY_REJECTED and VERBATIM_COPY are WARN-only; ⑤改変禁止 is deferred as §32-1 D7). If Codex already started from the prompt below, keep the work and reconcile with the v2 spec.
+
 ```
 GOAL: Close the drift rows D1, D2, D3, D5 in docs/requirements.md §32-1 with an evaluation-set-first change; new checks are WARN-only until 30-day observation.
 FILES: data/eval_set.json (edit: append cases), scripts/content_audit.py (edit), scripts/auditor_server.py (edit: pass-through of source_text/source_lang, ALREADY_REJECTED lookup), tests/test_content_audit.py (new)

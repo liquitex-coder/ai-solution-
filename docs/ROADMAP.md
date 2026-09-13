@@ -60,38 +60,52 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 | T-05 ✅ | Codex | `scripts/check_wired.py` W8/W9/W10/W11 per §30-1 (W11 = workflow `category_id` ⇄ taxonomy `wp_id`) | done 2026-09-12 (`539d8d7`): 79 PASS; negative checks reproduced (wrong wp_id → W11 FAIL, renamed service / dropped URL → W9 FAIL, unknown skill_ref → W8 FAIL) |
 | T-06 ✅ | Codex | CI `wired-check.yml` + `.githooks/pre-push` + `CLAUDE.md §D` run `check_wired`, `run_eval`, `unittest` | done 2026-09-12 (`54f7427`): pre-push hook ends "all gates green" locally; CI job 103544633368 green on `54f7427` with all three steps |
 
+## Roadmap v2 (2026-09-13) — sequencing supersedes the 2026-09-12 order
+
+Verified in code on 2026-09-13 (details and Codex prompts: `docs/sessions/2026-09-13-roadmap-v2-codex-prompts.md`):
+F1 twenty `read_text/write_text` calls without `encoding=` in `scripts/` (gates break on Windows cp932);
+F2 `.githooks/pre-push` calls `python3`, which is the Store stub on the operator's Windows;
+F3 T-11 needs the service reachable from n8n cloud; F4 `auditor_server.py` has no auth (public `/audit` could poison `memory.db`);
+F5 §32-1 D2 conflated ⑤改変禁止 with verbatim copying (now D7); F6 no Dockerfile for cloud hosting.
+
+Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 → T-13 → T-11 → T-14 → T-28 → T-15 → T-16**.
+
 ## Phase B — Drift cleanup
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2; W10/W11 land in T-05 |
+| T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2 |
 | T-08 ✅ | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | done 2026-09-12 (`90b7a1f`): model names, 13 prompts, slugs and JA block cross-checked against the repo |
-| T-24 | Codex | Auditor spec/code parity per §32-1 (eval cases first: quote ratio 1/3, `VERBATIM_COPY`, `MISSING_TRANSLATION_LABEL`, `ALREADY_REJECTED`; `WARN:` prefix until 30-day observation) | `run_eval` FP=0/FN=0 with new cases; §32-1 rows flipped to implemented |
-| T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`): "即公開" gone, Step 4b states `$env` on n8n cloud is unverified, §25-4 reminder removed |
+| T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
+| T-25 | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | unittest green incl. the guard; `check_wired` 79 PASS; **operator runs `py -3 scripts/check_wired.py` in a cp932 console → exit 0** |
+| T-24 | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2; D7 deferred) | `run_eval` ≥ 52 cases FP=0/FN=0; `tests/test_content_audit.py` green; §32-1 rows flipped |
 
-## Phase C — Visual layer (Mermaid → Kroki, §31)
+## Phase C — Service hardening + visual layer
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` on the §28 service + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`): unittest 18/18; URL decodes back to source; oversized → `<pre>`; live endpoint 200/400; memory_db latch removed with transient-error test. **Endpoint unconsumed until T-11** |
-| T-11 | Codex + operator | WF01–09: insert "図解埋め込み" node between WP整形 and Auditor Gate; add `$vars` fallback to gates; `article-base.md` allows one ```mermaid fence | **push only after** operator's manual n8n run shows a WP draft with a rendered Kroki image (CLAUDE.md §F) |
+| T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`); endpoint unconsumed until T-11 |
+| T-27 | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | tests: correct token 200 / wrong 401 + no facts write / unset → 200 + `health.auth=false` |
+| T-26 | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | `docker build` + `curl /health` ok; `docker compose config` valid; W9 still PASS |
+| T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 | operator | Choose + deploy hosting for the Auditor service reachable from n8n cloud over HTTPS; record in §28-3 | `GET https://<host>/health` ok |
-| T-13 | operator | Set `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only` in n8n; verify whether `$env` works on n8n cloud; record in §28-3 / §15 | one gate execution log shows a non-SKIP verdict |
-| T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with corrected taxonomy | output pasted in PR / session note |
-| T-15 | operator | Manual run WF01→02→05→06→03→04→07→08→09, confirm drafts + verdict metadata, then Activate | execution logs pasted; README Phase 1 = ✅ |
+| T-12 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | `GET https://<host>/health` → `{"status":"ok","auth":true}` |
+| T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
+| T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
+| T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
+| T-15 | operator | Manual run WF01→02→05→06→03→04→07→08→09, confirm drafts + verdict metadata + category, then Activate | execution logs pasted; README Phase 1 = ✅ |
 | T-16 | operator | 30-day `report_only` review → `canary` (§22-3) with human signature (INV-R1) | signed note in requirements |
 
 ## Phase E — Phase 2 features (after Phase 1 is live)
 
 | ID | Owner | Task |
 |---|---|---|
-| T-17 | Codex + operator | Memory pre-query: `POST /check-dup` before generation, scene write after publish, WP category IDs (§19-4, §19-7, §30-2) |
-| T-18 | Claude → Codex | WF03 yt-dlp captions sidecar (spec §32 first; n8n cloud cannot run binaries) |
+| T-17 | Codex + operator | Memory pre-query: `POST /check-dup` before generation, scene write after publish (§19-4, §19-7) |
+| T-18 | Claude → Codex | WF03 yt-dlp captions sidecar (spec first; n8n cloud cannot run binaries) |
 | T-19 | Codex + operator | EN SEO meta parallel generation (§8) |
 | T-20 | Codex + operator | Flux.1 featured image via fal.ai (§7, 15%) |
 | T-21 | Codex | Ratchet R1: proposals as draft PRs (§23-2) after 30-day R0 evaluation |
@@ -112,11 +126,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Scope | Done | Total | % |
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
-| Phase B | 3 | 4 | 75% |
-| Phase C | 1 | 2 | 50% |
-| Phase D | 0 | 5 | 0% |
-| Phase 1 definition (A–D) | 10 | 17 | 59% |
-| Whole roadmap (A–F) | 10 | 24 | 42% |
+| Phase B | 3 | 5 | 60% |
+| Phase C | 1 | 4 | 25% |
+| Phase D | 0 | 6 | 0% |
+| Phase 1 definition (A–D) | 10 | 21 | 48% |
+| Whole roadmap (A–F) | 10 | 28 | 36% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

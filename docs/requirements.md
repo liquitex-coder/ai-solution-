@@ -1,7 +1,7 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.3  
-**最終更新**: 2026-09-12  
+**バージョン**: 2.4  
+**最終更新**: 2026-09-13  
 **ステータス**: 実装中（Phase 0 → Phase 1 移行、ロードマップ: `docs/ROADMAP.md`）
 
 ---
@@ -1085,6 +1085,8 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
+| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest`。トークンはログに出さない（T-27） | — |
+| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090 | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
 - **事実層への書込み（§19-3）**: verdict が `FAIL` または `UNVERIFIABLE` のとき `facts` に1行挿入する。
@@ -1101,7 +1103,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
 | ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `CLAIM_AUDITOR_URL=http://auditor:8090`、`CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}` |
-| 本番（n8n cloud） | **未確定**（§15 / T-12）。n8n cloud から到達できる HTTPS が必要 | `CLAIM_AUDITOR_URL` を設定（T-13）。n8n cloud で `$env` が使えない場合は Gate を `$vars` フォールバック付きに改修（T-11、workflow JSON 変更のため手動実行検証必須） |
+| 本番（n8n cloud） | T-26 の `Dockerfile` イメージを HTTPS で公開。候補: (a) Fly.io + 1GB volume（memory.db 永続・候補） (b) Render Web Service（無料枠はディスク非永続 → memory.db がデプロイ毎に消え §23 の30日集計に不適） (c) Cloudflare Tunnel でローカル compose を公開（費用ゼロだが操作者PCの常時稼働が前提）。費用・運用は操作者判断（T-12）。T-27 の `CLAIM_AUDITOR_TOKEN` をホスト側に設定する | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
 
 `.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 
@@ -1238,11 +1240,12 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 | # | 項目 | 仕様側 | 実装側（`scripts/content_audit.py`） | 決定 |
 |---|---|---|---|---|
 | D1 | 引用比率閾値 | §17-1「生成/引用 > 2.0」(引用 ≤ 1/3) / `n8n/skills/skill-base.md` L49「≤ 30%」/ §22-1「> 40%」 | `QUOTE_DOMINANCE_RATIO = 0.40` | **正は §17-1（1/3）**。T-24 で eval に「35% → FAIL」「30% → PASS」を追加してから 0.34 に変更。skill-base と §22-1 の数値は §17-1 参照に統一 |
-| D2 | ⑤改変禁止（difflib ≥ 0.85 → `FAIL:VERBATIM_COPY`） | §17-1 表・`20-auditor-gate.md` PLAN | 未実装 | T-24 で実装。入力に `source_text` が必要 → `/audit` の任意フィールドとして追加。無い場合はチェックをスキップ（UNVERIFIABLE にしない） |
+| D2 | 丸写し検出 `VERBATIM_COPY`（`20-auditor-gate.md` PLAN の ⑤ 行を由来とするが、内容は「blockquote **外**の本文が原文と ≥ 0.85 で一致」の検出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で **WARN** として実装（§32-2）。`/audit` の任意フィールド `source_text` が無い場合はチェックをスキップ。⑤改変禁止そのものは D7 に分離 |
 | D3 | 翻訳ラベル（§17-3 `MISSING_TRANSLATION_LABEL`） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で実装。`/audit` に任意 `source_lang: ja|en|zh` を追加。`en|zh` で「本記事は」∧「翻訳」∧ source_url 本文内出現 が揃わなければ FAIL。WF08 ゲートが `source_lang:'zh'` を送る改修は T-11（WF JSON 変更） |
 | D4 | `INSUFFICIENT_LENGTH`（JA 2000字未満） | `20-auditor-gate.md` PLAN | 未実装 | **採用しない**（§22-1 の FAIL 一覧に無く、WF04 Threads まとめ等の短文フォーマットと衝突）。skill 文書から削除 |
-| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で実装。§28 サービスが facts に `content_hash` を保存し、再提出時 `FAIL:ALREADY_REJECTED` |
+| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | 未実装 | T-24 で **WARN** として実装: §28 サービスが `facts.content_hash` を照合し、既存行があれば `WARN:ALREADY_REJECTED:<fact_id>` を reasons 末尾に付け、facts への二重挿入はしない。verdict は content の純関数のまま再計算する（INV-R2） |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
+| D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | 未実装 | `source_text` 内の対応箇所特定が必要で誤検出リスクが高いため T-24 では実装せず**保留**（仕様判断、Codex 課題ではない）。2026-09-13 に D2 から分離 |
 
 ### 32-2. ループの運用
 
@@ -1254,3 +1257,24 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 - 新しいチェックは **report_only の本番 verdict を30日観察してから** `FAIL` 判定に昇格させる（§22-3 と同じ段階的ロールアウト）。
   それまでは `reasons` に `WARN:` 接頭辞で記録し verdict に影響させない。
 - 本節の表は「未実装」が残っている限り削除しない（ラチェット）。
+
+---
+
+## 33. ローカルゲートの可搬性（Windows cp932 環境・2026-09-13 実例）
+
+### 33-1. 検出した事実（コードで確認）
+
+- `scripts/check_wired.py`（3箇所）/ `run_eval.py`（1）/ `patch_workflows.py`（14）/ `build_eval_set.py`（1）/ `build_wf09.py`（1）の
+  `Path.read_text()` / `write_text()` が `encoding` 未指定（計20箇所、AST 走査で確認）→ Windows（cp932）で `UnicodeDecodeError`。
+  `write_text` は例外を出さずに cp932 の JSON を書き、n8n 側で日本語ノード名が壊れる（読み込みより発見が遅い）。
+- `.githooks/pre-push` は `python3` を呼ぶが、操作者の Windows では Store スタブに解決し、フックは実質未実行だった
+  （PR #9 本文にも「`python3` は Store スタブ」と記載）。
+- これまでの「done」証拠は全て Linux（クラウドセッション）で取得されており、§D ゲートが操作者環境で動くことは未検証だった。
+
+### 33-2. 規約
+
+1. `scripts/` 配下のテキスト I/O は `encoding="utf-8"` を必ず明示する（バイナリモードは除外）。
+2. `tests/test_encoding_guard.py` が `ast` で全 `scripts/*.py` を走査し、未指定の呼び出しを FAIL にする（センサー）。
+3. `.githooks/pre-push` は `python3` が使えない場合 `py -3` にフォールバックする。
+4. 「ゲート green」の報告には **操作者環境（Windows）での実行結果**を1回は含める（T-25 の完了条件）。
+

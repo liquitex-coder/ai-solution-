@@ -48,6 +48,8 @@ AI content automation platform: n8n → Claude API → WordPress.
 1. コミット本文に diff に含まれないファイル名を書かない —
    `commit_message_reality` が file_mention 違反として CI を落とす（2026-07-10 実例）。
 2. 「実装しました。動くはずです」— テスト出力なしの完了報告は無効。
+3. `read_text()` / `write_text()` / `open()` に `encoding="utf-8"` を必ず明示 —
+   Windows cp932 で `UnicodeDecodeError`、`write_text` は無言で cp932 を書く（2026-09-13 実例、要件§33）。
 
 ---
 
