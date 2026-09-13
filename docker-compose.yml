@@ -31,17 +31,14 @@ services:
       - wp_data:/var/www/html
 
   auditor:
-    image: python:3.11-slim
-    working_dir: /app
+    build: .
     volumes:
-      - ./scripts:/app/scripts:ro
       - ./data:/app/data
     environment:
       CLAIM_MEMORY_DB: /app/data/memory.db
       CLAIM_AUDITOR_PORT: 8090
       CLAIM_AUDITOR_BIND: 0.0.0.0
       CLAIM_AUDITOR_TOKEN: ${CLAIM_AUDITOR_TOKEN:-}
-    command: ["python3", "scripts/auditor_server.py"]
     expose:
       - "8090"
     healthcheck:
