@@ -341,7 +341,7 @@ def build() -> None:
         )
     }
     out = WF_DIR / "09-multi-source-research.json"
-    out.write_text(json.dumps(wf, ensure_ascii=False, indent=2))
+    out.write_text(json.dumps(wf, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"✅ WF09 written: {out}")
 
 

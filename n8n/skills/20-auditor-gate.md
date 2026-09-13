@@ -53,28 +53,31 @@ Pre-flight (Rationalizations Table):
   R3. 本番呼び出し実績なし (LIBRARY_ONLY 未登録) → WARN:NO_PROD_CALLER
 
 著作権チェック (著作権法32条 引用5要件):
-  ①主従: count_quoted(content) / count_total(content) > 0.30 → FAIL:QUOTE_RATIO_EXCEEDED
+  ①主従: count_quoted(content) / count_total(content) > 0.34（引用 ≤ 1/3、要件§17-1） → FAIL:QUOTE_DOMINANCE
   ②明瞭区別: blockquote タグなしの引用ブロック検出 → FAIL:MISSING_BLOCKQUOTE
   ③必要性: re.findall(r'^#{2} ', content) < 3 → FAIL:INSUFFICIENT_SECTIONS
   ④出所明示: source_urls が content 内に全件存在しない → FAIL:MISSING_SOURCE_URL
-  ⑤改変禁止 (同言語): difflib.SequenceMatcher >= 0.85 → FAIL:VERBATIM_COPY
-  翻訳ラベル: ZH/EN ソース使用かつ翻訳注記なし → FAIL:MISSING_TRANSLATION_LABEL
+  ⑤改変禁止 (同言語): blockquote 内が原文に見つからない (SequenceMatcher < 0.85) → WARN:QUOTE_ALTERED:<ratio>（要件§32-1 D7）
+  丸写し (同言語): blockquote 外の本文が原文と >= 0.85 → WARN:VERBATIM_COPY:<ratio>（要件§32-1 D2）
+  翻訳ラベル: ZH/EN ソース使用かつ翻訳注記なし → WARN:MISSING_TRANSLATION_LABEL（要件§32-1 D3）
 
 品質チェック:
-  - word_count (JA) < 2000 → FAIL:INSUFFICIENT_LENGTH
   - claims が空 → WARN:NO_CLAIMS
   - UNVERIFIABLE claims > 50% → verdict = UNVERIFIABLE
 
 FAIL 蓄積:
   - 事実層に { content_hash, fail_reasons, skill_ref, audited_at } を書き込む
-  - 同一ハッシュの再提出 → 即時 FAIL:ALREADY_REJECTED
+  - 同一ハッシュの再提出 → verdict は再計算し WARN:ALREADY_REJECTED:<fact_id> を付与（facts に重複行なし、要件§32-1 D5）
 ```
 
 ---
 
 ## BUILD
 
-Auditor gate の Python 実装は `src/claim_auditor/` 配下。
+Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verdict ロジック）と
+`scripts/auditor_server.py`（HTTP サービス、要件 §28）。仕様と実装の差分は要件 §32 の
+ドリフト表が唯一の正（PLAN のうち `VERBATIM_COPY` / `MISSING_TRANSLATION_LABEL` /
+`ALREADY_REJECTED` は §32-2 に従い `WARN:` として実装、`VERBATIM_COPY` の本来の定義と `QUOTE_ALTERED` は T-24 第2ラウンド、`INSUFFICIENT_LENGTH` は不採用）。
 このスキルは n8n からの HTTP Request で呼び出す:
 
 ```json

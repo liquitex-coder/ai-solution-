@@ -48,6 +48,12 @@ AI content automation platform: n8n → Claude API → WordPress.
 1. コミット本文に diff に含まれないファイル名を書かない —
    `commit_message_reality` が file_mention 違反として CI を落とす（2026-07-10 実例）。
 2. 「実装しました。動くはずです」— テスト出力なしの完了報告は無効。
+3. `read_text()` / `write_text()` / `open()` に `encoding="utf-8"` を必ず明示 —
+   Windows cp932 で `UnicodeDecodeError`、`write_text` は無言で cp932 を書く（2026-09-13 実例、要件§33）。
+4. コンテナイメージに `ENV CLAIM_AUDITOR_PORT=...` を焼き込まない — PaaS が注入する `PORT` を
+   無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
+5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
+   突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。
 
 ---
 
@@ -58,6 +64,7 @@ AI content automation platform: n8n → Claude API → WordPress.
 ```
 python3 scripts/check_wired.py   # design-vs-wired gate（要件§21・必須）
 python3 scripts/run_eval.py      # content-audit 回帰（要件§22・FP=0/FN=0）
+python3 -m unittest discover -s tests  # unit tests（要件§28-4・§31-3）
 python3 scripts/ratchet_check.py # ラチェット提案（要件§23・Report-Only）
 # n8n workflow: 手動実行 → WP draft 作成を確認（実行ログ必須）
 # WordPress REST: 201 + post ID / Claude API: raw response をログ確認

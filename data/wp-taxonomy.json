@@ -1,83 +1,65 @@
 {
-  "_comment": "WordPress initial taxonomy design for AIナビ site. Used by scripts/wp-init.sh.",
+  "_comment": "WordPress taxonomy canonical mapping per docs/requirements.md §30-2. wp_id is the single source of truth, checked by check_wired W11.",
   "categories": [
     {
       "name": "GitHubトレンド",
       "slug": "github-trending",
       "description": "GitHub上でトレンド入りしたAI・機械学習リポジトリの紹介と解説",
-      "source_workflow": "WF-01"
+      "source_workflow": "WF-01",
+      "wp_id": 790464620
     },
     {
       "name": "AI公式ニュース",
       "slug": "ai-official-news",
       "description": "OpenAI・Anthropic・Google・Metaなど主要AI企業の公式ブログ・発表情報",
-      "source_workflow": "WF-02"
+      "source_workflow": "WF-02",
+      "wp_id": 790464621
     },
     {
       "name": "YouTube動画まとめ",
       "slug": "youtube-summary",
       "description": "AI系YouTubeチャンネルの新着動画を日本語で要約・紹介",
-      "source_workflow": "WF-03"
+      "source_workflow": "WF-03",
+      "wp_id": 1564589
     },
     {
       "name": "SNSピックアップ",
       "slug": "sns-pickup",
       "description": "ThreadsなどSNSのAIインフルエンサー投稿からノウハウ・知見をまとめ",
-      "source_workflow": "WF-04"
+      "source_workflow": "WF-04",
+      "wp_id": 790464623
     },
     {
       "name": "noteクリエイター",
       "slug": "note-creator",
       "description": "noteに投稿されたAI活用・生成AI関連の注目記事を紹介",
-      "source_workflow": "WF-05"
+      "source_workflow": "WF-05",
+      "wp_id": 13765228
     },
     {
       "name": "週次トレンドレポート",
       "slug": "weekly-trend-report",
       "description": "毎週月曜日発行：1週間のAIトレンド・ニュースを包括的にまとめたレポート",
-      "source_workflow": "WF-06"
+      "source_workflow": "WF-06",
+      "wp_id": 130534926
     },
     {
-      "name": "体験レビュー",
-      "slug": "hands-on-review",
-      "description": "実際にAIツールをサンドボックス/APIで動かした実行ログに基づくハンズオンレビュー",
-      "source_workflow": "WF-08"
-    },
-    {
-      "name": "ツール比較",
-      "slug": "comparison",
-      "description": "既存ツールカタログの情報のみを用いたAIツール同士の比較記事",
-      "source_workflow": "WF-09"
-    },
-    {
-      "name": "ファクトチェック",
-      "slug": "factcheck",
-      "description": "AIツールの誇大な主張を検証する記事。判定はLLM-freeな上流エンジン（Claim-Auditor）に基づく",
+      "name": "使い方ガイド",
+      "slug": "howto-guide",
+      "description": "AIツール・自動化のステップバイステップ解説（手動トリガーの任意テーマ記事）",
       "source_workflow": "WF-07"
     },
     {
-      "name": "AI速報",
-      "slug": "breaking-news",
-      "description": "主要ソース横断で検知した発表を短報として即時に伝える速報",
-      "source_workflow": "WF-10"
-    },
-    {
-      "name": "読者Q&A",
-      "slug": "reader-qa",
-      "description": "読者から寄せられた質問に回答する記事",
-      "source_workflow": "WF-11"
-    },
-    {
-      "name": "アップデート情報",
-      "slug": "changelog-tracker",
-      "description": "主要AIツールのリリースノート・changelogを追跡し、変更点と重要性を解説",
-      "source_workflow": "WF-12"
+      "name": "海外AI動向",
+      "slug": "overseas-ai",
+      "description": "中国語圏などのAI情報源をKimi経由で翻訳・要約（翻訳ラベル付き）",
+      "source_workflow": "WF-08"
     },
     {
       "name": "深掘り解説",
       "slug": "deep-dive",
-      "description": "1トピックを体系的に解説する長文ピラーコンテンツ。内部リンクを配置",
-      "source_workflow": "WF-13"
+      "description": "9媒体横断取材に基づく確度スコア付きの深掘り記事",
+      "source_workflow": "WF-09"
     }
   ],
   "tags": [
@@ -119,12 +101,8 @@
     "WF-04": "sns-pickup",
     "WF-05": "note-creator",
     "WF-06": "weekly-trend-report",
-    "WF-07": "factcheck",
-    "WF-08": "hands-on-review",
-    "WF-09": "comparison",
-    "WF-10": "breaking-news",
-    "WF-11": "reader-qa",
-    "WF-12": "changelog-tracker",
-    "WF-13": "deep-dive"
+    "WF-07": "howto-guide",
+    "WF-08": "overseas-ai",
+    "WF-09": "deep-dive"
   }
 }

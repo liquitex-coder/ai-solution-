@@ -174,7 +174,7 @@ for i, hype in enumerate(["圧倒的No.1", "業界を震撼", "確実に稼げ�
         note=f"禁止語: {hype}")
 
 OUT.parent.mkdir(exist_ok=True)
-OUT.write_text(json.dumps(cases, ensure_ascii=False, indent=1))
+OUT.write_text(json.dumps(cases, ensure_ascii=False, indent=1), encoding="utf-8")
 by_cat = {}
 for c in cases:
     by_cat.setdefault(c["category"], []).append(c)
