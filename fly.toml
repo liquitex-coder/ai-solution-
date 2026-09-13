@@ -1,0 +1,33 @@
+# Fly.io configuration for Claim Auditor service
+# Deploy: fly deploy -c fly.toml
+# Secrets: fly secrets set CLAIM_AUDITOR_TOKEN=<value>
+
+app = "claim-auditor"
+primary_region = "nrt"  # Tokyo (adjust to operator's region)
+
+[build]
+dockerfile = "./Dockerfile"
+
+[env]
+CLAIM_AUDITOR_BIND = "0.0.0.0"
+CLAIM_AUDITOR_PORT = "8090"
+CLAIM_MEMORY_DB = "/data/memory.db"
+PYTHONUNBUFFERED = "1"
+
+[[services]]
+internal_port = 8090
+processes = ["app"]
+
+[services.concurrency]
+type = "connections"
+hard_limit = 1000
+soft_limit = 100
+
+[[services.tcp_checks]]
+interval = "30s"
+timeout = "3s"
+grace_period = "10s"
+
+[[mounts]]
+source = "data"
+destination = "/app/data"
