@@ -40,6 +40,7 @@ services:
       CLAIM_MEMORY_DB: /app/data/memory.db
       CLAIM_AUDITOR_PORT: 8090
       CLAIM_AUDITOR_BIND: 0.0.0.0
+      CLAIM_AUDITOR_TOKEN: ${CLAIM_AUDITOR_TOKEN:-}
     command: ["python3", "scripts/auditor_server.py"]
     expose:
       - "8090"
@@ -64,6 +65,7 @@ services:
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
       - CLAIM_AUDITOR_URL=http://auditor:8090
       - CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}
+      - CLAIM_AUDITOR_TOKEN=${CLAIM_AUDITOR_TOKEN:-}
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
     volumes:
       - n8n_data:/home/node/.n8n

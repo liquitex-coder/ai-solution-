@@ -47,7 +47,8 @@ class AuditorServerTests(unittest.TestCase):
     def test_health_reports_available_memory_database(self):
         status, body = self.request("/health")
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"status": "ok", "service": "claim-auditor-gate", "memory_db": True})
+        self.assertEqual(body, {"status": "ok", "service": "claim-auditor-gate",
+                                 "memory_db": True, "auth": False})
 
     def test_pass_does_not_add_fact(self):
         content = '<h2>One</h2><h2>Two</h2><h2>Three</h2><a href="https://example.test">source</a>'
@@ -171,6 +172,106 @@ class AuditorServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("WARN:MISSING_TRANSLATION_LABEL", body["reasons"])
         self.assertEqual(body["verdict"], "PASS")
+
+
+class AuditorServerAuthTests(unittest.TestCase):
+    """§28-2 (v2.4) / T-27: CLAIM_AUDITOR_TOKEN on the write paths."""
+
+    TOKEN = "test-shared-secret"
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.temp_dir.name) / "memory.db"
+        self.server = make_server("127.0.0.1", 0, self.db_path, self.TOKEN)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        self.temp_dir.cleanup()
+
+    def facts(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            return conn.execute("SELECT * FROM facts ORDER BY id").fetchall()
+        finally:
+            conn.close()
+
+    def request(self, path, method="GET", body=None, token=None):
+        data = None if body is None else json.dumps(body).encode("utf-8")
+        request = Request(self.base_url + path, data=data, method=method)
+        if data is not None:
+            request.add_header("Content-Type", "application/json")
+        if token is not None:
+            request.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urlopen(request) as response:
+                return response.status, json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            return exc.code, json.loads(exc.read().decode("utf-8"))
+
+    def test_health_never_requires_auth_and_reports_auth_true(self):
+        status, body = self.request("/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["auth"], True)
+
+    def test_correct_token_allows_audit_and_writes_fact_on_fail(self):
+        status, body = self.request("/audit", "POST", {"content": "革命的な記事"}, token=self.TOKEN)
+        self.assertEqual(status, 200)
+        self.assertEqual(body["verdict"], "FAIL")
+        self.assertEqual(len(self.facts()), 1)
+
+    def test_wrong_token_is_unauthorized_and_writes_nothing(self):
+        status, body = self.request("/audit", "POST", {"content": "革命的な記事"}, token="wrong")
+        self.assertEqual(status, 401)
+        self.assertEqual(body, {"error": "unauthorized"})
+        self.assertEqual(self.facts(), [])
+
+    def test_missing_token_is_unauthorized(self):
+        status, body = self.request("/audit", "POST", {"content": "革命的な記事"})
+        self.assertEqual(status, 401)
+        self.assertEqual(body, {"error": "unauthorized"})
+        self.assertEqual(self.facts(), [])
+
+    def test_embed_diagrams_also_requires_token(self):
+        status, _ = self.request("/embed-diagrams", "POST", {"content": "<p>x</p>"})
+        self.assertEqual(status, 401)
+        status, _ = self.request("/embed-diagrams", "POST", {"content": "<p>x</p>"}, token=self.TOKEN)
+        self.assertEqual(status, 200)
+
+
+class AuditorServerNoTokenTests(unittest.TestCase):
+    """Unset CLAIM_AUDITOR_TOKEN: behaviour unchanged, /health reports auth=false."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.temp_dir.name) / "memory.db"
+        self.server = make_server("127.0.0.1", 0, self.db_path)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        self.temp_dir.cleanup()
+
+    def test_health_reports_auth_false_when_token_unset(self):
+        with urlopen(self.base_url + "/health") as response:
+            body = json.loads(response.read().decode("utf-8"))
+        self.assertEqual(body["auth"], False)
+
+    def test_audit_without_header_still_succeeds_when_token_unset(self):
+        request = Request(self.base_url + "/audit",
+                           data=json.dumps({"content": "普通の記事"}).encode("utf-8"),
+                           method="POST", headers={"Content-Type": "application/json"})
+        with urlopen(request) as response:
+            status = response.status
+        self.assertEqual(status, 200)
 
 
 if __name__ == "__main__":

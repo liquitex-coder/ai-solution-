@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -30,11 +31,15 @@ class AuditorHTTPServer(ThreadingHTTPServer):
     """Threaded server with optional, lock-protected memory storage."""
 
     def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler],
-                 db_path: Path):
+                 db_path: Path, token: str = ""):
         super().__init__(address, handler)
         self.db_path = db_path
+        self.token = token
         self.db_lock = threading.Lock()
         self.memory_db = False
+        if not self.token:
+            print("CLAIM_AUDITOR_TOKEN not set - unauthenticated mode (sandbox only)",
+                  file=sys.stderr, flush=True)
         try:
             conn = memory_init.connect(db_path)
             try:
@@ -102,6 +107,15 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         self._dispatch()
 
+    def _authorized(self) -> bool:
+        token = self.server.token
+        if not token:
+            return True
+        header = self.headers.get("Authorization", "")
+        if not header.startswith("Bearer "):
+            return False
+        return hmac.compare_digest(header[len("Bearer "):], token)
+
     def _dispatch(self) -> None:
         started = time.monotonic()
         path = urlsplit(self.path).path
@@ -112,6 +126,9 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
             route = ROUTES.get((self.command, path))
             if route is None:
                 self._send_json(404, {"error": "unknown path or method"})
+            elif (self.command, path) in AUTH_REQUIRED_ROUTES and not self._authorized():
+                status = 401
+                self._send_json(401, {"error": "unauthorized"})
             else:
                 status, verdict, skill_ref = route(self)
         except Exception as exc:
@@ -156,6 +173,7 @@ def health(handler: AuditorRequestHandler) -> tuple[int, None, None]:
         "status": "ok",
         "service": "claim-auditor-gate",
         "memory_db": handler.server.memory_db,
+        "auth": bool(handler.server.token),
     })
     return 200, None, None
 
@@ -241,18 +259,22 @@ ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, 
     ("POST", "/embed-diagrams"): embed_diagrams_route,
 }
 
+# §28-2 (v2.4): write paths require auth when CLAIM_AUDITOR_TOKEN is set; /health never does.
+AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams")}
 
-def make_server(bind: str, port: int, db_path: str | Path) -> ThreadingHTTPServer:
+
+def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> ThreadingHTTPServer:
     """Create the gate server; an unavailable DB leaves auditing available."""
-    return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path))
+    return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token)
 
 
 def main() -> None:
     bind = os.environ.get("CLAIM_AUDITOR_BIND", "0.0.0.0")
-    port = int(os.environ.get("CLAIM_AUDITOR_PORT", "8090"))
+    port = int(os.environ.get("CLAIM_AUDITOR_PORT") or os.environ.get("PORT") or "8090")
+    token = os.environ.get("CLAIM_AUDITOR_TOKEN", "")
     configured_db = Path(os.environ.get("CLAIM_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db
-    server = make_server(bind, port, db_path)
+    server = make_server(bind, port, db_path, token)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
