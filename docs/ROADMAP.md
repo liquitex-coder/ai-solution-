@@ -70,6 +70,8 @@ F5 §32-1 D2 conflated ⑤改変禁止 with verbatim copying (now D7); F6 no Doc
 
 Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 → T-13 → T-11 → T-14 → T-28 → T-15 → T-16**.
 
+Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
+
 ## Phase B — Drift cleanup
 
 | ID | Owner | Task | Done when |
@@ -77,16 +79,16 @@ Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 →
 | T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2 |
 | T-08 ✅ | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | done 2026-09-12 (`90b7a1f`): model names, 13 prompts, slugs and JA block cross-checked against the repo |
 | T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
-| T-25 ✅ | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | done 2026-09-13 (`a6cd6ae`): unittest 29/29 incl. guard; `check_wired` 79 PASS; `py -3 scripts/check_wired.py` and `py -3 -m unittest` both exit 0 in a cp932 console without `PYTHONUTF8` (evidence on PR #10); also fixed `scripts/ratchet_check.py`'s em dash (found while verifying the full pre-push chain) |
-| T-24 ✅ | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2; D7 deferred) | done 2026-09-13 (`5012356`): `run_eval` 52 cases FP=0/FN=0; `tests/test_content_audit.py` green; §32-1 D1/D2/D3/D5 rows flipped to implemented; WARN entries live in `reasons` (single list, no separate field) |
+| T-25 ✅ | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | done 2026-09-13 (`a6cd6ae`): Linux AST scan 0 implicit-encoding calls, guard test in unittest (36 OK), `py -3` fallback in the hook; operator evidence in a cp932 console: `py -3 scripts/check_wired.py` 79 PASS exit 0, `py -3 -m unittest discover -s tests` OK exit 0, pre-push chain green (PR #10 comment) |
+| T-24 🔁 | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2) | round 1 (`5012356`) landed D1 (0.34, eval 52 FP=0/FN=0), D3, D5; **rejected on review 2026-09-13**: D2 implemented with inverted semantics (blockquote **inside**, ratio < 0.85 = D7) and D5 matches FAIL rows only (UNVERIFIABLE resubmission duplicates facts). Round 2 prompt in `docs/sessions/2026-09-13-t24-t27-review.md`; done when its ACCEPTANCE is green and §32-1 D2/D5/D7 rows read as implemented |
 
 ## Phase C — Service hardening + visual layer
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`); endpoint unconsumed until T-11 |
-| T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): unittest 36/36 incl. correct/wrong/missing token, `/health` auth=true|false; `check_wired` 79 PASS (W9 unchanged) |
-| T-26 ✅ | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | done 2026-09-13 (`70510a6`): `docker compose config` valid, `check_wired`/unittest green; **`docker build`/`docker run` not verified this session — Docker Desktop daemon unavailable on the operator's machine** |
+| T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 |
+| T-26 🔁 | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`, `docker compose config` valid, W9 PASS; **fix required**: `ENV CLAIM_AUDITOR_PORT=8090` baked into the image overrides a PaaS `PORT` (Linux measurement: `PORT=10000` → bound 8090) — the T-26 prompt itself specified that ENV (orchestrator error, CLAUDE.md §C-4). Round 2 prompt in `docs/sessions/2026-09-13-t24-t27-review.md`; `docker build` + `/health` still unverified (no daemon on either machine) — stays open until someone builds |
 | T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
@@ -126,11 +128,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Scope | Done | Total | % |
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
-| Phase B | 5 | 5 | 100% |
-| Phase C | 3 | 4 | 75% |
+| Phase B | 4 | 5 | 80% |
+| Phase C | 2 | 4 | 50% |
 | Phase D | 0 | 6 | 0% |
-| Phase 1 definition (A–D) | 14 | 21 | 67% |
-| Whole roadmap (A–F) | 14 | 28 | 50% |
+| Phase 1 definition (A–D) | 12 | 21 | 57% |
+| Whole roadmap (A–F) | 12 | 28 | 43% |
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

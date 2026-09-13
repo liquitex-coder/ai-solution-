@@ -1,6 +1,6 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.4  
+**バージョン**: 2.5  
 **最終更新**: 2026-09-13  
 **ステータス**: 実装中（Phase 0 → Phase 1 移行、ロードマップ: `docs/ROADMAP.md`）
 
@@ -548,11 +548,11 @@ Claude Code から WordPress REST API を直接操作するための MCP サー�
 
 | 引用5要件 | Auditorチェック | 実装方法 | LLM-free |
 |---|---|---|---|
-| ①主従関係 | 生成字数 / 引用字数 > 2.0（引用 ≤ 1/3） | 字数カウント | 実装済みだが閾値は現在 40%（§32-1 で整合、T-24） |
+| ①主従関係 | 生成字数 / 引用字数 > 2.0（引用 ≤ 1/3） | 字数カウント | ✅ `QUOTE_DOMINANCE_RATIO = 0.34`（§32-1 D1、T-24、2026-09-13） |
 | ②明瞭区別 | `<blockquote>` または `>` が存在 | 正規表現 | ✅ |
 | ③必要性 | `##` 見出しブロック ≥ 3 | 構造チェック | ✅ |
 | ④出所明示 | 記事内に原文URLが存在 | URL検出 | ✅ |
-| ⑤改変禁止 | 同言語: blockquote内テキスト類似度 > 0.85 | difflib | **未実装**（§32、T-24） |
+| ⑤改変禁止 | 同言語: blockquote内テキスト類似度 > 0.85 | difflib | **WARN のみ**（`WARN:QUOTE_ALTERED:<ratio>`、§32-1 D7、T-24 第2ラウンド。30日観察後に FAIL 昇格を判断） |
 
 ### 17-2. 4シナリオ別ルール
 
@@ -1085,8 +1085,8 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
-| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest`。トークンはログに出さない（T-27） | — |
-| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090 | — |
+| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
+| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `CLAIM_AUDITOR_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `CLAIM_AUDITOR_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
 - **事実層への書込み（§19-3）**: verdict が `FAIL` または `UNVERIFIABLE` のとき `facts` に1行挿入する。
@@ -1240,12 +1240,12 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 | # | 項目 | 仕様側 | 実装側（`scripts/content_audit.py`） | 決定 |
 |---|---|---|---|---|
 | D1 | 引用比率閾値 | §17-1「生成/引用 > 2.0」(引用 ≤ 1/3) / `n8n/skills/skill-base.md` L49「≤ 30%」/ §22-1「> 40%」 | **実装済み（2026-09-13, T-24）**: `QUOTE_DOMINANCE_RATIO = 0.34` | eval に「35% → FAIL」「30% → PASS」を追加してから 0.34 に変更。skill-base と §22-1 の数値は §17-1 参照に統一 |
-| D2 | 丸写し検出 `VERBATIM_COPY`（`20-auditor-gate.md` PLAN の ⑤ 行を由来とするが、内容は「blockquote **外**の本文が原文と ≥ 0.85 で一致」の検出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: `audit()` に任意 `source_text`/`source_lang` 引数 | `source_text` が無い場合はチェックをスキップ。ヒットしても verdict は変えず `reasons` 末尾に `WARN:VERBATIM_COPY:<ratio>` を追加（§32-2 の30日観察期間中）。⑤改変禁止そのものは D7 に分離 |
+| D2 | 丸写し検出 `VERBATIM_COPY`（`20-auditor-gate.md` PLAN の ⑤ 行を由来とするが、内容は「blockquote **外**の本文が原文と ≥ 0.85 で一致」の検出） | `20-auditor-gate.md` PLAN | **未実装（差し戻し）**: T-24 第1ラウンド（`5012356`）は blockquote **内**の引用が原文に見つからない場合（比率 < 0.85）に `WARN:VERBATIM_COPY` を出しており、本行の定義と検出対象・不等号が逆（= D7 の意味）。`tests/test_content_audit.py` も逆の意味で緑になっていた | T-24 第2ラウンドで本来の定義を実装: blockquote を除いた本文を 200 字窓（step 100）で走査し、原文との `find_longest_match ≥ 120` 字、または原文の任意の 200 字窓との `SequenceMatcher.ratio() ≥ 0.85` で `WARN:VERBATIM_COPY:<ratio>`（1 監査につき最大 1 件）。`source_text` 無しはスキップ。verdict は変えない（§32-2） |
 | D3 | 翻訳ラベル（§17-3 `MISSING_TRANSLATION_LABEL`） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: `/audit` の任意 `source_lang: ja|en|zh` | `en|zh` で「本記事は」∧「翻訳」∧ source_url 本文内出現 が揃わなければ verdict は変えず `reasons` 末尾に `WARN:MISSING_TRANSLATION_LABEL` を追加。WF08 ゲートが `source_lang:'zh'` を送る改修は T-11（WF JSON 変更） |
 | D4 | `INSUFFICIENT_LENGTH`（JA 2000字未満） | `20-auditor-gate.md` PLAN | 未実装 | **採用しない**（§22-1 の FAIL 一覧に無く、WF04 Threads まとめ等の短文フォーマットと衝突）。skill 文書から削除 |
-| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: §28 サービスが facts に `content_hash` を保存 | 再提出時も verdict は再計算し（固定 FAIL にはしない）、一致する既存 FAIL 行があれば `reasons` 末尾に `WARN:ALREADY_REJECTED:<fact_id>` を追加。同一ハッシュへの facts 重複書き込みはしない |
+| D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: §28 サービスが facts の `content_hash` を照合 | 再提出時も verdict は再計算し（固定 FAIL にはしない）、一致する既存行があれば `reasons` 末尾に `WARN:ALREADY_REJECTED:<fact_id>` を追加し facts に重複行を書かない。**残課題（T-24 第2ラウンド）**: 第1ラウンドは `verdict = 'FAIL'` 行のみ照合するため UNVERIFIABLE の再提出が重複行になる（Linux 実測: 同一内容を 2 回投稿で facts 3 行 / 2 ハッシュ）。照合を `verdict != 'PASS'` に広げる |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
-| D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | 未実装 | `source_text` 内の対応箇所特定が必要で誤検出リスクが高いため T-24 では実装せず**保留**（仕様判断、Codex 課題ではない）。2026-09-13 に D2 から分離 |
+| D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | **T-24 第2ラウンドで WARN として採用**: 第1ラウンドが `VERBATIM_COPY` の名で実装した blockquote 内照合を `WARN:QUOTE_ALTERED:<ratio>` にリネームして残す（`source_text` あり ∧ `source_lang` が `ja` または未指定のときのみ） | 2026-09-13 に D2 から分離。誤検出リスクは §32-2 の WARN 運用（verdict 不変・30日観察）で吸収し、FAIL 昇格は観察後に判断する |
 
 ### 32-2. ループの運用
 
