@@ -11,7 +11,23 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from scripts import auditor_server
-from scripts.auditor_server import make_server
+from scripts.auditor_server import make_server, resolve_port
+
+
+class ResolvePortTests(unittest.TestCase):
+    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+
+    def test_claim_auditor_port_wins_over_port(self):
+        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "8091", "PORT": "10000"}), 8091)
+
+    def test_port_used_when_claim_auditor_port_unset(self):
+        self.assertEqual(resolve_port({"PORT": "10000"}), 10000)
+
+    def test_default_8090_when_neither_set(self):
+        self.assertEqual(resolve_port({}), 8090)
+
+    def test_empty_claim_auditor_port_falls_through_to_port(self):
+        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "", "PORT": "10000"}), 10000)
 
 
 class AuditorServerTests(unittest.TestCase):
@@ -117,7 +133,7 @@ class AuditorServerTests(unittest.TestCase):
 
         def flaky_connect(path):
             call_count["n"] += 1
-            # Call #1 is the find_rejected_fact lookup (must succeed so the
+            # Call #1 is the find_prior_fact lookup (must succeed so the
             # audit proceeds); call #2 is the store_fact write we want to
             # fail transiently.
             if call_count["n"] == 2:
@@ -159,6 +175,22 @@ class AuditorServerTests(unittest.TestCase):
         self.assertEqual(body2["verdict"], "FAIL")
         self.assertEqual(body2["reasons"], body1["reasons"] + [f"WARN:ALREADY_REJECTED:{body1['fact_id']}"])
         self.assertEqual(body2["fact_id"], body1["fact_id"])
+        # no duplicate row was written for the resubmission
+        self.assertEqual(len(self.facts()), 1)
+
+    def test_resubmitting_unverifiable_content_is_already_rejected(self):
+        # §32-1 D5 fix: find_prior_fact() must cover UNVERIFIABLE rows too, not only FAIL.
+        content = "<h2>A</h2><h2>B</h2><h2>C</h2>利用者が300%増加"
+        status1, body1 = self.request("/audit", "POST", {"content": content})
+        self.assertEqual(status1, 200)
+        self.assertEqual(body1["verdict"], "UNVERIFIABLE")
+        self.assertIsNotNone(body1["fact_id"])
+        self.assertEqual(len(self.facts()), 1)
+
+        status2, body2 = self.request("/audit", "POST", {"content": content})
+        self.assertEqual(status2, 200)
+        self.assertEqual(body2["verdict"], "UNVERIFIABLE")
+        self.assertIn(f"WARN:ALREADY_REJECTED:{body1['fact_id']}", body2["reasons"])
         # no duplicate row was written for the resubmission
         self.assertEqual(len(self.facts()), 1)
 
@@ -232,6 +264,12 @@ class AuditorServerAuthTests(unittest.TestCase):
 
     def test_missing_token_is_unauthorized(self):
         status, body = self.request("/audit", "POST", {"content": "革命的な記事"})
+        self.assertEqual(status, 401)
+        self.assertEqual(body, {"error": "unauthorized"})
+        self.assertEqual(self.facts(), [])
+
+    def test_non_ascii_bearer_token_is_unauthorized_not_400(self):
+        status, body = self.request("/audit", "POST", {"content": "革命的な記事"}, token="tokén")
         self.assertEqual(status, 401)
         self.assertEqual(body, {"error": "unauthorized"})
         self.assertEqual(self.facts(), [])

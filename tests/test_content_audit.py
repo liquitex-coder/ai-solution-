@@ -31,7 +31,9 @@ class QuoteRatioBoundaryTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "FAIL")
 
 
-class VerbatimCopyWarningTests(unittest.TestCase):
+class QuoteAlteredWarningTests(unittest.TestCase):
+    """§32-1 D7: blockquote text not found verbatim in the source."""
+
     QUOTE_DIFFERS = "生成AIの導入は業務効率化に直結し多くの企業が注目している最新の技術動向である"
     QUOTE_IDENTICAL = "生成AIの導入は業務効率化に直結する"
 
@@ -47,13 +49,13 @@ class VerbatimCopyWarningTests(unittest.TestCase):
         source_text = ("全く関係のない別の話題についての文章がここに書かれています。"
                         "天気の話や食べ物の話など、引用文とは無関係な内容です。")
         result = audit(content, source_text=source_text, source_lang="ja")
-        self.assertTrue(any(r.startswith("WARN:VERBATIM_COPY") for r in result["reasons"]))
+        self.assertTrue(any(r.startswith("WARN:QUOTE_ALTERED") for r in result["reasons"]))
 
     def test_no_warning_when_quote_is_verbatim_in_source(self):
         content = self._content(self.QUOTE_IDENTICAL)
         source_text = f"前置き部分のテキストです。{self.QUOTE_IDENTICAL}という記述がそのまま含まれています。"
         result = audit(content, source_text=source_text, source_lang="ja")
-        self.assertFalse(any(r.startswith("WARN:VERBATIM_COPY") for r in result["reasons"]))
+        self.assertFalse(any(r.startswith("WARN:QUOTE_ALTERED") for r in result["reasons"]))
 
     def test_warning_never_changes_verdict(self):
         content = self._content(self.QUOTE_DIFFERS)
@@ -61,7 +63,54 @@ class VerbatimCopyWarningTests(unittest.TestCase):
                         "天気の話や食べ物の話など、引用文とは無関係な内容です。")
         with_source = audit(content, source_text=source_text, source_lang="ja")
         without_source = audit(content)
-        self.assertTrue(any(r.startswith("WARN:VERBATIM_COPY") for r in with_source["reasons"]))
+        self.assertTrue(any(r.startswith("WARN:QUOTE_ALTERED") for r in with_source["reasons"]))
+        self.assertEqual(with_source["verdict"], without_source["verdict"])
+
+
+class VerbatimCopyWarningTests(unittest.TestCase):
+    """§32-1 D2: body outside blockquotes copied verbatim from the source."""
+
+    SOURCE = (
+        "生成AIの活用は多くの業界で議論の的になっており、導入企業の数は年々増加している。"
+        "現場では専門家が効果測定の重要性を指摘しており、単純な導入だけでは成果が出ないことも"
+        "多いと報告されている。今後は運用ルールの整備と継続的な改善が鍵になるとみられている。"
+    )
+    PARAPHRASED_BODY = (
+        "AIツールの活用は業務の効率化に役立つ場面が増えています。"
+        "導入の際は自社の課題を整理し、小さく試してから広げるのが安全です。"
+        "運用ルールとレビュー体制をあわせて整備することが重要です。" * 2
+    )
+
+    def _content(self, body: str) -> str:
+        return (
+            "<h2>A</h2><h2>B</h2><h2>C</h2>"
+            f"<p>{body}</p>"
+            "<blockquote>関係のない引用文です。</blockquote>"
+            '<a href="https://example.test/src">source</a>'
+        )
+
+    def test_warns_on_300_chars_copied_verbatim_outside_blockquote(self):
+        copied = (self.SOURCE * 3)[:300]
+        content = self._content(copied)
+        result = audit(content, source_text=self.SOURCE * 3, source_lang="ja")
+        self.assertTrue(any(r.startswith("WARN:VERBATIM_COPY") for r in result["reasons"]))
+
+    def test_no_warning_for_paraphrased_body(self):
+        content = self._content(self.PARAPHRASED_BODY)
+        result = audit(content, source_text=self.SOURCE, source_lang="ja")
+        self.assertFalse(any(r.startswith("WARN:VERBATIM_COPY") for r in result["reasons"]))
+
+    def test_no_warning_without_source_text(self):
+        copied = (self.SOURCE * 3)[:300]
+        content = self._content(copied)
+        result = audit(content)
+        self.assertFalse(any(r.startswith("WARN:VERBATIM_COPY") for r in result["reasons"]))
+
+    def test_verdict_identical_with_and_without_source_text(self):
+        copied = (self.SOURCE * 3)[:300]
+        content = self._content(copied)
+        with_source = audit(content, source_text=self.SOURCE * 3, source_lang="ja")
+        without_source = audit(content)
         self.assertEqual(with_source["verdict"], without_source["verdict"])
 
 

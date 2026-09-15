@@ -44,7 +44,7 @@ def _text(html: str) -> str:
     return TAG_RE.sub("", html)
 
 
-VERBATIM_COPY_THRESHOLD = 0.85  # §17-1 (5): difflib ratio below this => possible alteration
+SIMILARITY_THRESHOLD = 0.85  # §17-1 (5): difflib ratio threshold shared by D7 and D2
 
 
 def audit(content: str, source_urls: list[str] | None = None,
@@ -85,7 +85,7 @@ def audit(content: str, source_urls: list[str] | None = None,
     if NUMERIC_CLAIM_RE.search(_text(content)) and not (has_link or source_urls):
         unverifiable.append("UNVERIFIABLE:UNSOURCED_STATS")
 
-    # D2 (§17-1 (5), §32-1): quotes must be verbatim in the source text.
+    # D7 (§17-1 ⑤改変禁止, §32-1): blockquote text should be found verbatim in the source.
     # WARN-only until the 30-day observation (§32-2) — never affects verdict.
     if source_text and source_lang in (None, "ja"):
         for q in quotes:
@@ -100,8 +100,28 @@ def audit(content: str, source_urls: list[str] | None = None,
                 ratio = difflib.SequenceMatcher(None, qtext, window).ratio()
                 if ratio > best_ratio:
                     best_ratio = ratio
-            if best_ratio < VERBATIM_COPY_THRESHOLD:
-                warnings.append(f"WARN:VERBATIM_COPY:{best_ratio:.2f}")
+            if best_ratio < SIMILARITY_THRESHOLD:
+                warnings.append(f"WARN:QUOTE_ALTERED:{best_ratio:.2f}")
+
+    # D2 (§17-1 ①主従, §32-1): body outside blockquotes copied verbatim from the source.
+    # WARN-only until the 30-day observation (§32-2) — never affects verdict.
+    if source_text and source_lang in (None, "ja"):
+        body = _text(BLOCKQUOTE_RE.sub("", content))
+        for start in range(0, max(1, len(body) - 200 + 1), 100):
+            window = body[start:start + 200]
+            if len(window) < 120:
+                continue
+            m = difflib.SequenceMatcher(None, window, source_text).find_longest_match(
+                0, len(window), 0, len(source_text))
+            if m.size >= 120:
+                warnings.append("WARN:VERBATIM_COPY:1.00")
+                break
+            best = max(
+                difflib.SequenceMatcher(None, window, source_text[s:s + 200]).ratio()
+                for s in range(0, max(1, len(source_text) - 200 + 1), 100))
+            if best >= SIMILARITY_THRESHOLD:
+                warnings.append(f"WARN:VERBATIM_COPY:{best:.2f}")
+                break
 
     # D3 (§17-3, §32-1): translated articles must carry a translation label.
     if source_lang in ("en", "zh"):

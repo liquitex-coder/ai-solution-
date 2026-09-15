@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
 try:
@@ -69,8 +69,8 @@ class AuditorHTTPServer(ThreadingHTTPServer):
                   flush=True)
             return None
 
-    def find_rejected_fact(self, content_hash: str) -> int | None:
-        """§32-1 D5: look up a prior FAIL for this exact content hash."""
+    def find_prior_fact(self, content_hash: str) -> int | None:
+        """§32-1 D5: look up a prior non-PASS verdict for this exact content hash."""
         if not self.memory_db:
             return None
         try:
@@ -78,7 +78,7 @@ class AuditorHTTPServer(ThreadingHTTPServer):
                 conn = memory_init.connect(self.db_path)
                 try:
                     row = conn.execute(
-                        "SELECT id FROM facts WHERE content_hash = ? AND verdict = 'FAIL' "
+                        "SELECT id FROM facts WHERE content_hash = ? AND verdict != 'PASS' "
                         "ORDER BY id DESC LIMIT 1",
                         (content_hash,),
                     ).fetchone()
@@ -114,7 +114,8 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization", "")
         if not header.startswith("Bearer "):
             return False
-        return hmac.compare_digest(header[len("Bearer "):], token)
+        return hmac.compare_digest(
+            header[len("Bearer "):].encode("utf-8"), token.encode("utf-8"))
 
     def _dispatch(self) -> None:
         started = time.monotonic()
@@ -207,7 +208,7 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     # §32-1 D5: a previously rejected submission is still re-scored (verdict
     # is never skipped), but resubmitting the identical content is flagged as
     # a WARN and does not write a second facts row for the same hash.
-    rejected_fact_id = handler.server.find_rejected_fact(content_hash)
+    rejected_fact_id = handler.server.find_prior_fact(content_hash)
 
     result = content_audit.audit(content, source_urls, source_text, source_lang)
     verdict = result["verdict"]
@@ -268,9 +269,14 @@ def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> T
     return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token)
 
 
+def resolve_port(env: Mapping[str, str]) -> int:
+    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+    return int(env.get("CLAIM_AUDITOR_PORT") or env.get("PORT") or "8090")
+
+
 def main() -> None:
     bind = os.environ.get("CLAIM_AUDITOR_BIND", "0.0.0.0")
-    port = int(os.environ.get("CLAIM_AUDITOR_PORT") or os.environ.get("PORT") or "8090")
+    port = resolve_port(os.environ)
     token = os.environ.get("CLAIM_AUDITOR_TOKEN", "")
     configured_db = Path(os.environ.get("CLAIM_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db
