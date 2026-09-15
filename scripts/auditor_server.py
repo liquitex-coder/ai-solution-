@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
 try:
@@ -269,9 +269,14 @@ def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> T
     return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token)
 
 
+def resolve_port(env: Mapping[str, str]) -> int:
+    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+    return int(env.get("CLAIM_AUDITOR_PORT") or env.get("PORT") or "8090")
+
+
 def main() -> None:
     bind = os.environ.get("CLAIM_AUDITOR_BIND", "0.0.0.0")
-    port = int(os.environ.get("CLAIM_AUDITOR_PORT") or os.environ.get("PORT") or "8090")
+    port = resolve_port(os.environ)
     token = os.environ.get("CLAIM_AUDITOR_TOKEN", "")
     configured_db = Path(os.environ.get("CLAIM_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db

@@ -11,7 +11,23 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from scripts import auditor_server
-from scripts.auditor_server import make_server
+from scripts.auditor_server import make_server, resolve_port
+
+
+class ResolvePortTests(unittest.TestCase):
+    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+
+    def test_claim_auditor_port_wins_over_port(self):
+        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "8091", "PORT": "10000"}), 8091)
+
+    def test_port_used_when_claim_auditor_port_unset(self):
+        self.assertEqual(resolve_port({"PORT": "10000"}), 10000)
+
+    def test_default_8090_when_neither_set(self):
+        self.assertEqual(resolve_port({}), 8090)
+
+    def test_empty_claim_auditor_port_falls_through_to_port(self):
+        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "", "PORT": "10000"}), 10000)
 
 
 class AuditorServerTests(unittest.TestCase):
