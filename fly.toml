@@ -6,27 +6,27 @@ app = "claim-auditor"
 primary_region = "nrt"  # Tokyo (adjust to operator's region)
 
 [build]
-dockerfile = "./Dockerfile"
+dockerfile = "Dockerfile"
 
 [env]
 CLAIM_AUDITOR_BIND = "0.0.0.0"
 CLAIM_AUDITOR_PORT = "8090"
-CLAIM_MEMORY_DB = "/data/memory.db"
+CLAIM_MEMORY_DB = "/app/data/memory.db"
 PYTHONUNBUFFERED = "1"
 
-[[services]]
+[http_service]
 internal_port = 8090
+force_https = true
+auto_stop_machines = "off"
+min_machines_running = 1
 processes = ["app"]
 
-[services.concurrency]
-type = "connections"
-hard_limit = 1000
-soft_limit = 100
-
-[[services.tcp_checks]]
-interval = "30s"
-timeout = "3s"
+[[http_service.checks]]
 grace_period = "10s"
+interval = "30s"
+method = "GET"
+path = "/health"
+timeout = "3s"
 
 [[mounts]]
 source = "data"

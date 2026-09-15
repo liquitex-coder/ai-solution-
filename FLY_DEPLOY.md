@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- Fly.io account: https://fly.io (free tier available)
+- Fly.io account: https://fly.io — pricing: verify current Fly.io pricing before deploy
 - Fly CLI installed locally: `brew install flyctl` (macOS) or https://fly.io/docs/getting-started/installing-flyctl/
 - Git repository cloned and committed (this repo)
 
@@ -94,6 +94,9 @@ flyctl secrets list --app claim-auditor
 flyctl deploy -c fly.toml --app claim-auditor
 ```
 
+Note: `[http_service]` in `fly.toml` exposes the app on 443 with `force_https` — no `[[services]]` port block is
+needed (that config was replaced; see §28-3).
+
 **First deployment takes 2–3 minutes**. Output shows:
 ```
 ...
@@ -128,9 +131,17 @@ curl -s https://claim-auditor-abc123.fly.dev/health | jq .
 }
 ```
 
-If `"auth": true`, the `CLAIM_AUDITOR_TOKEN` was read. ✅
+**Pass condition**: `"auth": true` **and** `"memory_db": true`.
 
 If `"auth": false`, token not set or invalid. Re-run Step 4.
+
+If `"memory_db": false`, the volume is mounted root-owned while the container runs as user `auditor`.
+Remediation:
+```bash
+flyctl ssh console -a claim-auditor -C "chown -R auditor /app/data"
+flyctl restart --app claim-auditor
+```
+Then re-check `/health`.
 
 ---
 
@@ -182,7 +193,11 @@ CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 
 ### memory.db keeps resetting
 - Volume mount failed: `flyctl volumes list -a claim-auditor`
-- Ensure `data` volume exists and is mounted at `/app/data` in `fly.toml`
+- Ensure the `data` volume exists and `fly.toml` has `[[mounts]] source = "data", destination = "/app/data"`
+  (matching `CLAIM_MEMORY_DB=/app/data/memory.db` in `[env]`)
+- If `/health` shows `"memory_db": false`, the volume mounted root-owned while the container runs as user
+  `auditor`: `flyctl ssh console -a claim-auditor -C "chown -R auditor /app/data"`, then
+  `flyctl restart --app claim-auditor` and re-check `/health`
 
 ### Network: cannot reach from n8n cloud
 - Check firewall: `flyctl status -a claim-auditor` → "Healthy" status
@@ -205,9 +220,9 @@ flyctl releases rollback --app claim-auditor
 
 ---
 
-## Cost Estimate
+## Cost Estimate (unverified estimate — confirm against current Fly.io pricing before relying on it)
 
-- **Compute**: $0 (free tier: 3 shared-cpu-1x 256MB VMs)
+- **Compute**: 3 shared-cpu-1x 256MB VMs included at no cost under Fly.io's current plan (verify before relying on it)
 - **Volume**: $0.15 / GB-month (1 GB → ~$1.50/month)
 - **Bandwidth**: $0.02 / GB (typical: <100MB/month → <$2/month)
 
