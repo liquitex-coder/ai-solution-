@@ -1107,6 +1107,14 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 
 `.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 
+**fly.toml 契約**（T-12、2026-09-15）: (i) `CLAIM_MEMORY_DB` のディレクトリ = `[[mounts]].destination`（`/app/data`）、
+(ii) 公開は `[http_service]`（`internal_port` 8090, `force_https`, `auto_stop_machines` off / `min_machines_running` 1
+— n8n からの呼び出しをコールドスタートで timeout させないため）、
+(iii) Fly のボリュームは root 所有でマウントされ得るため、デプロイ後の完了条件は `/health` が `"auth": true` かつ
+`"memory_db": true` を返すこと（`false` の場合は volume の所有権を `auditor` ユーザーへ chown する必要がある —
+`FLY_DEPLOY.md` トラブルシューティング参照）。
+`FLY_DEPLOY.md` の Fly.io 料金記載（"free tier available" / Cost Estimate）は現行料金を確認するまで「要確認」とする。
+
 ### 28-4. テスト（T-03）
 
 `tests/test_auditor_server.py` — サーバをスレッドで起動（port 0）し `urllib` で叩く: health / PASS 応答 / FAIL 応答が facts に1行書かれる /
