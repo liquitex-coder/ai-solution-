@@ -1103,9 +1103,17 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
 | ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `CLAIM_AUDITOR_URL=http://auditor:8090`、`CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}` |
-| 本番（n8n cloud） | T-26 の `Dockerfile` イメージを HTTPS で公開。候補: (a) Fly.io + 1GB volume（memory.db 永続・候補） (b) Render Web Service（無料枠はディスク非永続 → memory.db がデプロイ毎に消え §23 の30日集計に不適） (c) Cloudflare Tunnel でローカル compose を公開（費用ゼロだが操作者PCの常時稼働が前提）。費用・運用は操作者判断（T-12）。T-27 の `CLAIM_AUDITOR_TOKEN` をホスト側に設定する | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
+| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `CLAIM_AUDITOR_TOKEN` は `fly secrets set CLAIM_AUDITOR_TOKEN=<value>` で設定。ホスト: `https://claim-auditor-<random>.fly.dev`（自動 HTTPS）。決定日: 2026-09-13 | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE=report_only` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
 
 `.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
+
+**fly.toml 契約**（T-12、2026-09-15）: (i) `CLAIM_MEMORY_DB` のディレクトリ = `[[mounts]].destination`（`/app/data`）、
+(ii) 公開は `[http_service]`（`internal_port` 8090, `force_https`, `auto_stop_machines` off / `min_machines_running` 1
+— n8n からの呼び出しをコールドスタートで timeout させないため）、
+(iii) Fly のボリュームは root 所有でマウントされ得るため、デプロイ後の完了条件は `/health` が `"auth": true` かつ
+`"memory_db": true` を返すこと（`false` の場合は volume の所有権を `auditor` ユーザーへ chown する必要がある —
+`FLY_DEPLOY.md` トラブルシューティング参照）。
+`FLY_DEPLOY.md` の Fly.io 料金記載（"free tier available" / Cost Estimate）は現行料金を確認するまで「要確認」とする。
 
 ### 28-4. テスト（T-03）
 
