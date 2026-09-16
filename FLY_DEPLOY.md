@@ -32,15 +32,15 @@ flyctl auth whoami
 
 ```bash
 cd /path/to/ai-solution-
-flyctl apps create claim-auditor
+flyctl apps create ainavi-auditor-gate
 ```
 
 Output will show:
 ```
-Created app claim-auditor in organization <your-org>
+Created app ainavi-auditor-gate in organization <your-org>
 ```
 
-Note the **app name** (e.g. `claim-auditor`). This will become `claim-auditor-<random>.fly.dev`.
+The app name is `ainavi-auditor-gate` (renamed from `ainavi-auditor-gate` to avoid confusion with the Claim-Auditor repository). The hostname will be `ainavi-auditor-gate.fly.dev`.
 
 Verify `fly.toml` exists in the repo root (already committed).
 
@@ -51,7 +51,7 @@ Verify `fly.toml` exists in the repo root (already committed).
 Auditor service requires `data/memory.db` to persist across deployments (§23: 30-day ratchet).
 
 ```bash
-flyctl volumes create data --size 1 --app claim-auditor --region nrt
+flyctl volumes create data --size 1 --app ainavi-auditor-gate --region nrt
 # Adjust region: nrt (Tokyo), syd (Sydney), iad (Washington DC), etc.
 ```
 
@@ -72,17 +72,17 @@ Store `CLAIM_AUDITOR_TOKEN` as a Fly secret (read from `$CLAIM_AUDITOR_TOKEN` en
 
 ```bash
 # Option A: if you have the token value ready
-flyctl secrets set CLAIM_AUDITOR_TOKEN=your-bearer-token-value --app claim-auditor
+flyctl secrets set CLAIM_AUDITOR_TOKEN=your-bearer-token-value --app ainavi-auditor-gate
 
 # Option B: interactive input (more secure)
 echo -n "Enter CLAIM_AUDITOR_TOKEN: "
 read -s token
-flyctl secrets set CLAIM_AUDITOR_TOKEN="$token" --app claim-auditor
+flyctl secrets set CLAIM_AUDITOR_TOKEN="$token" --app ainavi-auditor-gate
 ```
 
 Verify:
 ```bash
-flyctl secrets list --app claim-auditor
+flyctl secrets list --app ainavi-auditor-gate
 # Shows: CLAIM_AUDITOR_TOKEN (value hidden)
 ```
 
@@ -91,7 +91,7 @@ flyctl secrets list --app claim-auditor
 ## Step 5: Deploy
 
 ```bash
-flyctl deploy -c fly.toml --app claim-auditor
+flyctl deploy -c fly.toml --app ainavi-auditor-gate
 ```
 
 Note: `[http_service]` in `fly.toml` exposes the app on 443 with `force_https` — no `[[services]]` port block is
@@ -107,18 +107,18 @@ Successfully pushed...
 ==> Monitoring deployment
 v0 deployed successfully
 
-App 'claim-auditor' is live!
-https://claim-auditor-abc123.fly.dev
+App 'ainavi-auditor-gate' is live!
+https://ainavi-auditor-gate.fly.dev
 ```
 
-**Save the hostname**: `https://claim-auditor-abc123.fly.dev` (yours will be different).
+**Save the hostname**: `https://ainavi-auditor-gate.fly.dev` (yours will be different).
 
 ---
 
 ## Step 6: Test Health Endpoint
 
 ```bash
-curl -s https://claim-auditor-abc123.fly.dev/health | jq .
+curl -s https://ainavi-auditor-gate.fly.dev/health | jq .
 ```
 
 **Expected output**:
@@ -138,8 +138,8 @@ If `"auth": false`, token not set or invalid. Re-run Step 4.
 If `"memory_db": false`, the volume is mounted root-owned while the container runs as user `auditor`.
 Remediation:
 ```bash
-flyctl ssh console -a claim-auditor -C "chown -R auditor /app/data"
-flyctl restart --app claim-auditor
+flyctl ssh console -a ainavi-auditor-gate -C "chown -R auditor /app/data"
+flyctl restart --app ainavi-auditor-gate
 ```
 Then re-check `/health`.
 
@@ -154,7 +154,7 @@ Update `docs/requirements.md` §28-3 with the actual hostname:
 
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
-| 本番（n8n cloud） | **Fly.io** — ホスト: `https://claim-auditor-abc123.fly.dev` (決定日: 2026-09-13, デプロイ完了: YYYY-MM-DD) | ... |
+| 本番（n8n cloud） | **Fly.io** — ホスト: `https://ainavi-auditor-gate.fly.dev` (決定日: 2026-09-13, デプロイ完了: YYYY-MM-DD) | ... |
 ```
 
 ---
@@ -166,7 +166,7 @@ Update `docs/requirements.md` §28-3 with the actual hostname:
 Once the hostname is confirmed, log into n8n.cloud and set Variables:
 
 ```
-CLAIM_AUDITOR_URL  = https://claim-auditor-abc123.fly.dev
+CLAIM_AUDITOR_URL  = https://ainavi-auditor-gate.fly.dev
 CLAIM_AUDITOR_MODE = report_only
 CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 ```
@@ -182,26 +182,26 @@ CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 - Check `docker build .` locally first
 
 ### /health returns 502 Bad Gateway
-- SSH into the container: `flyctl ssh console -a claim-auditor`
+- SSH into the container: `flyctl ssh console -a ainavi-auditor-gate`
 - Check logs: `docker logs <container_id>`
-- Restart: `flyctl restart --app claim-auditor`
+- Restart: `flyctl restart --app ainavi-auditor-gate`
 
 ### CLAIM_AUDITOR_TOKEN not read
-- Verify: `flyctl secrets list --app claim-auditor`
+- Verify: `flyctl secrets list --app ainavi-auditor-gate`
 - Re-run Step 4 if missing
-- Redeploy: `flyctl deploy --app claim-auditor`
+- Redeploy: `flyctl deploy --app ainavi-auditor-gate`
 
 ### memory.db keeps resetting
-- Volume mount failed: `flyctl volumes list -a claim-auditor`
+- Volume mount failed: `flyctl volumes list -a ainavi-auditor-gate`
 - Ensure the `data` volume exists and `fly.toml` has `[[mounts]] source = "data", destination = "/app/data"`
   (matching `CLAIM_MEMORY_DB=/app/data/memory.db` in `[env]`)
 - If `/health` shows `"memory_db": false`, the volume mounted root-owned while the container runs as user
-  `auditor`: `flyctl ssh console -a claim-auditor -C "chown -R auditor /app/data"`, then
-  `flyctl restart --app claim-auditor` and re-check `/health`
+  `auditor`: `flyctl ssh console -a ainavi-auditor-gate -C "chown -R auditor /app/data"`, then
+  `flyctl restart --app ainavi-auditor-gate` and re-check `/health`
 
 ### Network: cannot reach from n8n cloud
-- Check firewall: `flyctl status -a claim-auditor` → "Healthy" status
-- Test from a different network: `curl https://claim-auditor-abc123.fly.dev/health`
+- Check firewall: `flyctl status -a ainavi-auditor-gate` → "Healthy" status
+- Test from a different network: `curl https://ainavi-auditor-gate.fly.dev/health`
 - If only n8n cloud can't reach: n8n outbound network policy issue (contact n8n support)
 
 ---
@@ -212,10 +212,10 @@ If deployment breaks:
 
 ```bash
 # View releases
-flyctl releases -a claim-auditor
+flyctl releases -a ainavi-auditor-gate
 
 # Rollback to previous version
-flyctl releases rollback --app claim-auditor
+flyctl releases rollback --app ainavi-auditor-gate
 ```
 
 ---
@@ -235,7 +235,7 @@ flyctl releases rollback --app claim-auditor
 Destroy the app and volume:
 
 ```bash
-flyctl apps destroy claim-auditor
+flyctl apps destroy ainavi-auditor-gate
 ```
 
 (Fly will prompt for confirmation before deletion.)
