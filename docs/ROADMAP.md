@@ -119,7 +119,7 @@ workflow edits may ride with T-11's per-file edits. T-36 after T-15. T-37 starts
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-33 | Claude | P0 docs: requirements §34 + §32-1 D8/D9, this phase, `n8n/skills/15-fact-check.md`, `20-auditor-gate.md` / `10-article-writer.md` / `skill-base.md` updates, `n8n/prompts/50-fact-check.md` registered `LIBRARY_ONLY` until T-35 | standalone `docs:` commit + `feat(prompts):` commit; `check_wired` / `run_eval` (52, FP=0/FN=0) / `unittest` (46) green on Windows `py -3` |
-| T-34 | Claude | P1 server: §34-5 rules + evidence re-verification in `scripts/content_audit.py`; `evidence` pass-through, `evidence_summary`, `warnings` writes in `scripts/auditor_server.py`; `warnings` table in `scripts/memory_init.py`; `run_eval.py` extension + eval cases E01–E16; unit tests; `ratchet_check.py --warn`; Fly redeploy | eval FP=0/FN=0 with 0 warning mismatches; unittest OK; the existing 52 cases keep their verdicts (INV-R2a); `/health` ok after deploy |
+| T-34 ✅ | Claude | P1 server: §34-5 rules + evidence re-verification in `scripts/content_audit.py`; `evidence` pass-through, `evidence_summary`, `warnings` writes in `scripts/auditor_server.py`; `warnings` table in `scripts/memory_init.py`; `run_eval.py` extension + eval cases E01–E16; unit tests; `ratchet_check.py --warn`; Fly redeploy | done 2026-09-17: eval 68 cases FP=0/FN=0 with 0 warning mismatches; unittest 87 OK; the existing 52 cases keep their verdicts (INV-R2a); Fly redeployed, `/health` → `{"status":"ok","memory_db":true,"auth":true}` |
 | T-35 | Claude + operator | P2 pilot on WF01: probes node (`EVIDENCE_PROBES`), verifier HTTP node (`claude-haiku-4-5`, `50-fact-check.md`, `output_config.format` json_schema, continue-on-fail), Evidence Pack node, gate body + `source_text`/`source_lang`/`evidence`; W12 in `check_wired.py`; drop the `LIBRARY_ONLY` entry | operator manual run shows a WP draft and `evidence_summary` in the execution log; W12 PASS; pushed only after that run |
 | T-36 | Claude + operator | P3 wire WF02–09 (WF07 has no source: `WARN:NO_SOURCE_FOR_FACTCHECK` expected) | W12 PASS 9/9; manual-run logs pasted |
 | T-37 | operator | P4 30-day observation: weekly `py -3 scripts/ratchet_check.py --warn`, hand-label samples per code, fill the §34-9 precision table | table filled and signed (INV-R1) |
@@ -154,11 +154,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase B | 5 | 5 | 100% |
 | Phase C | 3 | 4 | 75% |
 | Phase D | 1 | 6 | 17% |
-| Phase D2 | 0 | 6 | 0% |
+| Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Whole roadmap (A–F, D2) | 15 | 34 | 44% |
+| Whole roadmap (A–F, D2) | 16 | 34 | 47% |
 
-Last recomputed 2026-09-17 (Phase D2 added: T-33..T-38 for the §34 Evidence Pack).
+Last recomputed 2026-09-17 (T-34 done: Evidence Pack server-side rules + warnings persistence, Fly redeployed).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

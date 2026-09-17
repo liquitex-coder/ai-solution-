@@ -5,7 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.memory_init import ensure_schema, find_duplicate, insert_fact, insert_scene
+from scripts.memory_init import (
+    ensure_schema, find_duplicate, insert_fact, insert_scene, insert_warning,
+)
 
 
 class MemoryLayerTests(unittest.TestCase):
@@ -57,6 +59,43 @@ class MemoryLayerTests(unittest.TestCase):
         ensure_schema(self.conn)
         columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(facts)")}
         self.assertIn("content_hash", columns)
+
+    def test_ensure_schema_adds_warnings_table_to_legacy_db(self):
+        self.conn.execute(
+            "CREATE TABLE facts (id INTEGER PRIMARY KEY, content TEXT NOT NULL, "
+            "source_url TEXT DEFAULT '', confidence TEXT DEFAULT 'LOW', verdict TEXT DEFAULT '', "
+            "fail_reason TEXT DEFAULT '', skill_ref TEXT DEFAULT '', created_at TEXT NOT NULL)"
+        )
+        self.conn.commit()
+        ensure_schema(self.conn)
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(warnings)")}
+        self.assertEqual(
+            columns,
+            {"id", "content_hash", "skill_ref", "verdict", "code", "detail",
+             "prompt_sha256", "created_at"},
+        )
+
+    def test_insert_warning_returns_id_and_reads_back(self):
+        ensure_schema(self.conn)
+        warning_id = insert_warning(
+            self.conn, "hash123", "01-github-trending", "PASS",
+            "WARN:EVIDENCE_NOT_IN_SOURCE", detail="1", prompt_sha256="a" * 64)
+        self.assertIsInstance(warning_id, int)
+        row = self.conn.execute(
+            "SELECT content_hash, code, detail, prompt_sha256, created_at "
+            "FROM warnings WHERE id=?", (warning_id,)).fetchone()
+        self.assertEqual(row["content_hash"], "hash123")
+        self.assertEqual(row["code"], "WARN:EVIDENCE_NOT_IN_SOURCE")
+        self.assertEqual(row["detail"], "1")
+        self.assertEqual(row["prompt_sha256"], "a" * 64)
+        self.assertTrue(row["created_at"])
+
+    def test_ensure_schema_twice_is_idempotent_for_warnings(self):
+        ensure_schema(self.conn)
+        insert_warning(self.conn, "h1", "01-github-trending", "PASS", "WARN:X")
+        ensure_schema(self.conn)
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) FROM warnings").fetchone()[0], 1)
 
 
 if __name__ == "__main__":

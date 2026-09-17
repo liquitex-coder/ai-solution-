@@ -37,17 +37,59 @@ SKILL_PROMPTS = {
 }
 
 
-def main() -> int:
+def _warn_report(db: pathlib.Path) -> int:
+    """§34-6: 30-day WARN: observation report across all verdicts. Always Report-Only."""
+    conn = sqlite3.connect(str(db))
+    conn.row_factory = sqlite3.Row
+    try:
+        table = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='warnings'"
+        ).fetchone()
+        if not table:
+            print(f"no warnings table at {db} - run the auditor service once (§34-6)")
+            return 0
+
+        groups = conn.execute(
+            "SELECT skill_ref, code, COUNT(*) AS n, "
+            "COUNT(DISTINCT content_hash) AS articles, MAX(created_at) AS last_seen "
+            "FROM warnings WHERE created_at >= datetime('now','-30 days') "
+            "GROUP BY skill_ref, code ORDER BY n DESC").fetchall()
+
+        if not groups:
+            print("no warnings in the last 30 days")
+            return 0
+
+        print("# Warning observation report (§34-6, last 30 days - report only)\n")
+        for g in groups:
+            details = [r["detail"] for r in conn.execute(
+                "SELECT detail FROM warnings WHERE skill_ref=? AND code=? "
+                "AND created_at >= datetime('now','-30 days') "
+                "ORDER BY id DESC LIMIT 3", (g["skill_ref"], g["code"]))]
+            print(f"## {g['skill_ref']} - {g['code']}: {g['n']} warnings / "
+                  f"{g['articles']} articles (last: {g['last_seen']})")
+            print(f"details: {details}")
+            print()
+        return 0
+    finally:
+        conn.close()
+
+
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--db", type=pathlib.Path, default=DEFAULT_DB)
     ap.add_argument("--threshold", type=int, default=3)
     ap.add_argument("--strict", action="store_true",
                     help="exit 3 when proposals exist (R1 promotion switch)")
-    args = ap.parse_args()
+    ap.add_argument("--warn", action="store_true",
+                    help="print the §34-6 30-day WARN: observation report instead (Report-Only)")
+    args = ap.parse_args(argv)
 
     if not args.db.exists():
         print(f"no memory db at {args.db} - nothing to ratchet (run workflows first)")
         return 0
+
+    if args.warn:
+        return _warn_report(args.db)
 
     conn = sqlite3.connect(str(args.db))
     conn.row_factory = sqlite3.Row

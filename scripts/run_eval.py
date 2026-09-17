@@ -18,11 +18,18 @@ from content_audit import audit  # noqa: E402
 EVAL_SET = pathlib.Path(__file__).resolve().parent.parent / "data" / "eval_set.json"
 
 
+def _warning_present(code: str, reasons: list[str]) -> bool:
+    return any(r == code or r.startswith(code + ":") for r in reasons)
+
+
 def main() -> int:
     cases = json.loads(EVAL_SET.read_text(encoding="utf-8"))
     fp, fn, mismatch, exact = [], [], [], 0
+    warn_mismatch: list[tuple[str, str, str]] = []
     for case in cases:
-        result = audit(case["content"], case.get("source_urls", []))
+        result = audit(case["content"], case.get("source_urls", []),
+                       case.get("source_text"), case.get("source_lang"),
+                       case.get("evidence"))
         got, want = result["verdict"], case["expected"]
         blocked = got != "PASS"
         should_block = want != "PASS"
@@ -34,15 +41,23 @@ def main() -> int:
             fp.append(case["id"])
         if should_block and not blocked:
             fn.append(case["id"])
+        reasons = result["reasons"]
+        for code in case.get("expected_warnings") or []:
+            if not _warning_present(code, reasons):
+                warn_mismatch.append((case["id"], "missing", code))
+        for code in case.get("forbidden_warnings") or []:
+            if _warning_present(code, reasons):
+                warn_mismatch.append((case["id"], "forbidden", code))
 
     print(f"cases: {len(cases)}  exact-verdict match: {exact}/{len(cases)}")
     print(f"FP (PASS expected, blocked): {len(fp)} {fp}")
     print(f"FN (block expected, passed): {len(fn)} {fn}")
+    print(f"warning mismatches: {len(warn_mismatch)} {warn_mismatch}")
     if mismatch:
         print("verdict mismatches (id, expected, got, reasons):")
         for row in mismatch:
             print("  ", row)
-    ok = not fp and not fn
+    ok = not fp and not fn and not warn_mismatch
     print("RESULT:", "GREEN (FP=0, FN=0)" if ok else "RED")
     return 0 if ok else 1
 
