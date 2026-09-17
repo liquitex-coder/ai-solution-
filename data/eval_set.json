@@ -418,5 +418,814 @@
   "content": "<h2>導入の背景</h2><p>AIツールの活用は業務の効率化に役立つ場面が増えています。導入の際は自社の課題を整理し、小さく試してから広げるのが安全です。運用ルールとレビュー体制をあわせて整備することが重要です。</p><h2>専門家の見解</h2><blockquote>AIツールの活用は業務の効率化に役立つ場面が増えています。導入の際は自社の課題を整理し、小さく試してから広げるのが安全です。運用ルールとレビュー体制をあわせて整備することが重要です。AIツールの活用は業務の効率化に役立つ場面が増え</blockquote><h2>まとめと出典</h2><p>AIツールの活用は業務の効率化に役立つ場面が増えています。導入の際は自社の課題を整理し、小さく試してから広げるのが安全です。運用ルールとレビュー体制をあわせて整備することが重要です。詳細は<a href=\"https://example.com/source-article\">出典</a>を参照してください。</p>",
   "source_urls": [],
   "note": "引用比率約35%（1/3超）。§17-1のFAIL境界（requirements §32-1 D1）"
+ },
+ {
+  "id": "E01",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "evidence 無し → 既存挙動と同一",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "forbidden_warnings": [
+   "WARN:CLAIM_CONTRADICTED",
+   "WARN:CLAIM_UNGROUNDED",
+   "WARN:TECHNIQUE_IMPLAUSIBLE",
+   "WARN:EVIDENCE_NOT_IN_SOURCE",
+   "WARN:NUMBER_MISMATCH",
+   "WARN:URL_DEAD",
+   "WARN:REPO_NOT_FOUND",
+   "WARN:NO_SOURCE_FOR_FACTCHECK",
+   "WARN:FACTCHECK_UNAVAILABLE"
+  ]
+ },
+ {
+  "id": "E02",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "SUPPORTED 実在span → WARN無し",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "ストリーミングAPI追加",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "ストリーミング API が追加され",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c2",
+     "text": "スター数1234",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c3",
+     "text": "良い発表だ",
+     "type": "OPINION",
+     "status": "UNCHECKABLE",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "forbidden_warnings": [
+   "WARN:EVIDENCE_NOT_IN_SOURCE",
+   "WARN:CLAIM_UNGROUNDED",
+   "WARN:CLAIM_CONTRADICTED",
+   "WARN:FACTCHECK_UNAVAILABLE"
+  ]
+ },
+ {
+  "id": "E03",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "SUPPORTED 捏造span → EVIDENCE_NOT_IN_SOURCE",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "無料提供",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "Widget 2.0 は無料で提供される",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c2",
+     "text": "ストリーミングAPI追加",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "ストリーミング API が追加され",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c3",
+     "text": "スター数1234",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:EVIDENCE_NOT_IN_SOURCE"
+  ],
+  "forbidden_warnings": [
+   "WARN:CLAIM_UNGROUNDED"
+  ]
+ },
+ {
+  "id": "E04",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは今も続いている。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "CONTRADICTED 検証済み",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "Python 3.8 は今もサポート継続",
+     "type": "FACT",
+     "status": "CONTRADICTED",
+     "evidence": "Python 3.8 のサポートは終了した",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:CLAIM_CONTRADICTED"
+  ],
+  "forbidden_warnings": [
+   "WARN:EVIDENCE_NOT_IN_SOURCE"
+  ]
+ },
+ {
+  "id": "E05",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは今も続いている。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "CONTRADICTED 未検証 → EVIDENCE_NOT_IN_SOURCE のみ",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "Python 3.8 は今もサポート継続",
+     "type": "FACT",
+     "status": "CONTRADICTED",
+     "evidence": "Python 3.8 は永久にサポートされる",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:EVIDENCE_NOT_IN_SOURCE"
+  ],
+  "forbidden_warnings": [
+   "WARN:CLAIM_CONTRADICTED"
+  ]
+ },
+ {
+  "id": "E06",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "ungrounded比率 3/4 > 0.5",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "ok",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c2",
+     "text": "x",
+     "type": "FACT",
+     "status": "NOT_IN_SOURCE",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c3",
+     "text": "y",
+     "type": "FACT",
+     "status": "NOT_IN_SOURCE",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c4",
+     "text": "z",
+     "type": "FACT",
+     "status": "NOT_IN_SOURCE",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:CLAIM_UNGROUNDED"
+  ]
+ },
+ {
+  "id": "E07",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "OPINIONのみ → 母数から除外",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "x",
+     "type": "OPINION",
+     "status": "SUPPORTED",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c2",
+     "text": "x",
+     "type": "OPINION",
+     "status": "SUPPORTED",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c3",
+     "text": "x",
+     "type": "OPINION",
+     "status": "SUPPORTED",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c4",
+     "text": "x",
+     "type": "OPINION",
+     "status": "SUPPORTED",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "forbidden_warnings": [
+   "WARN:CLAIM_UNGROUNDED",
+   "WARN:EVIDENCE_NOT_IN_SOURCE"
+  ]
+ },
+ {
+  "id": "E08",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "NUMBER 不一致 (1234 vs 2000)",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "star count",
+     "type": "NUMBER",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": 1234,
+     "gt_ref": "acme/widget.stars",
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {
+    "acme/widget": {
+     "stars": 2000
+    }
+   }
+  },
+  "expected_warnings": [
+   "WARN:NUMBER_MISMATCH"
+  ]
+ },
+ {
+  "id": "E09",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "NUMBER 許容誤差内 (1234 vs 1260)",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "star count",
+     "type": "NUMBER",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": 1234,
+     "gt_ref": "acme/widget.stars",
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {
+    "acme/widget": {
+     "stars": 1260
+    }
+   }
+  },
+  "forbidden_warnings": [
+   "WARN:NUMBER_MISMATCH"
+  ]
+ },
+ {
+  "id": "E10",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "URL DEAD probe",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [],
+   "probes": [
+    {
+     "kind": "URL",
+     "target": "https://example.com/source-article",
+     "result": "OK"
+    },
+    {
+     "kind": "URL",
+     "target": "https://example.com/gone",
+     "result": "DEAD",
+     "detail": "404"
+    }
+   ],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:URL_DEAD"
+  ]
+ },
+ {
+  "id": "E11",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "GitHub repo not found probe",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [],
+   "probes": [
+    {
+     "kind": "GITHUB_REPO",
+     "target": "acme/ghost",
+     "result": "NOT_FOUND"
+    }
+   ],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:REPO_NOT_FOUND"
+  ]
+ },
+ {
+  "id": "E12",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "verifier失敗でもprobeは実行される",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": false,
+    "error": "HTTP 529 overloaded",
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [],
+   "probes": [
+    {
+     "kind": "URL",
+     "target": "https://example.com/gone",
+     "result": "DEAD"
+    }
+   ],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:FACTCHECK_UNAVAILABLE",
+   "WARN:URL_DEAD"
+  ],
+  "forbidden_warnings": [
+   "WARN:CLAIM_UNGROUNDED"
+  ]
+ },
+ {
+  "id": "E13",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "スキーマ不正 → FACTCHECK_UNAVAILABLE:schema",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 2,
+   "claims": "oops"
+  },
+  "expected_warnings": [
+   "WARN:FACTCHECK_UNAVAILABLE"
+  ]
+ },
+ {
+  "id": "E14",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "source_text 無し・ground_truth 空",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "x",
+     "type": "FACT",
+     "status": "NOT_IN_SOURCE",
+     "evidence": null,
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "expected_warnings": [
+   "WARN:NO_SOURCE_FOR_FACTCHECK"
+  ]
+ },
+ {
+  "id": "E15",
+  "category": "evidence",
+  "expected": "FAIL",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。これは業界を震撼させる革命的な発表だ。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "INV-R2a単調性: 全SUPPORTEDでもHYPE記事はFAILのまま",
+  "source_text": "[S0] Acme Labs は 2026年9月1日に Widget 2.0 を公開した。ストリーミング API が追加され、Python 3.8 のサポートは終了した。GitHub のスター数は 1,234 である。",
+  "source_lang": "ja",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "ok",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "ストリーミング API が追加され",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    },
+    {
+     "id": "c2",
+     "text": "ok2",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "スター数は 1,234",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  }
+ },
+ {
+  "id": "E16",
+  "category": "evidence",
+  "expected": "PASS",
+  "content": "<h2>概要</h2><p>Acme Labs が Widget 2.0 を公開した。<a href=\"https://example.com/source-article\">公式発表</a>を参照。</p><h2>新機能</h2><p>ストリーミング API が追加された。Python 3.8 のサポートは終了した。</p><h2>まとめ</h2><p>GitHub のスター数は 1,234 に達した。</p>",
+  "source_urls": [
+   "https://example.com/source-article"
+  ],
+  "note": "英語ソースでの逐語照合",
+  "source_text": "[S0] Acme Labs released Widget 2.0 on 2026-09-01. The release adds a streaming API and drops support for Python 3.8. The repository has 1,234 stars on GitHub.",
+  "source_lang": "en",
+  "evidence": {
+   "version": 1,
+   "verifier": {
+    "model": "claude-haiku-4-5",
+    "prompt_ref": "50-fact-check.md",
+    "prompt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ok": true,
+    "error": null,
+    "usage": {
+     "input_tokens": 0,
+     "output_tokens": 0
+    }
+   },
+   "claims": [
+    {
+     "id": "c1",
+     "text": "streaming api",
+     "type": "FACT",
+     "status": "SUPPORTED",
+     "evidence": "adds a streaming API",
+     "source_index": 0,
+     "value": null,
+     "gt_ref": null,
+     "feasibility": null,
+     "note": ""
+    }
+   ],
+   "probes": [],
+   "ground_truth": {}
+  },
+  "forbidden_warnings": [
+   "WARN:EVIDENCE_NOT_IN_SOURCE"
+  ]
  }
 ]
