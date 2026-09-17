@@ -45,7 +45,7 @@ BUILD に差し戻し（最大 3 回）、それ以降は人間レビュー待�
 ## 共通ルール
 
 1. **INV-R1**: 人間署名が信頼根拠。自動 SHIP は Auditor PASS 後のみ。
-2. **INV-R2**: Auditor の verdict は LLM-free 決定論的ロジックのみ。
+2. **INV-R2**: Auditor の verdict は LLM-free 決定論的ロジックのみ。**INV-R2a**: BUILD が生成する Evidence Pack（要件 §34）は verdict を下げる方向にしか作用しない（欠落しても verdict 不変）。
 3. **著作権**: 引用文字数は要件 §17-1（生成/引用 > 2.0、引用 ≤ 1/3）に従う。blockquote タグ必須。出所 URL 明記。
 4. **Rationalizations Table**: Auditor pre-flight で下記を確認する。
    - 「動くはず」で未テストのコード → FAIL
@@ -61,7 +61,7 @@ BUILD に差し戻し（最大 3 回）、それ以降は人間レビュー待�
 ## n8n 組み込みパターン
 
 ```
-[Trigger] → [skill-BUILD node] → [Auditor HTTP Request]
+[Trigger] → [skill-BUILD node] → [Evidence Pack (15-fact-check)] → [Auditor HTTP Request]
                                        ↓ verdict
                                  [IF PASS] → [skill-SHIP node]
                                  [IF FAIL] → [retry / human-review]
@@ -70,5 +70,5 @@ BUILD に差し戻し（最大 3 回）、それ以降は人間レビュー待�
 Auditor HTTP Request:
 - Method: POST
 - URL: `{{ $env.AINAVI_GATE_URL }}/audit`
-- Body: `{ "content": "...", "claims": [...], "source_urls": [...] }`
+- Body: `{ "content": "...", "source_urls": [...], "source_text": "...", "source_lang": "...", "evidence": {...} }`（`evidence` は要件 §34-4、任意）
 - Response: `{ "verdict": "PASS|FAIL|UNVERIFIABLE", "reasons": [...], "confidence": "..." }`

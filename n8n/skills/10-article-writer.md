@@ -2,7 +2,7 @@
 skill: article-writer
 version: "1.0"
 agent: claim-llm
-phase: REVIEW
+phase: BUILD
 inputs:
   - topic: string
   - keyword: string

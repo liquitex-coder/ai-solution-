@@ -5,8 +5,10 @@ agent: ainavi-gate
 phase: REVIEW
 inputs:
   - content: string
-  - claims: list[string]
   - source_urls: list[string]
+  - source_text: string          # 任意。[S0]..[Sn] 連結ソース（要件 §34-3）
+  - source_lang: "ja|en|zh"      # 任意
+  - evidence: EvidencePack       # 任意。要件 §34-4 v1
   - language: "ja|en|zh"
   - skill_ref: string
 outputs:
@@ -14,6 +16,7 @@ outputs:
   - fail_reasons: list[string]
   - confidence: "HIGH|MED|LOW|UNVERIFIABLE"
   - rationalizations_triggered: list[string]
+  - evidence_summary: object   # evidence がある場合のみ（要件 §34-4）
 auditor_required: false
 memory_read:
   - 事実層
@@ -25,6 +28,7 @@ memory_write:
 
 **INV-R2**: verdict は LLM-free 決定論的ロジックのみ。
 **INV-R1**: PASS なしに WordPress 投稿は不可。
+**INV-R2a**: Evidence Pack は verdict を下げる方向にしか作用しない（要件 §34-2）。
 
 すべての WF01-09 パイプラインにおいて、SHIP 前に必ず実行する。
 
@@ -61,13 +65,17 @@ Pre-flight (Rationalizations Table):
   丸写し (同言語): blockquote 外の本文が原文と >= 0.85 → WARN:VERBATIM_COPY:<ratio>（要件§32-1 D2）
   翻訳ラベル: ZH/EN ソース使用かつ翻訳注記なし → WARN:MISSING_TRANSLATION_LABEL（要件§32-1 D3）
 
-品質チェック:
-  - claims が空 → WARN:NO_CLAIMS
-  - UNVERIFIABLE claims > 50% → verdict = UNVERIFIABLE
+Evidence Pack（要件 §34-5、決定論ルール、初期は全て WARN:）:
+  逐語照合: SUPPORTED/CONTRADICTED の evidence が source_text に無い → EVIDENCE_MISSING に格下げ
+  WARN:CLAIM_CONTRADICTED:<n> / WARN:CLAIM_UNGROUNDED:<k>/<N>（OPINION 除外、N≥3、比率>0.5）
+  WARN:TECHNIQUE_IMPLAUSIBLE:<n> / WARN:EVIDENCE_NOT_IN_SOURCE:<n> / WARN:NUMBER_MISMATCH:<v>/<gt>
+  WARN:URL_DEAD:<url> / WARN:REPO_NOT_FOUND:<repo> / WARN:NO_SOURCE_FOR_FACTCHECK / WARN:FACTCHECK_UNAVAILABLE:<why>
+  昇格条件は要件 §34-5 の表。evidence 欠落は verdict 不変（INV-R2a）
 
 FAIL 蓄積:
   - 事実層に { content_hash, fail_reasons, skill_ref, audited_at } を書き込む
   - 同一ハッシュの再提出 → verdict は再計算し WARN:ALREADY_REJECTED:<fact_id> を付与（facts に重複行なし、要件§32-1 D5）
+  - 全 WARN: は verdict を問わず warnings テーブルへ 1 行ずつ記録（要件 §34-6、30日観察の根拠）
 ```
 
 ---
@@ -78,6 +86,7 @@ Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verd
 `scripts/auditor_server.py`（HTTP サービス、要件 §28）。仕様と実装の差分は要件 §32 の
 ドリフト表が唯一の正（PLAN のうち `VERBATIM_COPY` / `MISSING_TRANSLATION_LABEL` /
 `ALREADY_REJECTED` は §32-2 に従い `WARN:` として実装、`VERBATIM_COPY` の本来の定義と `QUOTE_ALTERED` は T-24 第2ラウンド、`INSUFFICIENT_LENGTH` は不採用）。
+Evidence Pack の受理と §34-5 の規則は T-34、配線は T-35/T-36（要件 §34-9）。
 このスキルは n8n からの HTTP Request で呼び出す:
 
 ```json
@@ -86,8 +95,10 @@ Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verd
   "url": "{{ $env.AINAVI_GATE_URL }}/audit",
   "body": {
     "content": "{{ $json.article_draft }}",
-    "claims": "{{ $json.claims }}",
     "source_urls": "{{ $json.source_urls }}",
+    "source_text": "{{ $json.source_text }}",
+    "source_lang": "{{ $json.source_lang }}",
+    "evidence": "{{ $json.evidence }}",
     "language": "{{ $json.language }}",
     "skill_ref": "20-auditor-gate"
   }

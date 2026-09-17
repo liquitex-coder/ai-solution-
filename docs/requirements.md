@@ -1,7 +1,7 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.5  
-**最終更新**: 2026-09-13  
+**バージョン**: 2.6  
+**最終更新**: 2026-09-17  
 **ステータス**: 実装中（Phase 0 → Phase 1 移行、ロードマップ: `docs/ROADMAP.md`）
 
 ---
@@ -1254,6 +1254,8 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 | D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: §28 サービスが facts の `content_hash` を照合 | 再提出時も verdict は再計算し（固定 FAIL にはしない）、一致する既存行があれば `reasons` 末尾に `WARN:ALREADY_REJECTED:<fact_id>` を追加し facts に重複行を書かない。第1ラウンドは `verdict = 'FAIL'` 行のみ照合し UNVERIFIABLE の再提出が重複行になっていた（Linux 実測: 同一内容 2 回投稿で facts 3 行 / 2 ハッシュ）→ **第2ラウンド（`9539897`）で解消**: `auditor_server.py` `find_prior_fact()` が `verdict != 'PASS'` で照合し、`tests/test_auditor_server.py` が UNVERIFIABLE 2 回投稿で facts 1 行のままを検証 |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
 | D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | **実装済み（2026-09-15, T-24 第2ラウンド `9539897`）**: 第1ラウンドが `VERBATIM_COPY` の名で実装した blockquote 内照合を `scripts/content_audit.py` の D7 ブロックとして `WARN:QUOTE_ALTERED:<ratio>` にリネーム（`source_text` あり ∧ `source_lang` が `ja` または未指定のときのみ、閾値は D2 と共有の `SIMILARITY_THRESHOLD = 0.85`） | 2026-09-13 に D2 から分離。誤検出リスクは §32-2 の WARN 運用（verdict 不変・30日観察）で吸収し、FAIL 昇格は観察後に判断する |
+| D8 | `claims: list[string]`（`20-auditor-gate.md` inputs / `skill-base.md` L73）と PLAN の「claims が空 → WARN:NO_CLAIMS」「UNVERIFIABLE claims > 50% → UNVERIFIABLE」 | `20-auditor-gate.md` / `skill-base.md` | **未実装・未配線**: `auditor_server.py` `audit()` は `claims` を読まない。WF01〜09 のゲートノードは `{content, source_urls, skill_ref}` のみ送信し、`claims` も `source_text` も送っていない（D2/D7 は本番で休眠） | `claims` は廃止し §34-4 の `evidence` に置換（T-33 で文書、T-34 で実装、T-35/T-36 で配線）。`source_text`/`source_lang` の送信も T-35/T-36 で配線し D2/D7 を本番有効化 |
+| D9 | §32-2「WARN を30日観察してから FAIL 昇格」 | §32-2 | **観察記録が存在しない**: §28-2 により verdict=PASS は facts に書かれず、PASS 記事の `WARN:` は n8n 実行ログにしか残らない（WP 投稿は title/content/status のみ） | §34-6 の `warnings` テーブルに verdict を問わず全 `WARN:` を記録し、`ratchet_check.py --warn` で集計（T-34）。D2/D3/D7 の観察もこれに乗せる |
 
 ### 32-2. ループの運用
 
@@ -1285,4 +1287,200 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 2. `tests/test_encoding_guard.py` が `ast` で全 `scripts/*.py` を走査し、未指定の呼び出しを FAIL にする（センサー）。
 3. `.githooks/pre-push` は `python3` が使えない場合 `py -3` にフォールバックする。
 4. 「ゲート green」の報告には **操作者環境（Windows）での実行結果**を1回は含める（T-25 の完了条件）。
+
+---
+
+## 34. Evidence Pack — ファクトチェック層（ハルシネーション・矛盾・手法妥当性）
+
+> 背景: Auditor Gate（§22, §28）は著作権・構造・誇大表現のみを検査し、「ソースに無い主張」「ソースと矛盾する主張」
+> 「実際には使えない手法の記述」を検出する経路が無かった（§5-2 の表は設計のみ）。本節はこれを、INV-R2 を保ったまま
+> 実装する設計を確定する。設計判断: 2026-09-17（Claude Fable 5.1 による設計・Claude Sonnet 5 による実装・操作者承認）。
+
+### 34-1. 検出した事実（コードで確認・2026-09-17）
+
+1. `scripts/auditor_server.py` `audit()` は `content` / `source_urls` / `skill_ref` / `source_text` / `source_lang` のみ読む。`claims` は無視（§32-1 D8）。
+2. WF01〜09 の全ゲートノードは `{content, source_urls, skill_ref}` のみ送信。`source_text` 未送信のため D2/D7 は本番で休眠。
+3. `20-auditor-gate.md` PLAN は既に「UNVERIFIABLE claims > 50% → UNVERIFIABLE」という**決定論的な集計規則**を規定しており、本節はその具体化である。
+4. WF07 は topic / angle / keywords のみで生成し、ソースが存在しない。根拠照合は原理的に不可能（§34-11）。
+5. WF01 / WF09 はスター数・URL・説明文などの構造化実測値をパイプライン内に持つ（`stargazers_count`, `items[]`）。
+6. verdict=PASS は facts に書かれない（§28-2）ため、WARN の30日観察（§32-2）に記録が無い（§32-1 D9）。
+7. `scripts/run_eval.py` は `audit(content, source_urls)` の2引数呼び出しで、`source_text` / `evidence` を渡せない。
+8. n8n の Code ノードは credential を参照できないため、検証 LLM 呼び出しは既存の `Claude API Key` credential を持つ HTTP Request ノードで行う（記事生成ノードと同じ方式）。
+
+### 34-2. 不変条件の明確化
+
+- **INV-R2（確認）**: verdict（PASS / FAIL / UNVERIFIABLE）を決めるのは `scripts/content_audit.py` の決定論的ロジックのみ。LLM は verdict を決めない。LLM はパイプラインの BUILD 段階で**証拠（signals）**を生成してよく、決定論的ルールがそれを verdict に変換する。
+- **INV-R2a（新設）**: Evidence Pack は verdict を**下げる方向にしか**作用しない。evidence の有無・内容によって FAIL / UNVERIFIABLE が PASS になることはない。evidence が欠落しても既存ルールの verdict は変わらない。LLM の「SUPPORTED」は何も緩和しない。
+- **完全性の否認**: 本層はハルシネーション・不正確さを完全には防げない（操作者了承済み・2026-09-17）。検出できる範囲は §34-11 に明記する。
+
+### 34-3. アーキテクチャ（3層 Evidence + 決定論ルール）
+
+フェーズ配置: skill-base の順序は不変。Evidence Pack 生成は **BUILD の最終ステップ**（中間成果物）、消費は REVIEW（Auditor Gate）。
+
+```
+[生成 LLM] → [WordPress投稿データ整形]
+   → [Evidence Probes (Code)]                       … Tier 1: URL / GitHub 実在確認（LLM-free）
+   → [Fact-Check Verifier (HTTP Request → Claude)]  … Tier 2: claude-haiku-4-5、構造化出力
+   → [Evidence Pack 整形 (Code)]                     … Tier 0 実測値 + Tier 1 + Tier 2 を §34-4 の形に
+   → [Auditor Gate (Code)]  body に source_text / source_lang / evidence を追加
+   → [WordPress]
+```
+
+| Tier | 生成主体 | 内容 | LLM |
+|---|---|---|---|
+| 0 | パイプライン既存データ | `source_text`（`[S0]`〜`[Sn]` 索引付き連結ソース）、`ground_truth`（WF01/09 のスター数等） | 無 |
+| 1 | Code ノード（probes） | 記事中 URL の HEAD/GET、`github.com/<owner>/<repo>` の API 実在確認 | 無 |
+| 2 | HTTP Request ノード | 主張抽出 + 各主張の status + ソースからの**逐語 evidence**。モデルは **`claude-haiku-4-5`**（操作者決定 2026-09-17、理由: コスト、§34-10）。プロンプト `n8n/prompts/50-fact-check.md`、`output_config.format`（json_schema）で JSON を強制。web/fetch ツール無し | 有 |
+
+- Verifier に渡す `source_text` と、ゲートに送る `source_text` は**同一文字列**でなければならない（§34-5 の逐語照合が前提）。
+- Verifier ノードは「continue on fail」。失敗時は `evidence.verifier.ok=false` にして送る（ゲートは止めない、§14）。
+- スキル: `n8n/skills/15-fact-check.md`。プロンプト: `n8n/prompts/50-fact-check.md`（T-35 で配線するまで `check_wired.py` の LIBRARY_ONLY に理由付きで登録）。
+
+### 34-4. `/audit` リクエスト拡張（スキーマ v1）
+
+`claims: list[string]` は廃止。追加フィールドは全て任意。`evidence` が無い場合、`/audit` の挙動は §28-2 と完全に同一（INV-R2a）。
+
+```json
+{
+  "content": "<article html>", "source_urls": ["..."], "skill_ref": "01-github-trending",
+  "source_text": "[S0] ...\n\n[S1] ...", "source_lang": "en",
+  "evidence": {
+    "version": 1,
+    "verifier": {
+      "model": "claude-haiku-4-5", "prompt_ref": "50-fact-check.md",
+      "prompt_sha256": "<hex64>", "ok": true, "error": null,
+      "usage": {"input_tokens": 0, "output_tokens": 0}
+    },
+    "claims": [
+      {"id": "c1", "text": "<記事中の主張（要約可）>",
+       "type": "FACT|NUMBER|TECHNIQUE|OPINION",
+       "status": "SUPPORTED|CONTRADICTED|NOT_IN_SOURCE|UNCHECKABLE",
+       "evidence": "<source_text からの逐語抜粋 10〜300字、または null>",
+       "source_index": 0,
+       "value": null, "gt_ref": null,
+       "feasibility": "PLAUSIBLE|IMPLAUSIBLE|UNKNOWN|null",
+       "note": "<1文>"}
+    ],
+    "probes": [
+      {"kind": "URL", "target": "https://...", "result": "OK|DEAD|TIMEOUT|SKIPPED", "detail": "404"},
+      {"kind": "GITHUB_REPO", "target": "owner/repo", "result": "OK|NOT_FOUND|TIMEOUT|SKIPPED", "detail": {"stars": 1234}}
+    ],
+    "ground_truth": {"owner/repo": {"stars": 1234, "language": "Python"}}
+  }
+}
+```
+
+フィールド規則:
+- `claims[].type=NUMBER` は `value`（数値）必須。`ground_truth` に対応値があれば `gt_ref="<key>.<field>"`。
+- `claims[].type=TECHNIQUE` は `feasibility` 必須。他の type は `null`。
+- `claims[].type=OPINION` は `status=UNCHECKABLE` 固定。
+- `probes[].result`: `DEAD` は URL の HTTP 404/410 のみ。403/429/5xx/接続失敗は `TIMEOUT`。`NOT_FOUND` は GitHub API の 404 のみ。
+- `verifier.prompt_sha256` は `50-fact-check.md` の UTF-8 バイト列の SHA-256（プロンプト版別に観察統計を分けるため）。
+- Verifier（Tier 2）の JSON 出力は `{"claims": [...]}` のみ。`verifier` / `probes` / `ground_truth` は Evidence Pack 整形ノードが付与する。
+
+レスポンス追加（`evidence` がある場合のみ。既存キー `title/content/wp_status/source_url` と衝突しない、§28-2）:
+
+```json
+"evidence_summary": {"claims": 0, "considered": 0, "supported": 0, "contradicted": 0,
+                     "ungrounded": 0, "evidence_missing": 0, "implausible": 0,
+                     "probes_failed": 0, "dropped": 0}
+```
+
+### 34-5. 決定論ルールと理由コード（`scripts/content_audit.py`、初期は全て `WARN:`）
+
+定数（`content_audit.py`）: `EVIDENCE_MIN_CHARS = 10`, `EVIDENCE_MAX_CHARS = 300`, `MAX_CLAIMS = 40`, `MIN_CLAIMS_FOR_RATIO = 3`, `UNGROUNDED_RATIO = 0.5`, `NUMBER_TOLERANCE = 0.05`, `MAX_PROBE_WARNINGS = 5`。逐語照合の閾値は既存 `SIMILARITY_THRESHOLD = 0.85` を共有。
+
+処理順（決定論・この順で `reasons` 末尾に追加）:
+
+0. `evidence` 無し → 何もしない。`evidence` が dict でない / `version != 1` / `claims` が list でない → `WARN:FACTCHECK_UNAVAILABLE:schema` を出して終了。`verifier.ok` が真でない → `WARN:FACTCHECK_UNAVAILABLE:<error 先頭40字>` を出し、claims 規則（2〜7）を飛ばす（8〜9 は実行）。
+1. claims を先頭 `MAX_CLAIMS` 件に切り、各要素を検証（必須キー・enum）。不正な要素は捨てて `dropped` に数える。
+2. **逐語照合（中核規則）**: `status ∈ {SUPPORTED, CONTRADICTED}` の各 claim について、`normalize(evidence)` が `normalize(source_text)` の部分文字列であれば「検証済み」。部分文字列でなければ D7 と同じ窓走査（窓長 = evidence 長、step = 長さ//4）で `SequenceMatcher.ratio() ≥ SIMILARITY_THRESHOLD` なら「検証済み」。それ以外（`evidence` が null / 長さ範囲外 / `source_text` 無し / 不一致）は `status := EVIDENCE_MISSING`。`normalize` = `unicodedata.normalize("NFKC")` → 空白列を単一スペースに畳む → strip。
+3. `type=NUMBER` かつ `gt_ref` あり: `value` の数字列（桁区切り除去）が `_text(content)` に無ければ `EVIDENCE_MISSING`。`ground_truth[key][field]` が数値で `|value − gt| > NUMBER_TOLERANCE × max(|gt|, 1)` → `WARN:NUMBER_MISMATCH:<value>/<gt>`。
+4. 母数 `N` = `type ∈ {FACT, NUMBER, TECHNIQUE}` の件数（**OPINION は除外**—著作権プロンプトが独自分析 ≥50% を要求するため）。`ungrounded` = `NOT_IN_SOURCE + EVIDENCE_MISSING`。`N ≥ MIN_CLAIMS_FOR_RATIO` かつ `ungrounded / N > UNGROUNDED_RATIO` → `WARN:CLAIM_UNGROUNDED:<ungrounded>/<N>`。
+5. 検証済み `CONTRADICTED` が `c ≥ 1` → `WARN:CLAIM_CONTRADICTED:<c>`。
+6. `type=TECHNIQUE` かつ `feasibility=IMPLAUSIBLE` が `t ≥ 1` → `WARN:TECHNIQUE_IMPLAUSIBLE:<t>`。
+7. `EVIDENCE_MISSING` が `m ≥ 1` → `WARN:EVIDENCE_NOT_IN_SOURCE:<m>`。
+8. probes: `URL` の `DEAD` → `WARN:URL_DEAD:<url 先頭80字>`（最大 `MAX_PROBE_WARNINGS` 件）、`GITHUB_REPO` の `NOT_FOUND` → `WARN:REPO_NOT_FOUND:<owner/repo>`。
+9. `source_text` 無し かつ `ground_truth` 空 かつ `evidence` あり → `WARN:NO_SOURCE_FOR_FACTCHECK`。
+
+理由コード表と昇格条件（昇格は 1 コード = 1 PR、§32-2 どおり評価セット先行、INV-R1 の人間署名を §34-9 に記録）:
+
+| コード | 発生条件 | 昇格先 | 昇格条件（T-37 の観察結果） |
+|---|---|---|---|
+| `WARN:URL_DEAD` | Tier 1 | FAIL | 人手ラベル精度 ≥ 0.95、標本 ≥ 10 |
+| `WARN:REPO_NOT_FOUND` | Tier 1 | FAIL | 同上 |
+| `WARN:NUMBER_MISMATCH` | Tier 0 照合 | FAIL | 同上 |
+| `WARN:CLAIM_CONTRADICTED` | Tier 2 + 逐語検証済み | FAIL | 精度 ≥ 0.90、標本 ≥ 20 |
+| `WARN:CLAIM_UNGROUNDED` | 比率規則 | UNVERIFIABLE | 精度 ≥ 0.80、標本 ≥ 20（`UNGROUNDED_RATIO` の調整可） |
+| `WARN:TECHNIQUE_IMPLAUSIBLE` | Tier 2 | 当面 WARN のまま | 同一 target に `REPO_NOT_FOUND`/`URL_DEAD` が併発する場合の連動昇格は別途判断 |
+| `WARN:EVIDENCE_NOT_IN_SOURCE` | 逐語照合失敗 | 昇格しない | Verifier / プロンプト改善の指標 |
+| `WARN:NO_SOURCE_FOR_FACTCHECK` | ソース無し | 昇格しない | 情報のみ（WF07 は常時） |
+| `WARN:FACTCHECK_UNAVAILABLE` | Verifier 失敗・不正 | 昇格しない | 7日率 > 20% で運用アラート（手動） |
+
+標本が閾値未満のコードは観察を延長する（昇格しない）。
+
+### 34-6. 観察用永続化（`warnings` テーブル）と観察レポート
+
+`scripts/memory_init.py` の SCHEMA に追加（`ensure_schema` は `CREATE TABLE IF NOT EXISTS` で冪等）:
+
+```sql
+CREATE TABLE IF NOT EXISTS warnings (
+    id INTEGER PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    skill_ref TEXT DEFAULT '',
+    verdict TEXT NOT NULL,
+    code TEXT NOT NULL,
+    detail TEXT DEFAULT '',
+    prompt_sha256 TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, created_at);
+```
+
+- `auditor_server.py` は verdict を問わず、`reasons` 中の各 `WARN:` について 1 行書く。`code` = 先頭2要素（`WARN:CLAIM_CONTRADICTED:3` → `WARN:CLAIM_CONTRADICTED`、§28-2 の fail_reason と同じ規則）、`detail` = 残り。`facts` の挙動（PASS は書かない、D5 の重複抑止）は不変。書込み失敗はログのみ（§14）。
+- `scripts/ratchet_check.py --warn`: 直近30日の `warnings` を `(skill_ref, code)` で集計し、`COUNT(*)`, `COUNT(DISTINCT content_hash)`, `MAX(created_at)`, 上位3件の `detail` を Markdown で出力。常に exit 0（Report-Only、§23 R0 と同じ）。T-37 の週次レポートに用いる。
+
+### 34-7. テスト方針（CI はオフラインのまま）
+
+- `data/eval_set.json` の各 case に任意キー `source_text`, `source_lang`, `evidence`, `expected_warnings`（必ず含まれるべき code の配列）, `forbidden_warnings`（含まれてはならない code）を追加できる。`run_eval.py` はこれらを `audit()` に渡し、FP/FN（verdict 基準、定義不変）に加えて warnings の期待不一致も RED にする。
+- T-34 で追加する最小 case（id `E01`〜`E16`）: E01 evidence 無し→既存と同一 / E02 SUPPORTED+実在 span→WARN 無し / E03 SUPPORTED+捏造 span→`EVIDENCE_NOT_IN_SOURCE` / E04 CONTRADICTED 検証済み→`CLAIM_CONTRADICTED` / E05 CONTRADICTED 未検証→`EVIDENCE_NOT_IN_SOURCE` のみ / E06 ungrounded 比率超→`CLAIM_UNGROUNDED` / E07 全て OPINION→WARN 無し / E08 NUMBER 不一致 / E09 NUMBER 許容内 / E10 URL DEAD / E11 REPO NOT_FOUND / E12 `ok=false`→`FACTCHECK_UNAVAILABLE` / E13 schema 不正 / E14 ソース無し→`NO_SOURCE_FOR_FACTCHECK` / E15 単調性: `FAIL:HYPE` 記事 + 全 SUPPORTED → verdict FAIL のまま / E16 英語ソースの逐語照合。
+- 単体テスト（`tests/`）: 上記と同内容 + `warnings` 書込み/読出し + `ratchet_check --warn`。Verifier の精度そのもの（LLM 込み）は CI に入れない。T-37 で人手ラベルにより測る（§34-9 に記録）。
+
+### 34-8. 配線ゲート（W12）と LIBRARY_ONLY
+
+- **W12（T-35 で追加）**: ゲート body に `evidence` を含む全ワークフローについて、(a) `50-fact-check.md` と `claude-haiku-4-5` を含むノードが存在、(b) `EVIDENCE_PROBES` マーカーを含む Code ノードが存在、(c) ゲート body に `source_text` を含む。いずれか欠落で FAIL。
+- T-35 より前は `50-fact-check.md` を `LIBRARY_ONLY_PROMPTS` に理由付きで登録（§21）。T-35 で登録を外す。
+- 新しい理由コードは `fail_reason` の先頭2要素規則により、FAIL 昇格後は自動的に §23 のラチェット集計に乗る。
+
+### 34-9. 段階的ロールアウト（ROADMAP Phase D2、T-33〜T-38）
+
+| 段階 | タスク | 内容 | 完了条件 |
+|---|---|---|---|
+| P0 | T-33 | 本節・§32-1 D8/D9・ROADMAP・スキル 15/20/10/skill-base・プロンプト 50（LIBRARY_ONLY） | 単独 docs コミット + prompts コミット、§D ゲート green（Windows） |
+| P1 | T-34 | `content_audit.py` 規則、`auditor_server.py` 透過 + `warnings`、`memory_init.py`、`run_eval.py` 拡張 + E01〜E16、単体テスト、`ratchet_check --warn`、Fly 再デプロイ | eval FP=0/FN=0 + warnings 不一致 0、unittest OK、既存 52 case の verdict 不変、`/health` ok |
+| P2 | T-35 | WF01 パイロット配線（probes / verifier / 整形 / ゲート body）、W12、LIBRARY_ONLY 解除 | 操作者の手動実行で WP 下書き + 実行ログに `evidence_summary`、W12 PASS |
+| P3 | T-36 | WF02〜09 配線（WF07 は `NO_SOURCE_FOR_FACTCHECK` が常態） | 9/9 W12 PASS、手動実行ログ |
+| P4 | T-37 | 30日観察: 週次 `ratchet_check.py --warn`、コード別に標本を人手ラベル、精度を下表に記録 | 下表が埋まり署名 |
+| P5 | T-38 | §34-5 の条件を満たしたコードから 1 コード 1 PR で昇格（評価セット先行） | 各 PR の eval/unittest green + 署名 |
+
+観察結果（T-37 で記入）:
+
+| コード | 期間 | 標本 | 精度 | 判断 | 署名 |
+|---|---|---|---|---|---|
+| （T-37 で記入） | | | | | |
+
+### 34-10. コスト（決定: `claude-haiku-4-5`）
+
+- 操作者決定（2026-09-17）: Verifier は **Claude Haiku 4.5（`claude-haiku-4-5`）**。理由はコスト。Sonnet 5 / Opus 5 は不採用。
+- 単価（2026-06-24 時点の一次料金表）: 入力 $1 / 出力 $5 per MTok。1記事あたり推定 入力 ~10k tokens（記事 3〜4k + ソース 3〜6k + プロンプト ~1.5k）/ 出力 ~1.5k → **約 $0.02/記事**。月300記事で約 $6、月1,000記事で約 $20。Tier 0/1 は無料。
+- Verifier ノードは `thinking` を指定しない（Haiku 4.5 は `budget_tokens` 方式で本用途に不要）。`max_tokens: 4096`。
+- **再判断トリガー（発生したら実装前に操作者へ確認）**: (a) T-37 で `CLAIM_CONTRADICTED` の精度 < 0.8 でモデル変更が対策候補になる、(b) 月間記事数 > 1,000、(c) LLM 呼び出しの追加（2段階抽出・再検証など）、(d) Batch API / prompt caching への切替。
+
+### 34-11. 既知の限界（明記）
+
+1. WF07 はソースが無く、根拠照合・矛盾検出は不可能。手法妥当性（`TECHNIQUE_IMPLAUSIBLE`）と既存 `UNSOURCED_STATS` のみ。
+2. 同一ベンダーのモデルが検証するため、ソースが無い一般知識の誤りは共有され得る。
+3. ソース（RSS/Reddit/HN/note）は攻撃者が書ける。対策は逐語照合・INV-R2a・構造化出力・データ区切り指示・ツール無し。注入が成功した場合の最悪は「今日と同じ verdict」または「保留」であり、公開方向には作用しない。
+4. probes はサイト側の bot 対策で `TIMEOUT` になり得る。`DEAD` は 404/410 のみ。
+5. 逐語 evidence はソース言語（EN/ZH）のまま。`source_lang` による D2/D7 のスキップ条件は本節の照合には適用しない。
 
