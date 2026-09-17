@@ -60,6 +60,23 @@ VERIFIER_SCHEMA = {
     "additionalProperties": False,
 }
 
+def _ids(num: str) -> dict:
+    return dict(
+        probes=f"ep{num}wf{num}-aa00-40{num}-80{num}-000000000011",
+        verifier=f"fv{num}wf{num}-aa00-40{num}-80{num}-000000000012",
+        pack=f"ek{num}wf{num}-aa00-40{num}-80{num}-000000000013",
+    )
+
+
+def derive_positions(gate_position: list[int]) -> dict[str, list[int]]:
+    """Every new/moved node is placed relative to the gate's original x (y unchanged)."""
+    x, y = gate_position
+    return {
+        "probes": [x, y], "verifier": [x + 220, y], "pack": [x + 440, y],
+        "gate": [x + 660, y], "post": [x + 880, y],
+    }
+
+
 WF_CONFIG: dict[str, dict] = {
     "01": dict(
         file="01-github-ai-trending-daily.json",
@@ -79,13 +96,149 @@ WF_CONFIG: dict[str, dict] = {
                          "topics: ${item.topics || ''}\\nurl: ${item.url || ''}`"),
         ground_truth_js=("{ [item.name]: { stars: Number(item.stars) || 0, "
                           "forks: Number(item.forks) || 0, language: item.language || '' } }"),
-        ids=dict(
-            probes="ep01wf01-aa00-4001-8001-000000000011",
-            verifier="fv01wf01-aa00-4001-8001-000000000012",
-            pack="ek01wf01-aa00-4001-8001-000000000013",
-        ),
-        positions=dict(probes=[1780, 300], verifier=[2000, 300], pack=[2220, 300],
-                        gate=[2440, 300], post=[2660, 300]),
+        ids=_ids("01"),
+    ),
+    "02": dict(
+        file="02-rss-monitor.json",
+        skill_ref="02-rss-monitor",
+        prompt_node="プロンプト読込み (WF-02)",
+        prompt_file="02-rss-monitor.md",
+        item_node="新記事フィルタリング（重複除外）",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-02)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-02)",
+        verifier_name="Fact-Check Verifier (WF-02)",
+        pack_name="Evidence Pack (WF-02)",
+        source_lang_js="(String(item.link || '').includes('note.com') ? 'ja' : 'en')",
+        source_text_js="`[S0] ${item.title || ''}\\n${String(item.summary || '').slice(0, 6000)}`",
+        ground_truth_js="{}",
+        ids=_ids("02"),
+    ),
+    "03": dict(
+        file="03-youtube-summary.json",
+        skill_ref="03-youtube-summary",
+        prompt_node="プロンプト読込み (WF-03)",
+        prompt_file="03-youtube-summary.md",
+        item_node="新動画フィルタリング",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-03)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-03)",
+        verifier_name="Fact-Check Verifier (WF-03)",
+        pack_name="Evidence Pack (WF-03)",
+        source_lang_js="null",
+        source_text_js=("`[S0] ${item.title || ''} — ${item.channelTitle || ''}\\n"
+                         "${item.description || ''}\\n${item.videoUrl || ''}`"),
+        ground_truth_js="{}",
+        ids=_ids("03"),
+    ),
+    "04": dict(
+        file="04-threads-influencer.json",
+        skill_ref="04-threads-influencer",
+        prompt_node="プロンプト読込み (WF-04)",
+        prompt_file="04-threads-influencer.md",
+        item_node="AI関連投稿をフィルタリング",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-04)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-04)",
+        verifier_name="Fact-Check Verifier (WF-04)",
+        pack_name="Evidence Pack (WF-04)",
+        source_lang_js="null",
+        source_text_js=("(item.posts || []).map((p, i) => `[S${i}] ${p.text || ''}\\n"
+                         "${p.permalink || ''}`).join('\\n\\n').slice(0, 6000)"),
+        ground_truth_js="{}",
+        ids=_ids("04"),
+    ),
+    "05": dict(
+        file="05-note-monitor.json",
+        skill_ref="05-note-monitor",
+        prompt_node="プロンプト読込み (WF-05)",
+        prompt_file="05-note-monitor.md",
+        item_node="新記事フィルタリング",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-05)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-05)",
+        verifier_name="Fact-Check Verifier (WF-05)",
+        pack_name="Evidence Pack (WF-05)",
+        source_lang_js="'ja'",
+        source_text_js="`[S0] ${item.title || ''}\\n${String(item.summary || '').slice(0, 6000)}`",
+        ground_truth_js="{}",
+        ids=_ids("05"),
+    ),
+    "06": dict(
+        file="06-weekly-trend-report.json",
+        skill_ref="06-weekly-report",
+        prompt_node="プロンプト読込み (WF-06)",
+        prompt_file="06-weekly-report.md",
+        item_node="トレンドデータ集約",
+        item_access="first",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-06)",
+        post_node="WordPressに即時公開",
+        probes_name="Evidence Probes (WF-06)",
+        verifier_name="Fact-Check Verifier (WF-06)",
+        pack_name="Evidence Pack (WF-06)",
+        source_lang_js="null",
+        source_text_js=("(item.sections || []).map((s, i) => `[S${i}] ${s.label || ''}\\n"
+                         "${s.content || ''}`).join('\\n\\n').slice(0, 8000)"),
+        ground_truth_js="{}",
+        ids=_ids("06"),
+    ),
+    "07": dict(
+        file="07-article-writer.json",
+        skill_ref="07-article-writer",
+        prompt_node="プロンプト読込み (WF-07)",
+        prompt_file="article-base.md",
+        item_node=None,
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-07)",
+        post_node="WordPressに投稿",
+        probes_name="Evidence Probes (WF-07)",
+        verifier_name="Fact-Check Verifier (WF-07)",
+        pack_name="Evidence Pack (WF-07)",
+        source_lang_js="null",
+        source_text_js="''",
+        ground_truth_js="{}",
+        ids=_ids("07"),
+    ),
+    "08": dict(
+        file="08-kimi-zh.json",
+        skill_ref="08-kimi-zh",
+        prompt_node="プロンプト読込み (WF-08)",
+        prompt_file="08-kimi-zh.md",
+        item_node="新ZH記事フィルタリング",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-08)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-08)",
+        verifier_name="Fact-Check Verifier (WF-08)",
+        pack_name="Evidence Pack (WF-08)",
+        source_lang_js="'zh'",
+        source_text_js="`[S0] ${item.title_zh || ''}\\n${item.summary_zh || ''}`",
+        ground_truth_js="{}",
+        ids=_ids("08"),
+    ),
+    "09": dict(
+        file="09-multi-source-research.json",
+        skill_ref="09-multi-source-research",
+        prompt_node="プロンプト読込み (WF-09)",
+        prompt_file="09-multi-source-research.md",
+        item_node="確度スコア付与",
+        format_node="WordPress投稿データ整形",
+        gate_node="Auditor Gate (WF-09)",
+        post_node="WordPressに下書き投稿",
+        probes_name="Evidence Probes (WF-09)",
+        verifier_name="Fact-Check Verifier (WF-09)",
+        pack_name="Evidence Pack (WF-09)",
+        source_lang_js="null",
+        source_text_js=("(item.items || []).slice(0, 20).map((it, i) => `[S${i}] ${it.title || ''}\\n"
+                         "${it.snippet || ''}\\n${it.url || ''}`).join('\\n\\n').slice(0, 8000)"),
+        ground_truth_js=("Object.fromEntries((item.items || []).filter(it => it.medium === 'github' "
+                          "&& it.title).map(it => [it.title, { stars: Number(it.stars) || 0 }]))"),
+        ids=_ids("09"),
     ),
 }
 
@@ -118,10 +271,18 @@ def extract_decide(js_code: str) -> str:
     raise ValueError("unbalanced decide() body")
 
 
+def _item_js(cfg: dict) -> str:
+    item_node = cfg.get("item_node")
+    if item_node is None:
+        return "{}"
+    accessor = "first()" if cfg.get("item_access") == "first" else "item"
+    return f"$('{item_node}').{accessor}.json"
+
+
 def _probes_js(cfg: dict) -> str:
     template = """@@CFG_JS@@
 // EVIDENCE_PROBES \u2014 Tier 0/1 evidence (requirements \u00a734-3), LLM-free
-const item = $('@@ITEM_NODE@@').item.json;
+const item = @@ITEM_JS@@;
 const content = $json.content || '';
 const source_text = @@SOURCE_TEXT_JS@@;
 const ground_truth = @@GROUND_TRUTH_JS@@;
@@ -156,7 +317,7 @@ for (const repo of repos) {
 return [{ json: { ...$json, source_text, source_lang, ground_truth, probes } }];"""
     return (template
             .replace("@@CFG_JS@@", CFG_JS)
-            .replace("@@ITEM_NODE@@", cfg["item_node"])
+            .replace("@@ITEM_JS@@", _item_js(cfg))
             .replace("@@SOURCE_TEXT_JS@@", cfg["source_text_js"])
             .replace("@@GROUND_TRUTH_JS@@", cfg["ground_truth_js"])
             .replace("@@SOURCE_LANG_JS@@", cfg["source_lang_js"]))
@@ -222,7 +383,8 @@ if (!auditorUrl) {{
     audit_note: 'AINAVI_GATE_URL\u672a\u8a2d\u5b9a \u2192 \u4e0b\u66f8\u304d\u4fdd\u5b58' }} }}];
 }}
 try {{
-  const body = {{ content, source_urls: sourceUrl ? [sourceUrl] : [], skill_ref: '{cfg["skill_ref"]}' }};
+  const body = {{ content, source_urls: (Array.isArray($json.source_urls) && $json.source_urls.length)
+    ? $json.source_urls : (sourceUrl ? [sourceUrl] : []), skill_ref: '{cfg["skill_ref"]}' }};
   if ($json.source_text) body.source_text = $json.source_text;
   if ($json.source_lang) body.source_lang = $json.source_lang;
   if ($json.evidence && typeof $json.evidence === 'object') body.evidence = $json.evidence;
@@ -274,17 +436,24 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
     prompt_node["parameters"]["jsCode"] = _prompt_js(prompt_node["parameters"]["jsCode"], cfg)
 
     gate_node = _find_node(wf, cfg["gate_node"])
+    # Anchor positions on the probes node if it already exists (idempotency: the
+    # gate node itself moves on each patch, so re-deriving from its *current*
+    # position would cascade further out on every run).
+    existing_probes = next(
+        (n for n in wf.get("nodes", []) if n.get("id") == cfg["ids"]["probes"]), None)
+    anchor = existing_probes["position"] if existing_probes else gate_node["position"]
+    positions = derive_positions(anchor)
     gate_node["parameters"]["jsCode"] = _gate_js(gate_node["parameters"]["jsCode"], cfg)
-    gate_node["position"] = list(cfg["positions"]["gate"])
+    gate_node["position"] = list(positions["gate"])
 
     post_node = _find_node(wf, cfg["post_node"])
-    post_node["position"] = list(cfg["positions"]["post"])
+    post_node["position"] = list(positions["post"])
 
     _upsert_node(wf, cfg["ids"]["probes"], {
         "parameters": {"jsCode": _probes_js(cfg)},
         "id": cfg["ids"]["probes"], "name": cfg["probes_name"],
         "type": "n8n-nodes-base.code", "typeVersion": 2,
-        "position": list(cfg["positions"]["probes"]),
+        "position": list(positions["probes"]),
     })
 
     _upsert_node(wf, cfg["ids"]["verifier"], {
@@ -318,7 +487,7 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
         },
         "id": cfg["ids"]["verifier"], "name": cfg["verifier_name"],
         "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2,
-        "position": list(cfg["positions"]["verifier"]),
+        "position": list(positions["verifier"]),
         "onError": "continueRegularOutput",
         "credentials": {"httpHeaderAuth": {"id": "CLAUDE_API_CRED_ID", "name": "Claude API Key"}},
     })
@@ -327,7 +496,7 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
         "parameters": {"jsCode": _pack_js(cfg)},
         "id": cfg["ids"]["pack"], "name": cfg["pack_name"],
         "type": "n8n-nodes-base.code", "typeVersion": 2,
-        "position": list(cfg["positions"]["pack"]),
+        "position": list(positions["pack"]),
     })
 
     connections = wf.setdefault("connections", {})
@@ -343,17 +512,10 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
     return dumped
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("num", choices=sorted(WF_CONFIG))
-    ap.add_argument("--wf-dir", type=pathlib.Path, default=DEFAULT_WF_DIR)
-    ap.add_argument("--check", action="store_true",
-                     help="exit 1 if the file on disk differs from the patched output")
-    args = ap.parse_args()
-
-    path = args.wf_dir / WF_CONFIG[args.num]["file"]
-    patched = patch_workflow(args.num, args.wf_dir)
-    if args.check:
+def _patch_one(num: str, wf_dir: pathlib.Path, check: bool) -> int:
+    path = wf_dir / WF_CONFIG[num]["file"]
+    patched = patch_workflow(num, wf_dir)
+    if check:
         current = path.read_text(encoding="utf-8")
         if current != patched:
             print(f"{path.name}: not patched (run without --check to write)", file=sys.stderr)
@@ -363,6 +525,29 @@ def main() -> int:
     path.write_text(patched, encoding="utf-8")
     print(f"wrote {path}")
     return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("num", choices=sorted(WF_CONFIG), nargs="?")
+    ap.add_argument("--all", action="store_true", help="patch every configured workflow")
+    ap.add_argument("--wf-dir", type=pathlib.Path, default=DEFAULT_WF_DIR)
+    ap.add_argument("--check", action="store_true",
+                     help="exit 1 if the file on disk differs from the patched output")
+    args = ap.parse_args()
+
+    if args.all:
+        nums = sorted(WF_CONFIG)
+    elif args.num:
+        nums = [args.num]
+    else:
+        ap.error("either a workflow number or --all is required")
+        return 2
+
+    worst = 0
+    for num in nums:
+        worst = max(worst, _patch_one(num, args.wf_dir, args.check))
+    return worst
 
 
 if __name__ == "__main__":
