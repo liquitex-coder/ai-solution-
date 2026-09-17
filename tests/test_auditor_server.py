@@ -15,19 +15,19 @@ from scripts.auditor_server import make_server, resolve_port
 
 
 class ResolvePortTests(unittest.TestCase):
-    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+    """§28-2 port row: AINAVI_GATE_PORT -> PORT (Render/Fly.io) -> 8090."""
 
-    def test_claim_auditor_port_wins_over_port(self):
-        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "8091", "PORT": "10000"}), 8091)
+    def test_ainavi_gate_port_wins_over_port(self):
+        self.assertEqual(resolve_port({"AINAVI_GATE_PORT": "8091", "PORT": "10000"}), 8091)
 
-    def test_port_used_when_claim_auditor_port_unset(self):
+    def test_port_used_when_ainavi_gate_port_unset(self):
         self.assertEqual(resolve_port({"PORT": "10000"}), 10000)
 
     def test_default_8090_when_neither_set(self):
         self.assertEqual(resolve_port({}), 8090)
 
-    def test_empty_claim_auditor_port_falls_through_to_port(self):
-        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "", "PORT": "10000"}), 10000)
+    def test_empty_ainavi_gate_port_falls_through_to_port(self):
+        self.assertEqual(resolve_port({"AINAVI_GATE_PORT": "", "PORT": "10000"}), 10000)
 
 
 class AuditorServerTests(unittest.TestCase):
@@ -63,7 +63,7 @@ class AuditorServerTests(unittest.TestCase):
     def test_health_reports_available_memory_database(self):
         status, body = self.request("/health")
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"status": "ok", "service": "claim-auditor-gate",
+        self.assertEqual(body, {"status": "ok", "service": "ainavi-auditor-gate",
                                  "memory_db": True, "auth": False})
 
     def test_pass_does_not_add_fact(self):
@@ -207,7 +207,7 @@ class AuditorServerTests(unittest.TestCase):
 
 
 class AuditorServerAuthTests(unittest.TestCase):
-    """§28-2 (v2.4) / T-27: CLAIM_AUDITOR_TOKEN on the write paths."""
+    """§28-2 (v2.4) / T-27: AINAVI_GATE_TOKEN on the write paths."""
 
     TOKEN = "test-shared-secret"
 
@@ -282,7 +282,7 @@ class AuditorServerAuthTests(unittest.TestCase):
 
 
 class AuditorServerNoTokenTests(unittest.TestCase):
-    """Unset CLAIM_AUDITOR_TOKEN: behaviour unchanged, /health reports auth=false."""
+    """Unset AINAVI_GATE_TOKEN: behaviour unchanged, /health reports auth=false."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()

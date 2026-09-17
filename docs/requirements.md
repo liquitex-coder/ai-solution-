@@ -107,7 +107,7 @@ WF09: 9媒体横断調査（週次）───┘    著作権変換（00-copyri
                         【claim-llm】LLM抽象層
                                          ↓
 ┌────────────────────────────────────────────────┐
-│        Claim-Auditor ゲート（全生成物必須）        │
+│        Auditor Gate（全生成物必須）        │
 │  ✅ PASS        → 次工程へ                   │
 │  ❌ FAIL        → 人間レビューキュー + 記憶層蓄積│ ← INV-R1
 │  ⚠️ UNVERIFIABLE → ドラフト+フラグ表示       │ ← INV-R2
@@ -171,7 +171,7 @@ Claude API / Kimi API へ送るプロンプトは `n8n/prompts/` で、エージ
 | `n8n/skills/04-social-reporter.md` | claim-crew | SNS横断取材 |
 | `n8n/skills/10-article-writer.md` | claim-builder | 記事生成・構造化 |
 | `n8n/skills/11-seo-meta-writer.md` | claim-builder | 英語SEOメタ生成 |
-| `n8n/skills/20-auditor-gate.md` | claim-auditor | ファクトチェック+著作権検証 |
+| `n8n/skills/20-auditor-gate.md` | ainavi-gate | ファクトチェック+著作権検証 |
 | `n8n/skills/30-wp-publisher.md` | n8n | WordPress投稿 |
 | `n8n/skills/90-evolve-loop.md` | claim-evolve | SKILL.md自律改善ループ |
 
@@ -185,7 +185,7 @@ Claude API / Kimi API へ送るプロンプトは `n8n/prompts/` で、エージ
 
 | プロダクト | パイプライン内の役割 | 宣伝切り口 |
 |---|---|---|
-| **claim-auditor** | 全生成物のファクトチェック + 著作権コンプライアンスゲート | 「このメディアは全記事をAuditor検証済」 |
+| **ainavi-gate** | 全生成物のファクトチェック + 著作権コンプライアンスゲート | 「このメディアは全記事をAuditor検証済」 |
 | **claim-crew** | SKILL.md型記者エージェント（9媒体横断取材・整理） | 「AIエージェントが仮想記者として取材」 |
 | **claim-builder + council** | 記事品質向上（N案生成→コンセンサス選択） | 「複数Claudeの協議で記事を生成」 |
 | **claim-llm** | LLM抽象層（言語検出・ルーティング・NetworkPolicy） | 「LLM呼び出しを安全に制御」 |
@@ -210,7 +210,7 @@ Claude API / Kimi API へ送るプロンプトは `n8n/prompts/` で、エージ
 ### 5-3. 宣伝コンテンツ戦略
 
 ```
-「この記事はclaim-auditorでファクトチェック済み」→ バッジ表示
+「この記事はAI Navi Auditor Gateでファクトチェック済み」→ バッジ表示
 「claim-crewのAI記者が9媒体を横断取材」→ 記事の著者欄に記載
 「複数Claudeの議論で生成」→ councilループを記事内で言及
 「セキュリティスキャン済み」→ claim-security-のバッジ
@@ -256,7 +256,7 @@ Body:   { "model": "moonshot-v1-128k", "messages": [...] }
 | JA/EN編集長 | NoimosAI | キーワード戦略・SEO設計・記事本文 |
 | 入稿担当 | Claude API | WordPress用整形・カテゴリ/タグ割り当て |
 | LLMルーティング | claim-llm | 言語検出→Kimi/Claude振り分け |
-| 質保証 | Claim-Auditor | 全記事の事実検証 + 著作権コンプライアンス |
+| 質保証 | Auditor Gate | 全記事の事実検証 + 著作権コンプライアンス |
 | 自動化 | n8n | 全体パイプライン制御 |
 
 ### 6-4. ワークフロー07 — NoimosAI→Google Docs→n8n
@@ -270,7 +270,7 @@ n8n WF07
     ↓
 Claude API（WordPress用HTML整形 + カテゴリ/タグ割り当て）
     ↓
-Claim-Auditorゲート
+Auditor Gate
     ↓ PASS
 WordPress（下書き）
 ```
@@ -286,7 +286,7 @@ Kimi API（ZH→JA翻訳+要約 / 08-kimi-zh.md）
     ↓
 Claude API（日本語品質仕上げ + 構造統一）← オプション
     ↓
-Claim-Auditor（copyright_compliance: cross_lingual=ZH）
+Auditor Gate（copyright_compliance: cross_lingual=ZH）
     ↓ PASS
 WordPress（下書き）
 ```
@@ -340,7 +340,7 @@ GitHub API Search（topic:ai OR topic:llm / 過去7日 / sort:stars）
     ↓
 claim-crew: 難易度タグ付与（入門/中級/上級）+ 英語SEOメタ並行生成
     ↓
-Claim-Auditorゲート（スター数はAPI直接取得=PASS / 予測発言=UNVERIFIABLE）
+Auditor Gate（スター数はAPI直接取得=PASS / 予測発言=UNVERIFIABLE）
     ↓
 WordPress自動投稿（カテゴリ: GitHubトレンド）
 ```
@@ -403,7 +403,7 @@ docker-compose up -d
 | 戦略・SEO | NoimosAI | 編集長役 |
 | 記者エージェント | claim-crew | SKILL.md型・9媒体横断取材 |
 | コンテンツ品質 | claim-builder + council | N案生成→コンセンサス選択 |
-| ファクトチェックゲート | claim-auditor | 全生成物必須（著作権コンプライアンス含む） |
+| ファクトチェックゲート | ainavi-gate | 全生成物必須（著作権コンプライアンス含む） |
 | LLM制御 | claim-llm | 言語検出・ルーティング・抽象層 |
 | API保護 | claim-security- | エンドポイントセキュリティ |
 | 継続改善 | claim-evolve | SKILL.md自律改善ループ |
@@ -442,8 +442,8 @@ docker-compose up -d
 - [x] SETUP_GUIDE.md エラーハンドリング拡充
 - [x] MCP サーバー設定（Claude Code ↔ WordPress）
 - [x] 著作権コンプライアンスプロンプト（00-copyright-transform.md）
-- [x] Claim-Auditorゲート**ノード**をn8nに組み込み（WF01〜09、§21 W2/W7 で機械検証）
-- [ ] Claim-Auditorゲートの**呼び先サービス**実装（§28、ROADMAP T-02〜T-06）— 未実装のため現状は全件 `verdict: SKIP`
+- [x] Auditor Gate**ノード**をn8nに組み込み（WF01〜09、§21 W2/W7 で機械検証）
+- [ ] Auditor Gateの**呼び先サービス**実装（§28、ROADMAP T-02〜T-06）— 未実装のため現状は全件 `verdict: SKIP`
 - [ ] Mermaid + Kroki.io 図解自動挿入実装（§31、T-10〜T-11）
 - [ ] yt-dlp 字幕取得ノード実装（WF03、T-18・要設計）— 現状は YouTube Data API の `snippet.description` を要約入力に使用
 - [x] エージェント記憶層 SQLite 初期化スクリプト（`scripts/memory_init.py`、§19）
@@ -507,7 +507,7 @@ docker-compose up -d
 | サイト正式名称 | 仮「AIナビ」 | 要相談 |
 | ドメイン | **確定**: `aiguide.blog`（§24-1） | — |
 | Higgsfield APIアクセス・コスト | 要確認 | Phase 2開始前 |
-| claim-auditorのn8n組み込み方法 | **確定: HTTP API**（§28） | — |
+| auditor gateのn8n組み込み方法 | **確定: HTTP API**（§28） | — |
 | Auditor サービスのホスティング先（n8n cloud から到達可能な HTTPS） | **未確定** | ROADMAP T-12 |
 | n8n cloud で Code ノードの `$env` が参照可能か | **未検証**（docs.n8n.io は本セッションの egress ポリシーで取得不可） | ROADMAP T-13。不可なら `$vars` フォールバック（T-11） |
 | ZHソースのスクレイピング方法 | **確定**: RSS 3ソース（`08-kimi-zh.json` 「ZH記事ソース設定」: 机器之心 / Synced Review / 雷锋网AI） | — |
@@ -622,7 +622,7 @@ memory_write: [scenes]
 ### BUILD（記事生成・変換）
 ...
 
-### REVIEW（claim-auditor ゲート）
+### REVIEW（Auditor Gate）
 PASS条件: 著作権5要件 + 確度スコア >= MED + 出典明記
 FAIL時: 人間レビューキュー + 記憶層のfacts層にFAIL事例を格納
 
@@ -632,7 +632,7 @@ FAIL時: 人間レビューキュー + 記憶層のfacts層にFAIL事例を格�
 
 ### 18-3. Rationalizations Table → Auditor 統合
 
-agent-skills の「言い訳ブロックリスト」を claim-auditor のプレフライトチェックに統合する:
+agent-skills の「言い訳ブロックリスト」を auditor gate のプレフライトチェックに統合する:
 
 | 言い訳パターン（NGフレーズ） | Auditor 判定 |
 |---|---|
@@ -651,7 +651,7 @@ claim-evolve: 低パフォーマンス記事の担当 SKILL.md を特定
     ↓
 DEFINE / PLAN フェーズの改善案を生成（councilループ）
     ↓
-claim-auditor が改善案を検証（ハルシネーション・品質後退チェック）
+auditor gate が改善案を検証（ハルシネーション・品質後退チェック）
     ↓
 SKILL.md を PR 経由で更新（人間レビュー後マージ）
     ↓
@@ -738,7 +738,7 @@ WF01-09 実行前
     ↓
 claim-crew 記事生成（確度スコア付与）
     ↓
-Claim-Auditor ゲート
+Auditor Gate
     ↓ PASS
 WordPress 投稿
     ↓
@@ -790,7 +790,7 @@ WordPress 投稿
 | # | チェック | FAIL条件 |
 |---|---|---|
 | W1 | requirements の WF一覧（WF01〜09）に対応する `n8n/workflows/*.json` が存在 | 対応JSONなし |
-| W2 | 全ワークフローに Auditor Gate ノードが存在（`CLAIM_AUDITOR_URL` 参照で判定） | ゲートなしWF |
+| W2 | 全ワークフローに Auditor Gate ノードが存在（`AINAVI_GATE_URL` 参照で判定） | ゲートなしWF |
 | W3 | 全ワークフローのプロンプト読込みが `00-copyright-transform.md` を含む | 著作権プロンプト未読込 |
 | W4 | WordPress 投稿の `status` はゲート出力（`wp_status`）経由 | `'publish'` ハードコード |
 | W5 | `n8n/prompts/*.md` は少なくとも1つのWFから参照される | 未参照（LIBRARY_ONLY 登録を除く） |
@@ -837,7 +837,7 @@ LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
   FN（block すべきものを PASS）= 0 でなければ exit 1**。
 - 評価セットは push 前ゲート（§D）に含める — 監査ルール変更の回帰を常時検知。
 
-### 22-3. 段階的ロールアウト（CLAIM_AUDITOR_MODE）
+### 22-3. 段階的ロールアウト（AINAVI_GATE_MODE）
 
 | モード | 動作 | 昇格条件 |
 |---|---|---|
@@ -845,7 +845,7 @@ LLM-free（INV-R2）。stdlib のみ。判定順: FAIL > UNVERIFIABLE > PASS。
 | `canary` | PASS の約10%のみ自動 publish | 評価セット FP=0/FN=0 + 本番 verdict 30日分レビュー |
 | `full` | PASS を自動 publish | canary 30日で誤公開ゼロ + 人間署名（INV-R1） |
 
-- モードは n8n 環境変数 `CLAIM_AUDITOR_MODE` で制御。コード変更なしで昇格・降格。
+- モードは n8n 環境変数 `AINAVI_GATE_MODE` で制御。コード変更なしで昇格・降格。
 - FAIL / UNVERIFIABLE は全モードで draft（公開されない）。
 - §21 W7: 全ワークフローの Auditor Gate はモード対応であること（check_wired が強制）。
 
@@ -1073,7 +1073,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
   を実行し、`res.json()` の `verdict` で `wp_status` を決める（例: `n8n/workflows/01-github-ai-trending-daily.json`
   "Auditor Gate (WF-01)" ノード）。
 - しかし `/audit` を提供するプロセスはリポジトリに存在しない。`scripts/content_audit.py` は CLI / ライブラリのみ。
-  したがって本番では `CLAIM_AUDITOR_URL` 未設定 → 全件 `verdict: 'SKIP'`・draft となり、
+  したがって本番では `AINAVI_GATE_URL` 未設定 → 全件 `verdict: 'SKIP'`・draft となり、
   §21 W2 が検証していたのは「ゲートノードの存在」だけで「呼び先の存在」ではなかった。
 - 同様に §19-3 の「Auditor FAIL を事実層に蓄積」は書込み経路が無く、§23 の `ratchet_check.py` は入力ゼロ。
 
@@ -1081,12 +1081,12 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 
 | Method / Path | Request | Response |
 |---|---|---|
-| `GET /health` | — | `200 {"status":"ok","service":"claim-auditor-gate","memory_db":true|false}` |
+| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false}` |
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
-| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
-| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `CLAIM_AUDITOR_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `CLAIM_AUDITOR_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
+| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
+| ポート | `AINAVI_GATE_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `AINAVI_GATE_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `AINAVI_GATE_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
 - **事実層への書込み（§19-3）**: verdict が `FAIL` または `UNVERIFIABLE` のとき `facts` に1行挿入する。
@@ -1096,18 +1096,18 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 - 記憶層 DB が開けない場合は §14 の方針どおり**ログを出して verdict は返す**（`fact_id: null`）。ゲートを止めない。
 - ゲート側は `{...$json, ...result}` で応答を展開するため、応答キーは既存フィールド（`title/content/wp_status/source_url`）と**衝突させない**。
 - ログ: 1リクエスト1行の JSON（path, verdict, skill_ref, ms）。記事本文はログに出さない。
-- 環境変数: `CLAIM_AUDITOR_PORT`（既定 8090）/ `CLAIM_AUDITOR_BIND`（既定 `0.0.0.0`）/ `CLAIM_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§31）。
+- 環境変数: `AINAVI_GATE_PORT`（既定 8090）/ `AINAVI_GATE_BIND`（既定 `0.0.0.0`）/ `AINAVI_GATE_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§31）。
 
 ### 28-3. 配置
 
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
-| ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `CLAIM_AUDITOR_URL=http://auditor:8090`、`CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}` |
-| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `CLAIM_AUDITOR_TOKEN` は `fly secrets set CLAIM_AUDITOR_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13、**デプロイ完了: 2026-09-17**（region `nrt`、volume `vol_40o0mnm90wnn5qk4` 1GB、`GET /health` → `{"status":"ok","auth":true,"memory_db":true}` 確認済み） | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE=report_only` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
+| ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `AINAVI_GATE_URL=http://auditor:8090`、`AINAVI_GATE_MODE=${AINAVI_GATE_MODE:-report_only}` |
+| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `AINAVI_GATE_TOKEN` は `fly secrets set AINAVI_GATE_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13、**デプロイ完了: 2026-09-17**（region `nrt`、volume `vol_40o0mnm90wnn5qk4` 1GB、`GET /health` → `{"status":"ok","auth":true,"memory_db":true}` 確認済み） | `AINAVI_GATE_URL` / `AINAVI_GATE_MODE=report_only` / `AINAVI_GATE_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
 
-`.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
+`.env.example` に `AINAVI_GATE_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 
-**fly.toml 契約**（T-12、2026-09-15）: (i) `CLAIM_MEMORY_DB` のディレクトリ = `[[mounts]].destination`（`/app/data`）、
+**fly.toml 契約**（T-12、2026-09-15）: (i) `AINAVI_GATE_MEMORY_DB` のディレクトリ = `[[mounts]].destination`（`/app/data`）、
 (ii) 公開は `[http_service]`（`internal_port` 8090, `force_https`, `auto_stop_machines` off / `min_machines_running` 1
 — n8n からの呼び出しをコールドスタートで timeout させないため）、
 (iii) Fly のボリュームは root 所有でマウントされ得るため、デプロイ後の完了条件は `/health` が `"auth": true` かつ
@@ -1182,7 +1182,7 @@ WF07（article-writer）・WF08（kimi-zh）・WF09（multi-source-research）�
 | # | チェック | FAIL条件 |
 |---|---|---|
 | W8 | 各 Auditor Gate が送る `skill_ref` が `scripts/ratchet_check.py` の `SKILL_PROMPTS` に存在 | 未登録の skill_ref（ラチェットが提案不能） |
-| W9 | `scripts/auditor_server.py` が存在し、`docker-compose.yml` に `auditor` サービスと `n8n` への `CLAIM_AUDITOR_URL` がある | 呼び先未配線（§28-1 の再発） |
+| W9 | `scripts/auditor_server.py` が存在し、`docker-compose.yml` に `auditor` サービスと `n8n` への `AINAVI_GATE_URL` がある | 呼び先未配線（§28-1 の再発） |
 | W10 | `data/wp-taxonomy.json` の `workflow_category_map` のキー集合が `{WF-01..WF-09}` と一致し、各値の slug が `categories` に存在 | reporters 系残骸・欠落・不一致 |
 | W11 | 各 WF の「WordPress投稿データ整形」が出力する `category_id` が、対応 category の `wp_id`（`data/wp-taxonomy.json`）と一致。`wp_id` 未記録の WF はチェックをスキップし PASS(skipped) と表示 | 固定値と正のずれ（§29 の ID 表が陳腐化した状態） |
 

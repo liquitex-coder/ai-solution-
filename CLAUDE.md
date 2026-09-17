@@ -15,7 +15,7 @@ AI content automation platform: n8n → Claude API → WordPress.
 3. ローカルゲート未実行で push しない。タスク指定ブランチ以外に push しない。
 4. **設計＝配線まで**: 新機能は `scripts/check_wired.py` が検出できる形で本番パスに
    配線されるまで「完了」ではない。意図的な未配線は LIBRARY_ONLY 登録（理由必須）。
-5. **Auditor gate 必須**: 全生成コンテンツは Claim-Auditor gate を通す。FAIL / UNVERIFIABLE は WordPress へ公開しない（INV-R2）。
+5. **Auditor gate 必須**: 全生成コンテンツは Auditor Gate を通す。FAIL / UNVERIFIABLE は WordPress へ公開しない（INV-R2）。
 6. **著作権**: 引用5要件（主従・明瞭区別・必要性・出所明示・改変禁止）に違反する処理を書かない。`n8n/prompts/00-copyright-transform.md` を全WFで読み込む。
 7. 環境変数: `WP_URL` `WP_USERNAME` `WP_APP_PASSWORD` `GITHUB_TOKEN` `FAL_API_KEY` `GOOGLE_DRIVE_CREDENTIALS` `KIMI_API_KEY`。
 
@@ -50,7 +50,7 @@ AI content automation platform: n8n → Claude API → WordPress.
 2. 「実装しました。動くはずです」— テスト出力なしの完了報告は無効。
 3. `read_text()` / `write_text()` / `open()` に `encoding="utf-8"` を必ず明示 —
    Windows cp932 で `UnicodeDecodeError`、`write_text` は無言で cp932 を書く（2026-09-13 実例、要件§33）。
-4. コンテナイメージに `ENV CLAIM_AUDITOR_PORT=...` を焼き込まない — PaaS が注入する `PORT` を
+4. コンテナイメージに `ENV AINAVI_GATE_PORT=...` を焼き込まない — PaaS が注入する `PORT` を
    無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
 5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
    突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。

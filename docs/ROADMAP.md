@@ -11,7 +11,7 @@
 
 **Phase 1 core pipeline in production** (README "Phase 1"): WF01–09 imported into n8n cloud,
 each Auditor Gate calling a *real* `/audit` service, all posts landing as WordPress drafts with a
-recorded verdict (`CLAIM_AUDITOR_MODE=report_only`), and every code path covered by a local gate
+recorded verdict (`AINAVI_GATE_MODE=report_only`), and every code path covered by a local gate
 (`check_wired`, `run_eval`, `unittest`) that CI also runs. Phase 2/3 items are listed for
 sequencing but are not part of this definition.
 
@@ -26,7 +26,7 @@ sequencing but are not part of this definition.
 
 Gaps verified in code (details in requirements §28-1, §30, §31):
 
-1. All nine Auditor Gate nodes `fetch("${CLAIM_AUDITOR_URL}/audit")`, but no process in the repo serves `/audit` → production verdict is always `SKIP`.
+1. All nine Auditor Gate nodes `fetch("${AINAVI_GATE_URL}/audit")`, but no process in the repo serves `/audit` → production verdict is always `SKIP`.
 2. Nothing writes to `data/memory.db` → `ratchet_check.py` has no input.
 3. No automated tests; CI runs only `check_wired.py`.
 4. `data/wp-taxonomy.json` still carries reporters-era WF-10..13 and mismatched WF-07/08/09 mappings (contradicts §27).
@@ -56,7 +56,7 @@ Note on #9: its workflow JSON edits have not had the manual n8n run that CLAUDE.
 | T-01 | Claude | Requirements §28–§31, §13/§15 refresh, this roadmap, session note with Codex prompts | standalone `docs:` commit pushed, draft PR open |
 | T-02 ✅ | Codex | `scripts/memory_init.py`: extract `insert_fact()`, `insert_scene()`, `find_duplicate()` library functions (CLI unchanged) + `tests/test_memory.py` | done 2026-09-12 (`114bcb8`): unittest 5/5 OK on Linux; legacy-DB migration verified |
 | T-03 ✅ | Codex | `scripts/auditor_server.py` per §28-2 (`GET /health`, `POST /audit`, facts write on FAIL/UNVERIFIABLE) + `tests/test_auditor_server.py` | done 2026-09-12 (`0763a20`): unittest 12/12 OK on Linux; live `/health`, PASS/FAIL/400/404 verified; facts row + ratchet read confirmed |
-| T-04 ✅ | Codex | `docker-compose.yml` `auditor` service + n8n env `CLAIM_AUDITOR_URL`/`CLAIM_AUDITOR_MODE`; `.env.example` | done 2026-09-12 (`f2a9361`): `docker compose config` valid on Linux; healthcheck, depends_on service_healthy, env keys verified |
+| T-04 ✅ | Codex | `docker-compose.yml` `auditor` service + n8n env `AINAVI_GATE_URL`/`AINAVI_GATE_MODE`; `.env.example` | done 2026-09-12 (`f2a9361`): `docker compose config` valid on Linux; healthcheck, depends_on service_healthy, env keys verified |
 | T-05 ✅ | Codex | `scripts/check_wired.py` W8/W9/W10/W11 per §30-1 (W11 = workflow `category_id` ⇄ taxonomy `wp_id`) | done 2026-09-12 (`539d8d7`): 79 PASS; negative checks reproduced (wrong wp_id → W11 FAIL, renamed service / dropped URL → W9 FAIL, unknown skill_ref → W8 FAIL) |
 | T-06 ✅ | Codex | CI `wired-check.yml` + `.githooks/pre-push` + `CLAUDE.md §D` run `check_wired`, `run_eval`, `unittest` | done 2026-09-12 (`54f7427`): pre-push hook ends "all gates green" locally; CI job 103544633368 green on `54f7427` with all three steps |
 
@@ -72,7 +72,7 @@ Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 →
 
 PR #10 was merged by the operator on 2026-09-13 (`fb688b1`) with T-24 and T-26 still in round 2; round 2 continues on the same branch name as a new PR. T-12 can start in parallel: on Fly.io the `internal_port` can be pinned to 8090 so the T-26 `PORT` defect does not block it; on Render it does until round 2 lands.
 
-Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅; [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename) merged 2026-09-17 (`41f58a3`). T-12 deployment completed 2026-09-17: `ainavi-auditor-gate.fly.dev` live, `/health` returns `auth:true`/`memory_db:true` (§28-3). Next up: T-13 (n8n cloud Variables, operator-only — `CLAIM_AUDITOR_TOKEN` value is in a local file outside the repo, not committed).
+Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅; [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename) merged 2026-09-17 (`41f58a3`). T-12 deployment completed 2026-09-17: `ainavi-auditor-gate.fly.dev` live, `/health` returns `auth:true`/`memory_db:true` (§28-3). Next up: T-13 (n8n cloud Variables, operator-only — `AINAVI_GATE_TOKEN` value is in a local file outside the repo, not committed).
 
 Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
 
@@ -82,7 +82,7 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 |---|---|---|---|
 | T-07 ✅ | Codex | `data/wp-taxonomy.json` → exactly WF-01..09 per §30-2, plus `wp_id` per category from §29-2 (WF01–06) | done 2026-09-12 (`4e275cd`): 9 categories, map == WF-01..09, six `wp_id` match §29-2 |
 | T-08 ✅ | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | done 2026-09-12 (`90b7a1f`): model names, 13 prompts, slugs and JA block cross-checked against the repo |
-| T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
+| T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `AINAVI_GATE_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
 | T-25 ✅ | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | done 2026-09-13 (`a6cd6ae`): Linux AST scan 0 implicit-encoding calls, guard test in unittest (36 OK), `py -3` fallback in the hook; operator evidence in a cp932 console: `py -3 scripts/check_wired.py` 79 PASS exit 0, `py -3 -m unittest discover -s tests` OK exit 0, pre-push chain green (PR #10 comment) |
 | T-24 ✅ | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2) | round 1 (`5012356`) landed D1 (0.34, eval 52 FP=0/FN=0), D3, D5; rejected on review 2026-09-13 (D2 inverted = D7, D5 FAIL-only); round 2 done 2026-09-15 (`9539897`, PR #13): `WARN:QUOTE_ALTERED` (D7) + real `WARN:VERBATIM_COPY` (D2) in `scripts/content_audit.py`, `find_prior_fact` with `verdict != 'PASS'` (D5) and bytes `compare_digest` (non-ASCII Bearer → 401) in `scripts/auditor_server.py`. Re-verified 2026-09-17: eval 52 FP=0/FN=0, unittest 46 OK, `check_wired` 79 PASS; §32-1 D2/D5/D7 rows updated the same day |
 
@@ -91,16 +91,16 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`); endpoint unconsumed until T-11 |
-| T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 — fixed in `9539897` (bytes comparison, 401) |
-| T-26 ✅ | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`; rejected 2026-09-13 because `ENV CLAIM_AUDITOR_PORT=8090` overrode a PaaS `PORT` (orchestrator error, CLAUDE.md §C-4); round 2 done 2026-09-15 (`a2496f1`, PR #13): ENV line dropped, `resolve_port()` (`CLAIM_AUDITOR_PORT` → `PORT` → 8090) with precedence unit tests, HEALTHCHECK resolves the same order. Operator docker verification on PR #13 (Docker 29.4.3): `docker build` OK, `-e PORT=10000` → `/health` 200 with `memory_db: true`; bind-mounted volume written. Fly root-owned-volume case stays a T-12 post-deploy check (§28-3 (iii)) |
+| T-27 ✅ | Codex | `AINAVI_GATE_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 — fixed in `9539897` (bytes comparison, 401) |
+| T-26 ✅ | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`; rejected 2026-09-13 because `ENV AINAVI_GATE_PORT=8090` overrode a PaaS `PORT` (orchestrator error, CLAUDE.md §C-4); round 2 done 2026-09-15 (`a2496f1`, PR #13): ENV line dropped, `resolve_port()` (`AINAVI_GATE_PORT` → `PORT` → 8090) with precedence unit tests, HEALTHCHECK resolves the same order. Operator docker verification on PR #13 (Docker 29.4.3): `docker build` OK, `-e PORT=10000` → `/health` 200 with `memory_db: true`; bind-mounted volume written. Fly root-owned-volume case stays a T-12 post-deploy check (§28-3 (iii)) |
 | T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 ✅ | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | done 2026-09-17: `ainavi-auditor-gate` app + 1GB `data` volume (`nrt`) created, `CLAIM_AUDITOR_TOKEN` secret set, `flyctl deploy -c fly.toml` succeeded, `GET https://ainavi-auditor-gate.fly.dev/health` → `{"status":"ok","service":"claim-auditor-gate","memory_db":true,"auth":true}`; hostname + date recorded in §28-3 |
-| T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
+| T-12 ✅ | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `AINAVI_GATE_TOKEN`; record host in §28-3 | done 2026-09-17: `ainavi-auditor-gate` app + 1GB `data` volume (`nrt`) created, `AINAVI_GATE_TOKEN` secret set, `flyctl deploy -c fly.toml` succeeded, `GET https://ainavi-auditor-gate.fly.dev/health` → `{"status":"ok","service":"ainavi-auditor-gate","memory_db":true,"auth":true}`; hostname + date recorded in §28-3 |
+| T-13 | operator | n8n cloud Variables: `AINAVI_GATE_URL`, `AINAVI_GATE_MODE=report_only`, `AINAVI_GATE_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
 | T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
 | T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
 | T-15 | operator | Manual run WF01→02→05→06→03→04→07→08→09, confirm drafts + verdict metadata + category, then Activate | execution logs pasted; README Phase 1 = ✅ |

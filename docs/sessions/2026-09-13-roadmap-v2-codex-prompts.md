@@ -37,7 +37,7 @@ New facts found during verification (not in ROADMAP 2026-09-12):
 
 ## 1. Definition of "complete" (unchanged)
 
-README "Phase 1 core pipeline in production": WF01–09 imported into n8n cloud, each Auditor Gate calling a *real*, *authenticated* `/audit`, all posts landing as WordPress drafts with a recorded verdict (`CLAIM_AUDITOR_MODE=report_only`), every code path covered by a local gate (`check_wired`, `run_eval`, `unittest`) that CI also runs **and that runs on the operator's Windows machine**.
+README "Phase 1 core pipeline in production": WF01–09 imported into n8n cloud, each Auditor Gate calling a *real*, *authenticated* `/audit`, all posts landing as WordPress drafts with a recorded verdict (`AINAVI_GATE_MODE=report_only`), every code path covered by a local gate (`check_wired`, `run_eval`, `unittest`) that CI also runs **and that runs on the operator's Windows machine**.
 
 ## 2. Roadmap v2 — order of execution
 
@@ -54,7 +54,7 @@ Legend: ✅ done (evidence in ROADMAP.md) · ⏳ next · 🧑 operator · 🤖 C
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-27 ⏳ | 🧭 docs → 🤖 | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (`/health` open); sandbox stays zero-config with a logged warning | tests: correct token 200 / wrong 401 + no facts write / unset → 200 + `health.auth=false` |
+| T-27 ⏳ | 🧭 docs → 🤖 | `AINAVI_GATE_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (`/health` open); sandbox stays zero-config with a logged warning | tests: correct token 200 / wrong 401 + no facts write / unset → 200 + `health.auth=false` |
 | T-26 ⏳ | 🤖 | `Dockerfile` + `.dockerignore` for the service; honour `$PORT`; compose builds the image; memory DB on a volume | `docker build` + `curl /health` ok; `docker compose config` valid; W9 still PASS |
 | T-11 | 🤖 + 🧑 | **Moved after T-13.** WF01–09 wiring: `$vars` fallback (if T-13 shows `$env` blocked), `Authorization: Bearer` header, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual WF01 run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
@@ -62,8 +62,8 @@ Legend: ✅ done (evidence in ROADMAP.md) · ⏳ next · 🧑 operator · 🤖 C
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 | 🧑 | Choose hosting (table §4 below) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN` set; record host in §28-3 | `GET https://<host>/health` → `{"status":"ok","auth":true}` |
-| T-13 | 🧑 | In n8n cloud set `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN` as **Variables** (`$vars`); run a throwaway Code node to record whether `$env` is readable; write the result into §28-3 / §15 | one execution log shows the values readable via `$vars` (and the `$env` answer recorded) |
+| T-12 | 🧑 | Choose hosting (table §4 below) and deploy the T-26 image with `AINAVI_GATE_TOKEN` set; record host in §28-3 | `GET https://<host>/health` → `{"status":"ok","auth":true}` |
+| T-13 | 🧑 | In n8n cloud set `AINAVI_GATE_URL`, `AINAVI_GATE_MODE=report_only`, `AINAVI_GATE_TOKEN` as **Variables** (`$vars`); run a throwaway Code node to record whether `$env` is readable; write the result into §28-3 / §15 | one execution log shows the values readable via `$vars` (and the `$env` answer recorded) |
 | T-14 | 🧑 | Re-run `scripts/wp-init.ps1` with the corrected taxonomy (WF07–09 categories) and paste the IDs | output pasted into the PR / session note |
 | T-28 | 🤖 | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in `07/08/09-*.json` (W11 flips from "skipped" to checked) | `check_wired` W11 PASS for 09/09 without "skipped"; pushed together with T-11 after the manual run |
 | T-15 | 🧑 | Manual run WF01→02→05→06→03→04→07→08→09 in n8n cloud, confirm drafts + verdict metadata + category, then Activate | execution logs pasted; README Phase 1 = ✅ |
@@ -91,11 +91,11 @@ Paste-ready Japanese text for `docs/requirements.md` (the spec is Japanese). Ver
 ### 3-1. §28-2 — add two rows / notes
 
 ```
-| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は
+| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は
   `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。
   `GET /health` は常に認証不要で、`"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ
   「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest`。トークンはログに出さない。 |
-| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。 |
+| ポート | `AINAVI_GATE_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。 |
 ```
 
 ### 3-2. §28-3 — production row → hosting candidates (decision = T-12)
@@ -104,7 +104,7 @@ Paste-ready Japanese text for `docs/requirements.md` (the spec is Japanese). Ver
 | 本番（n8n cloud） | T-26 の `Dockerfile` イメージを HTTPS で公開。候補: (a) Fly.io + 1GB volume（memory.db 永続・推奨候補）
   (b) Render Web Service（無料枠はディスク非永続 → memory.db がデプロイ毎に消える。§23 の30日集計に不適）
   (c) Cloudflare Tunnel でローカル compose を公開（費用ゼロだが操作者PCの常時稼働が前提）。
-  費用・運用は操作者判断（T-12）。 | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の
+  費用・運用は操作者判断（T-12）。 | `AINAVI_GATE_URL` / `AINAVI_GATE_MODE` / `AINAVI_GATE_TOKEN` は n8n cloud の
   **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは
   `$env` → `$vars` の順で解決する（T-11）。 |
 ```
@@ -152,11 +152,11 @@ Commit message body rule (CLAUDE.md §C-1): name only files that are in the diff
 
 | Option | HTTPS | `memory.db` persistence | Cost | Operator burden |
 |---|---|---|---|---|
-| Fly.io (Dockerfile + 1 GB volume) | built-in | yes (volume) | small monthly, operator to confirm | `fly launch` / `fly volumes create` / `fly secrets set CLAIM_AUDITOR_TOKEN=…` |
+| Fly.io (Dockerfile + 1 GB volume) | built-in | yes (volume) | small monthly, operator to confirm | `fly launch` / `fly volumes create` / `fly secrets set AINAVI_GATE_TOKEN=…` |
 | Render Web Service | built-in | **no on free tier** (ephemeral) → §23 30-day aggregation lost on each deploy | free / paid disk | dashboard only |
 | Cloudflare Tunnel → local `docker compose` | via tunnel | yes (local disk) | free | PC must stay on 24/7 |
 
-Whichever is chosen: `CLAIM_AUDITOR_TOKEN` must be set on the host **and** in n8n Variables; never in any repo file.
+Whichever is chosen: `AINAVI_GATE_TOKEN` must be set on the host **and** in n8n Variables; never in any repo file.
 
 ## 5. Codex prompts (AGENT_WORKFLOW §9-3 — one prompt = one call, `git diff` after each)
 
@@ -228,11 +228,11 @@ CONSTRAINTS: common + do not implement §32-1 D4 or D7; never let a WARN change 
 GOAL: Protect the Auditor service's write paths with a shared secret so an internet-reachable deployment cannot poison data/memory.db, while the local sandbox stays zero-config.
 FILES: scripts/auditor_server.py (edit), tests/test_auditor_server.py (edit), docker-compose.yml (edit), .env.example (edit)
 SPEC:
-  - Read CLAIM_AUDITOR_TOKEN at startup. If non-empty: POST /audit and POST /embed-diagrams require header "Authorization: Bearer <token>" compared with hmac.compare_digest; missing/mismatch → 401 {"error":"unauthorized"} with nothing written to the DB and a request-log line with status 401. GET /health never requires auth and gains "auth": true|false.
-  - If empty: behaviour unchanged; print one stderr line at startup: "CLAIM_AUDITOR_TOKEN not set — unauthenticated mode (sandbox only)".
-  - Port resolution in main(): CLAIM_AUDITOR_PORT, else PORT, else 8090.
+  - Read AINAVI_GATE_TOKEN at startup. If non-empty: POST /audit and POST /embed-diagrams require header "Authorization: Bearer <token>" compared with hmac.compare_digest; missing/mismatch → 401 {"error":"unauthorized"} with nothing written to the DB and a request-log line with status 401. GET /health never requires auth and gains "auth": true|false.
+  - If empty: behaviour unchanged; print one stderr line at startup: "AINAVI_GATE_TOKEN not set — unauthenticated mode (sandbox only)".
+  - Port resolution in main(): AINAVI_GATE_PORT, else PORT, else 8090.
   - make_server(bind, port, db_path, token="") so tests can pass a token.
-  - docker-compose.yml: add CLAIM_AUDITOR_TOKEN=${CLAIM_AUDITOR_TOKEN:-} to both the auditor and n8n service environments. .env.example: commented "# Shared secret for the Auditor service write paths (requirements §28-2); leave empty for the local sandbox" + CLAIM_AUDITOR_TOKEN=.
+  - docker-compose.yml: add AINAVI_GATE_TOKEN=${AINAVI_GATE_TOKEN:-} to both the auditor and n8n service environments. .env.example: commented "# Shared secret for the Auditor service write paths (requirements §28-2); leave empty for the local sandbox" + AINAVI_GATE_TOKEN=.
   - Never log the token value.
   tests: token set + correct header → 200 and facts written on FAIL; wrong header → 401 and facts count unchanged; no header → 401; token unset → 200 and /health auth=false; /health with token set → 200 without header and auth=true.
 ACCEPTANCE:
@@ -249,11 +249,11 @@ CONSTRAINTS: common.
 GOAL: Make the Auditor service deployable as one container image on any HTTPS host reachable from n8n cloud (requirements §28-3 production row), with the memory DB on a mounted volume.
 FILES: Dockerfile (new), .dockerignore (new), docker-compose.yml (edit)
 SPEC:
-  - Dockerfile: FROM python:3.11-slim; create non-root user "auditor"; WORKDIR /app; COPY scripts/ ./scripts/; RUN mkdir -p /app/data && chown -R auditor /app; USER auditor; ENV CLAIM_MEMORY_DB=/app/data/memory.db CLAIM_AUDITOR_PORT=8090 PYTHONUNBUFFERED=1; EXPOSE 8090; HEALTHCHECK --interval=30s --timeout=3s CMD python3 -c "import urllib.request,os;urllib.request.urlopen('http://127.0.0.1:%s/health'%os.environ.get('CLAIM_AUDITOR_PORT','8090'))"; CMD ["python3","scripts/auditor_server.py"]. No pip install.
+  - Dockerfile: FROM python:3.11-slim; create non-root user "auditor"; WORKDIR /app; COPY scripts/ ./scripts/; RUN mkdir -p /app/data && chown -R auditor /app; USER auditor; ENV AINAVI_GATE_MEMORY_DB=/app/data/memory.db AINAVI_GATE_PORT=8090 PYTHONUNBUFFERED=1; EXPOSE 8090; HEALTHCHECK --interval=30s --timeout=3s CMD python3 -c "import urllib.request,os;urllib.request.urlopen('http://127.0.0.1:%s/health'%os.environ.get('AINAVI_GATE_PORT','8090'))"; CMD ["python3","scripts/auditor_server.py"]. No pip install.
   - .dockerignore: ignore everything except scripts/ (i.e. "*", "!scripts/", "!scripts/**").
   - docker-compose.yml auditor service: replace the image + ./scripts mount with `build: .`; keep the ./data:/app/data mount, environment, healthcheck, and the service name `auditor` (W9 depends on it).
 ACCEPTANCE:
-  docker build -t claim-auditor-gate . && docker run -d --rm -p 8090:8090 --name cag claim-auditor-gate && sleep 1 && curl -s localhost:8090/health && docker stop cag   # {"status":"ok",...} (if docker is absent, say so explicitly)
+  docker build -t ainavi-auditor-gate . && docker run -d --rm -p 8090:8090 --name cag ainavi-auditor-gate && sleep 1 && curl -s localhost:8090/health && docker stop cag   # {"status":"ok",...} (if docker is absent, say so explicitly)
   docker compose config >/dev/null
   python3 scripts/check_wired.py               # 79 PASS, W9 still PASS
   python3 -m unittest discover -s tests        # OK
@@ -268,7 +268,7 @@ FILES: n8n/workflows/<NN>-*.json (edit, this file only)
 SPEC:
   - "Auditor Gate (WF-<NN>)" jsCode: resolve config as
       const cfg = (k) => ($env && $env[k]) || ($vars && $vars[k]) || '';
-      const auditorUrl = cfg('CLAIM_AUDITOR_URL'), mode = cfg('CLAIM_AUDITOR_MODE') || 'report_only', token = cfg('CLAIM_AUDITOR_TOKEN');
+      const auditorUrl = cfg('AINAVI_GATE_URL'), mode = cfg('AINAVI_GATE_MODE') || 'report_only', token = cfg('AINAVI_GATE_TOKEN');
     add header Authorization: `Bearer ${token}` only when token is non-empty. (If §28-3 records that $env throws on n8n cloud, wrap the $env read in try/catch.) WF08 only: send source_lang: 'zh'.
   - New Code node "図解埋め込み (WF-<NN>)" connected between "WordPress投稿データ整形" and "Auditor Gate (WF-<NN>)": POST `${auditorUrl}/embed-diagrams` with {content} and the same auth header; on empty auditorUrl, non-200 or exception → return the input item unchanged (never block). Update `connections` accordingly.
   - Preserve category_id (§29), wp_status logic, prompt loading, and all node names.
@@ -293,8 +293,8 @@ CONSTRAINTS: common + push together with T-11 after the manual run.
 
 ## 6. Operator runbook for Phase D (after PR #10 is merged)
 
-1. **T-12**: pick a host (§4), deploy the T-26 image, set `CLAIM_AUDITOR_TOKEN` (generate: `python -c "import secrets;print(secrets.token_urlsafe(32))"`), attach a volume at `/app/data`. Check `curl https://<host>/health` → `"auth": true`.
-2. **T-13**: n8n cloud → Settings → Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`. Create a throwaway workflow with one Code node: `return [{json:{vars: $vars.CLAIM_AUDITOR_URL, env: (()=>{try{return String($env.CLAIM_AUDITOR_URL)}catch(e){return 'ERR:'+e.message}})()}}]`; run it; paste the output into §28-3. Delete the throwaway workflow.
+1. **T-12**: pick a host (§4), deploy the T-26 image, set `AINAVI_GATE_TOKEN` (generate: `python -c "import secrets;print(secrets.token_urlsafe(32))"`), attach a volume at `/app/data`. Check `curl https://<host>/health` → `"auth": true`.
+2. **T-13**: n8n cloud → Settings → Variables: `AINAVI_GATE_URL`, `AINAVI_GATE_MODE=report_only`, `AINAVI_GATE_TOKEN`. Create a throwaway workflow with one Code node: `return [{json:{vars: $vars.AINAVI_GATE_URL, env: (()=>{try{return String($env.AINAVI_GATE_URL)}catch(e){return 'ERR:'+e.message}})()}}]`; run it; paste the output into §28-3. Delete the throwaway workflow.
 3. Hand T-11 prompts to Codex (one file per call, WF01 first). Import only WF01 via `scripts/n8n_deploy.ps1` or the UI, run it manually, confirm: WordPress draft exists, verdict metadata present, Kroki image renders in the WP editor. Then push, then proceed WF02→09.
 4. **T-14 / T-28 / T-15 / T-16** as tabled in §2.
 

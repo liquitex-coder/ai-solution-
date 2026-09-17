@@ -5,14 +5,14 @@ Pure stdlib, no network. Exit 0 = all PASS, exit 1 = any FAIL.
 
 Checks:
   W1  every WF listed in requirements (WF01..WF09) has a workflow JSON
-  W2  every workflow has an Auditor Gate node (CLAIM_AUDITOR_URL)
+  W2  every workflow has an Auditor Gate node (AINAVI_GATE_URL)
   W3  every workflow's prompt loading includes 00-copyright-transform.md
   W4  WordPress post status goes through wp_status (no hardcoded 'publish')
   W5  every prompt file is referenced by >=1 workflow (or LIBRARY_ONLY)
   W6  no credential-looking literals inside workflow JSONs
-  W7  every Auditor Gate is CLAIM_AUDITOR_MODE aware (staged rollout)
+  W7  every Auditor Gate is AINAVI_GATE_MODE aware (staged rollout)
   W8  every Auditor Gate skill_ref is registered for ratchet prompts
-  W9  Auditor service and n8n CLAIM_AUDITOR_URL wiring exist
+  W9  Auditor service and n8n AINAVI_GATE_URL wiring exist
   W10 workflow/category taxonomy map and source_workflow values agree
   W11 workflow category_id values match taxonomy wp_id values
 """
@@ -106,15 +106,15 @@ def main() -> int:
         texts = node_texts(wf)
         blob = "\n".join(t for _, t in texts)
 
-        if "CLAIM_AUDITOR_URL" in blob:
+        if "AINAVI_GATE_URL" in blob:
             ok(f"W2 {name}: Auditor Gate present")
         else:
-            fail(f"W2 {name}: no Auditor Gate node (CLAIM_AUDITOR_URL not found)")
+            fail(f"W2 {name}: no Auditor Gate node (AINAVI_GATE_URL not found)")
 
-        if "CLAIM_AUDITOR_MODE" in blob:
+        if "AINAVI_GATE_MODE" in blob:
             ok(f"W7 {name}: gate is rollout-mode aware")
         else:
-            fail(f"W7 {name}: Auditor Gate is not CLAIM_AUDITOR_MODE aware (§22-3)")
+            fail(f"W7 {name}: Auditor Gate is not AINAVI_GATE_MODE aware (§22-3)")
 
         if "00-copyright-transform.md" in blob:
             ok(f"W3 {name}: copyright prompt loaded")
@@ -194,16 +194,16 @@ def main() -> int:
                 continue
             if in_n8n_environment and re.match(r"^    [^ ]", line):
                 in_n8n_environment = False
-            if in_n8n_environment and "CLAIM_AUDITOR_URL" in line:
+            if in_n8n_environment and "AINAVI_GATE_URL" in line:
                 n8n_auditor_url = True
     if not auditor_server.exists():
         fail("W9 scripts/auditor_server.py: missing")
     elif not auditor_service:
         fail("W9 docker-compose.yml: no auditor service")
     elif not n8n_auditor_url:
-        fail("W9 docker-compose.yml: n8n environment lacks CLAIM_AUDITOR_URL")
+        fail("W9 docker-compose.yml: n8n environment lacks AINAVI_GATE_URL")
     else:
-        ok("W9 auditor service and n8n CLAIM_AUDITOR_URL wired")
+        ok("W9 auditor service and n8n AINAVI_GATE_URL wired")
 
     print("== W10: workflow/category taxonomy map agrees ==")
     taxonomy_path = ROOT / "data" / "wp-taxonomy.json"

@@ -1,4 +1,4 @@
-# Fly.io Deployment Guide — Claim Auditor Service (T-12)
+# Fly.io Deployment Guide — AI Navi Auditor Gate Service (T-12)
 
 **Operator task**: Deploy the Auditor HTTP service to Fly.io and configure n8n cloud to call it.
 
@@ -68,22 +68,22 @@ Output:
 
 ## Step 4: Set Secrets
 
-Store `CLAIM_AUDITOR_TOKEN` as a Fly secret (read from `$CLAIM_AUDITOR_TOKEN` env var locally):
+Store `AINAVI_GATE_TOKEN` as a Fly secret (read from `$AINAVI_GATE_TOKEN` env var locally):
 
 ```bash
 # Option A: if you have the token value ready
-flyctl secrets set CLAIM_AUDITOR_TOKEN=your-bearer-token-value --app ainavi-auditor-gate
+flyctl secrets set AINAVI_GATE_TOKEN=your-bearer-token-value --app ainavi-auditor-gate
 
 # Option B: interactive input (more secure)
-echo -n "Enter CLAIM_AUDITOR_TOKEN: "
+echo -n "Enter AINAVI_GATE_TOKEN: "
 read -s token
-flyctl secrets set CLAIM_AUDITOR_TOKEN="$token" --app ainavi-auditor-gate
+flyctl secrets set AINAVI_GATE_TOKEN="$token" --app ainavi-auditor-gate
 ```
 
 Verify:
 ```bash
 flyctl secrets list --app ainavi-auditor-gate
-# Shows: CLAIM_AUDITOR_TOKEN (value hidden)
+# Shows: AINAVI_GATE_TOKEN (value hidden)
 ```
 
 ---
@@ -125,7 +125,7 @@ curl -s https://ainavi-auditor-gate.fly.dev/health | jq .
 ```json
 {
   "status": "ok",
-  "service": "claim-auditor-gate",
+  "service": "ainavi-auditor-gate",
   "memory_db": true,
   "auth": true
 }
@@ -166,9 +166,9 @@ Update `docs/requirements.md` §28-3 with the actual hostname:
 Once the hostname is confirmed, log into n8n.cloud and set Variables:
 
 ```
-CLAIM_AUDITOR_URL  = https://ainavi-auditor-gate.fly.dev
-CLAIM_AUDITOR_MODE = report_only
-CLAIM_AUDITOR_TOKEN = <same value as Step 4>
+AINAVI_GATE_URL  = https://ainavi-auditor-gate.fly.dev
+AINAVI_GATE_MODE = report_only
+AINAVI_GATE_TOKEN = <same value as Step 4>
 ```
 
 (Details in SETUP_GUIDE Step 2–3)
@@ -186,7 +186,7 @@ CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 - Check logs: `docker logs <container_id>`
 - Restart: `flyctl restart --app ainavi-auditor-gate`
 
-### CLAIM_AUDITOR_TOKEN not read
+### AINAVI_GATE_TOKEN not read
 - Verify: `flyctl secrets list --app ainavi-auditor-gate`
 - Re-run Step 4 if missing
 - Redeploy: `flyctl deploy --app ainavi-auditor-gate`
@@ -194,7 +194,7 @@ CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 ### memory.db keeps resetting
 - Volume mount failed: `flyctl volumes list -a ainavi-auditor-gate`
 - Ensure the `data` volume exists and `fly.toml` has `[[mounts]] source = "data", destination = "/app/data"`
-  (matching `CLAIM_MEMORY_DB=/app/data/memory.db` in `[env]`)
+  (matching `AINAVI_GATE_MEMORY_DB=/app/data/memory.db` in `[env]`)
 - If `/health` shows `"memory_db": false`, the volume mounted root-owned while the container runs as user
   `auditor`: `flyctl ssh console -a ainavi-auditor-gate -C "chown -R auditor /app/data"`, then
   `flyctl restart --app ainavi-auditor-gate` and re-check `/health`
