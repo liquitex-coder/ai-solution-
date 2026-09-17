@@ -20,6 +20,7 @@ import difflib
 import json
 import re
 import sys
+import unicodedata
 
 HYPE_PHRASES = [
     "革命的", "業界を震撼", "圧倒的No.1", "圧倒的ナンバーワン",
@@ -46,9 +47,216 @@ def _text(html: str) -> str:
 
 SIMILARITY_THRESHOLD = 0.85  # §17-1 (5): difflib ratio threshold shared by D7 and D2
 
+# Evidence Pack (requirements §34-5)
+EVIDENCE_MIN_CHARS = 10
+EVIDENCE_MAX_CHARS = 300
+MAX_CLAIMS = 40
+MIN_CLAIMS_FOR_RATIO = 3
+UNGROUNDED_RATIO = 0.5
+NUMBER_TOLERANCE = 0.05
+MAX_PROBE_WARNINGS = 5
+CLAIM_TYPES = ("FACT", "NUMBER", "TECHNIQUE", "OPINION")
+CLAIM_STATUSES = ("SUPPORTED", "CONTRADICTED", "NOT_IN_SOURCE", "UNCHECKABLE")
+FEASIBILITIES = ("PLAUSIBLE", "IMPLAUSIBLE", "UNKNOWN")
+CONSIDERED_TYPES = ("FACT", "NUMBER", "TECHNIQUE")
+
+
+def _normalize(s: str) -> str:
+    """NFKC-fold and collapse whitespace so full-width/half-width spans compare equal."""
+    return " ".join(unicodedata.normalize("NFKC", s).split())
+
+
+def _span_found(evidence_norm: str, source_norm: str) -> bool:
+    """True if a normalized evidence span is verbatim (or near-verbatim) in the source."""
+    if not evidence_norm or not source_norm:
+        return False
+    if evidence_norm in source_norm:
+        return True
+    qlen = len(evidence_norm)
+    step = max(1, qlen // 4)
+    for start in range(0, max(1, len(source_norm) - qlen + 1), step):
+        window = source_norm[start:start + qlen]
+        if difflib.SequenceMatcher(None, evidence_norm, window).ratio() >= SIMILARITY_THRESHOLD:
+            return True
+    return False
+
+
+def _validate_claim(raw: object) -> dict | None:
+    """Normalize one Evidence Pack claim, or return None if malformed (dropped)."""
+    if not isinstance(raw, dict):
+        return None
+    cid, text = raw.get("id"), raw.get("text")
+    ctype, status = raw.get("type"), raw.get("status")
+    if not isinstance(cid, str) or not isinstance(text, str):
+        return None
+    if ctype not in CLAIM_TYPES or status not in CLAIM_STATUSES:
+        return None
+    evidence = raw.get("evidence")
+    if evidence is not None and not isinstance(evidence, str):
+        return None
+    source_index = raw.get("source_index")
+    if source_index is not None and (
+            not isinstance(source_index, int) or isinstance(source_index, bool)):
+        return None
+    value = raw.get("value")
+    if value is not None and (
+            not isinstance(value, (int, float)) or isinstance(value, bool)):
+        return None
+    gt_ref = raw.get("gt_ref")
+    if gt_ref is not None and not isinstance(gt_ref, str):
+        return None
+    feasibility = raw.get("feasibility")
+    if feasibility is not None and feasibility not in FEASIBILITIES:
+        return None
+    note = raw.get("note", "")
+    if not isinstance(note, str):
+        return None
+    claim = {
+        "id": cid, "text": text, "type": ctype, "status": status,
+        "evidence": evidence, "source_index": source_index,
+        "value": value, "gt_ref": gt_ref, "feasibility": feasibility, "note": note,
+    }
+    if claim["type"] == "OPINION":
+        claim["status"] = "UNCHECKABLE"
+    if claim["type"] == "TECHNIQUE":
+        if claim["feasibility"] is None:
+            claim["feasibility"] = "UNKNOWN"
+    else:
+        claim["feasibility"] = None
+    return claim
+
+
+def _fmt_number(v: float) -> str:
+    fv = float(v)
+    return "%d" % fv if fv.is_integer() else repr(fv)
+
+
+def evaluate_evidence(content: str, source_text: str | None, evidence: object) -> tuple[list[str], dict]:
+    """Deterministic Evidence Pack rules (requirements §34-5). Returns (warnings, summary).
+
+    Every returned warning starts with "WARN:" — this function never affects verdict
+    directly (INV-R2a); callers only ever append its output to the existing warnings list.
+    """
+    warnings: list[str] = []
+    summary = {
+        "claims": 0, "considered": 0, "supported": 0, "contradicted": 0,
+        "ungrounded": 0, "evidence_missing": 0, "implausible": 0,
+        "probes_failed": 0, "dropped": 0,
+    }
+
+    if (not isinstance(evidence, dict) or evidence.get("version") != 1
+            or not isinstance(evidence.get("claims"), list)):
+        return (["WARN:FACTCHECK_UNAVAILABLE:schema"], summary)
+
+    verifier = evidence.get("verifier")
+    claims_ok = isinstance(verifier, dict) and verifier.get("ok") is True
+    if not claims_ok:
+        err = _normalize(str((verifier or {}).get("error") or "verifier"))[:40]
+        warnings.append(f"WARN:FACTCHECK_UNAVAILABLE:{err}")
+
+    source_norm = _normalize(source_text) if isinstance(source_text, str) else ""
+    gt_raw = evidence.get("ground_truth")
+    ground_truth = gt_raw if isinstance(gt_raw, dict) else {}
+    text_nosep = _text(content).replace(",", "").replace("，", "").replace(" ", "")
+
+    if claims_ok:
+        raw_claims = evidence["claims"][:MAX_CLAIMS]
+        summary["claims"] = len(raw_claims)
+        claims: list[dict] = []
+        dropped = 0
+        for raw in raw_claims:
+            claim = _validate_claim(raw)
+            if claim is None:
+                dropped += 1
+            else:
+                claims.append(claim)
+        summary["dropped"] = dropped
+
+        # Step 2: verbatim re-verification of SUPPORTED/CONTRADICTED evidence spans.
+        for claim in claims:
+            if claim["status"] in ("SUPPORTED", "CONTRADICTED"):
+                ev = claim["evidence"]
+                ev_norm = _normalize(ev) if isinstance(ev, str) else ""
+                if (ev is None or not source_norm
+                        or not (EVIDENCE_MIN_CHARS <= len(ev_norm) <= EVIDENCE_MAX_CHARS)
+                        or not _span_found(ev_norm, source_norm)):
+                    claim["status"] = "EVIDENCE_MISSING"
+
+        # Step 3: NUMBER claims cross-checked against the article text and ground_truth.
+        for claim in claims:
+            if claim["type"] == "NUMBER" and claim["value"] is not None:
+                if _fmt_number(claim["value"]) not in text_nosep:
+                    claim["status"] = "EVIDENCE_MISSING"
+                elif isinstance(claim["gt_ref"], str) and "." in claim["gt_ref"]:
+                    key, field = claim["gt_ref"].rsplit(".", 1)
+                    gt_entry = ground_truth.get(key)
+                    gt_val = gt_entry.get(field) if isinstance(gt_entry, dict) else None
+                    if isinstance(gt_val, (int, float)) and not isinstance(gt_val, bool):
+                        if abs(claim["value"] - gt_val) > NUMBER_TOLERANCE * max(abs(gt_val), 1):
+                            warnings.append(
+                                f"WARN:NUMBER_MISMATCH:{_fmt_number(claim['value'])}/{_fmt_number(gt_val)}")
+
+        # Step 4: ungrounded ratio (OPINION excluded — copyright prompt requires original analysis).
+        considered = [c for c in claims if c["type"] in CONSIDERED_TYPES]
+        n_considered = len(considered)
+        ungrounded = sum(
+            1 for c in considered if c["status"] in ("NOT_IN_SOURCE", "EVIDENCE_MISSING"))
+        if n_considered >= MIN_CLAIMS_FOR_RATIO and ungrounded / n_considered > UNGROUNDED_RATIO:
+            warnings.append(f"WARN:CLAIM_UNGROUNDED:{ungrounded}/{n_considered}")
+
+        # Step 5: verified contradictions.
+        n_contradicted = sum(1 for c in claims if c["status"] == "CONTRADICTED")
+        if n_contradicted >= 1:
+            warnings.append(f"WARN:CLAIM_CONTRADICTED:{n_contradicted}")
+
+        # Step 6: implausible techniques.
+        n_implausible = sum(
+            1 for c in claims if c["type"] == "TECHNIQUE" and c["feasibility"] == "IMPLAUSIBLE")
+        if n_implausible >= 1:
+            warnings.append(f"WARN:TECHNIQUE_IMPLAUSIBLE:{n_implausible}")
+
+        # Step 7: claims downgraded to EVIDENCE_MISSING (steps 2/3).
+        n_missing = sum(1 for c in claims if c["status"] == "EVIDENCE_MISSING")
+        if n_missing >= 1:
+            warnings.append(f"WARN:EVIDENCE_NOT_IN_SOURCE:{n_missing}")
+
+        summary["considered"] = n_considered
+        summary["supported"] = sum(1 for c in claims if c["status"] == "SUPPORTED")
+        summary["contradicted"] = n_contradicted
+        summary["ungrounded"] = ungrounded
+        summary["evidence_missing"] = n_missing
+        summary["implausible"] = n_implausible
+
+    # Step 8 (always): deterministic probes.
+    probes_raw = evidence.get("probes")
+    probes = probes_raw if isinstance(probes_raw, list) else []
+    url_warned = repo_warned = probes_failed = 0
+    for probe in probes:
+        if not isinstance(probe, dict):
+            continue
+        kind, result, target = probe.get("kind"), probe.get("result"), probe.get("target")
+        if kind == "URL" and result == "DEAD":
+            probes_failed += 1
+            if url_warned < MAX_PROBE_WARNINGS:
+                warnings.append(f"WARN:URL_DEAD:{str(target)[:80]}")
+                url_warned += 1
+        elif kind == "GITHUB_REPO" and result == "NOT_FOUND":
+            probes_failed += 1
+            if repo_warned < MAX_PROBE_WARNINGS:
+                warnings.append(f"WARN:REPO_NOT_FOUND:{str(target)[:80]}")
+                repo_warned += 1
+    summary["probes_failed"] = probes_failed
+
+    # Step 9 (always): no source at all (WF07-style).
+    if not source_norm and not ground_truth:
+        warnings.append("WARN:NO_SOURCE_FOR_FACTCHECK")
+
+    return (warnings, summary)
+
 
 def audit(content: str, source_urls: list[str] | None = None,
-          source_text: str | None = None, source_lang: str | None = None) -> dict:
+          source_text: str | None = None, source_lang: str | None = None,
+          evidence: dict | None = None) -> dict:
     source_urls = [u for u in (source_urls or []) if u]
     reasons: list[str] = []
     unverifiable: list[str] = []
@@ -131,6 +339,13 @@ def audit(content: str, source_urls: list[str] | None = None,
         if not has_label:
             warnings.append("WARN:MISSING_TRANSLATION_LABEL")
 
+    # Evidence Pack (requirements §34): LLM-supplied signals feed only WARN: entries
+    # (INV-R2a) — never gated by source_lang (§34-11 item 5).
+    ev_summary = None
+    if evidence is not None:
+        ev_warnings, ev_summary = evaluate_evidence(content, source_text, evidence)
+        warnings.extend(ev_warnings)
+
     if reasons:
         verdict = "FAIL"
     elif unverifiable:
@@ -138,7 +353,10 @@ def audit(content: str, source_urls: list[str] | None = None,
         reasons = unverifiable
     else:
         verdict = "PASS"
-    return {"verdict": verdict, "reasons": reasons + warnings}
+    result = {"verdict": verdict, "reasons": reasons + warnings}
+    if ev_summary is not None:
+        result["evidence_summary"] = ev_summary
+    return result
 
 
 def main() -> int:
@@ -148,6 +366,7 @@ def main() -> int:
     ap.add_argument("--source-url", action="append", default=[])
     ap.add_argument("--source-text-file")
     ap.add_argument("--source-lang", choices=["ja", "en", "zh"])
+    ap.add_argument("--evidence-file")
     args = ap.parse_args()
     if args.stdin:
         content = sys.stdin.read()
@@ -157,7 +376,9 @@ def main() -> int:
         ap.error("--content-file or --stdin required")
     source_text = (open(args.source_text_file, encoding="utf-8").read()
                    if args.source_text_file else None)
-    result = audit(content, args.source_url, source_text, args.source_lang)
+    evidence = (json.loads(open(args.evidence_file, encoding="utf-8").read())
+                if args.evidence_file else None)
+    result = audit(content, args.source_url, source_text, args.source_lang, evidence)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["verdict"] == "PASS" else 2
 
