@@ -72,7 +72,7 @@ Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 →
 
 PR #10 was merged by the operator on 2026-09-13 (`fb688b1`) with T-24 and T-26 still in round 2; round 2 continues on the same branch name as a new PR. T-12 can start in parallel: on Fly.io the `internal_port` can be pinned to 8090 so the T-26 `PORT` defect does not block it; on Render it does until round 2 lands.
 
-Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅, T-12 in progress via [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename, deployment not yet recorded).
+Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅, T-12 in progress — [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename) merged 2026-09-17 (`41f58a3`), deployment not yet recorded.
 
 Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
 
@@ -99,7 +99,7 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 🔄 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | hosting decided 2026-09-13 (Fly.io, `fly.toml` + `FLY_DEPLOY.md`, PR #12); app rename to `ainavi-auditor-gate` in PR #14 (open). Done when `GET https://<host>/health` → `{"status":"ok","auth":true,"memory_db":true}` and the hostname + completion date are recorded in §28-3 |
+| T-12 🔄 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | hosting decided 2026-09-13 (Fly.io, `fly.toml` + `FLY_DEPLOY.md`, PR #12); app renamed to `ainavi-auditor-gate` in PR #14 (merged 2026-09-17, `41f58a3`). Done when `GET https://<host>/health` → `{"status":"ok","auth":true,"memory_db":true}` and the hostname + completion date are recorded in §28-3 |
 | T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
 | T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
 | T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
