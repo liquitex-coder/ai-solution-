@@ -72,6 +72,8 @@ Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 →
 
 PR #10 was merged by the operator on 2026-09-13 (`fb688b1`) with T-24 and T-26 still in round 2; round 2 continues on the same branch name as a new PR. T-12 can start in parallel: on Fly.io the `internal_port` can be pinned to 8090 so the T-26 `PORT` defect does not block it; on Render it does until round 2 lands.
 
+Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅, T-12 in progress via [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename, deployment not yet recorded).
+
 Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
 
 ## Phase B — Drift cleanup
@@ -82,22 +84,22 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 | T-08 ✅ | Codex | `README.md`: WF01–09 table, Auditor service in architecture, phase status, JA mirror | done 2026-09-12 (`90b7a1f`): model names, 13 prompts, slugs and JA block cross-checked against the repo |
 | T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `CLAIM_AUDITOR_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
 | T-25 ✅ | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | done 2026-09-13 (`a6cd6ae`): Linux AST scan 0 implicit-encoding calls, guard test in unittest (36 OK), `py -3` fallback in the hook; operator evidence in a cp932 console: `py -3 scripts/check_wired.py` 79 PASS exit 0, `py -3 -m unittest discover -s tests` OK exit 0, pre-push chain green (PR #10 comment) |
-| T-24 🔁 | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2) | round 1 (`5012356`) landed D1 (0.34, eval 52 FP=0/FN=0), D3, D5; **rejected on review 2026-09-13**: D2 implemented with inverted semantics (blockquote **inside**, ratio < 0.85 = D7) and D5 matches FAIL rows only (UNVERIFIABLE resubmission duplicates facts). Round 2 prompt in `docs/sessions/2026-09-13-t24-t27-review.md`; done when its ACCEPTANCE is green and §32-1 D2/D5/D7 rows read as implemented |
+| T-24 ✅ | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2) | round 1 (`5012356`) landed D1 (0.34, eval 52 FP=0/FN=0), D3, D5; rejected on review 2026-09-13 (D2 inverted = D7, D5 FAIL-only); round 2 done 2026-09-15 (`9539897`, PR #13): `WARN:QUOTE_ALTERED` (D7) + real `WARN:VERBATIM_COPY` (D2) in `scripts/content_audit.py`, `find_prior_fact` with `verdict != 'PASS'` (D5) and bytes `compare_digest` (non-ASCII Bearer → 401) in `scripts/auditor_server.py`. Re-verified 2026-09-17: eval 52 FP=0/FN=0, unittest 46 OK, `check_wired` 79 PASS; §32-1 D2/D5/D7 rows updated the same day |
 
 ## Phase C — Service hardening + visual layer
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`); endpoint unconsumed until T-11 |
-| T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 |
-| T-26 🔁 | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`, `docker compose config` valid, W9 PASS; **fix required**: `ENV CLAIM_AUDITOR_PORT=8090` baked into the image overrides a PaaS `PORT` (Linux measurement: `PORT=10000` → bound 8090) — the T-26 prompt itself specified that ENV (orchestrator error, CLAUDE.md §C-4). Round 2 prompt in `docs/sessions/2026-09-13-t24-t27-review.md`; `docker build` + `/health` still unverified (no daemon on either machine) — stays open until someone builds |
+| T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 — fixed in `9539897` (bytes comparison, 401) |
+| T-26 ✅ | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`; rejected 2026-09-13 because `ENV CLAIM_AUDITOR_PORT=8090` overrode a PaaS `PORT` (orchestrator error, CLAUDE.md §C-4); round 2 done 2026-09-15 (`a2496f1`, PR #13): ENV line dropped, `resolve_port()` (`CLAIM_AUDITOR_PORT` → `PORT` → 8090) with precedence unit tests, HEALTHCHECK resolves the same order. Operator docker verification on PR #13 (Docker 29.4.3): `docker build` OK, `-e PORT=10000` → `/health` 200 with `memory_db: true`; bind-mounted volume written. Fly root-owned-volume case stays a T-12 post-deploy check (§28-3 (iii)) |
 | T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | `GET https://<host>/health` → `{"status":"ok","auth":true}` |
+| T-12 🔄 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | hosting decided 2026-09-13 (Fly.io, `fly.toml` + `FLY_DEPLOY.md`, PR #12); app rename to `ainavi-auditor-gate` in PR #14 (open). Done when `GET https://<host>/health` → `{"status":"ok","auth":true,"memory_db":true}` and the hostname + completion date are recorded in §28-3 |
 | T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
 | T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
 | T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
@@ -130,11 +132,13 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Scope | Done | Total | % |
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
-| Phase B | 4 | 5 | 80% |
-| Phase C | 2 | 4 | 50% |
+| Phase B | 5 | 5 | 100% |
+| Phase C | 3 | 4 | 75% |
 | Phase D | 0 | 6 | 0% |
-| Phase 1 definition (A–D) | 12 | 21 | 57% |
-| Whole roadmap (A–F) | 12 | 28 | 43% |
+| Phase 1 definition (A–D) | 14 | 21 | 67% |
+| Whole roadmap (A–F) | 14 | 28 | 50% |
+
+Last recomputed 2026-09-17 (T-24, T-26 closed by PR #13; T-12 in progress).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
