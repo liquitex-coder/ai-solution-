@@ -7,8 +7,14 @@ Patch all WF01-06 workflows:
 4. WP投稿 node: use wp_status dynamic field
 5. WF06 critical fix: was status:'publish', now wp_status:'draft' (Auditor decides)
 Create WF07 and WF08 skeleton workflows.
+
+STALE (2026-09-17): one-shot patch from 2026-07-10. Re-running it duplicates
+the Auditor Gate node and drops AINAVI_GATE_MODE/category_id (W7/W11 regress,
+requirements §32-1 D10). Kept for history; use scripts/patch_evidence_pack.py
+for new wiring.
 """
 
+import sys
 import json
 import copy
 import pathlib
@@ -738,6 +744,12 @@ def create_wf08():
 # ── main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    if "--i-know-this-is-stale" not in sys.argv:
+        print("STALE (2026-09-17): one-shot patch from 2026-07-10. Re-running it duplicates "
+              "the Auditor Gate node and drops AINAVI_GATE_MODE/category_id (W7/W11 regress, "
+              "requirements §32-1 D10). Pass --i-know-this-is-stale to run it anyway.",
+              file=sys.stderr)
+        sys.exit(2)
     patch_wf01()
     patch_wf02()
     patch_wf03()

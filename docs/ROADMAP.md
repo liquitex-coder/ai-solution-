@@ -112,15 +112,18 @@ Designed 2026-09-17 (Claude Fable 5.1 design, Claude Sonnet 5 implementation, op
 the operator to `claude-haiku-4-5` on cost grounds (§34-10); any change to that, or any additional LLM call, goes back
 to the operator first. Not part of the Phase 1 definition above; it lands alongside Phase D.
 
-Dependencies: T-33 and T-34 have no dependency on T-13..T-16 and can start now. T-35 needs T-13 (`$env`/`$vars`
-readability) and follows the same "push only after the operator's manual run" rule as T-11 (CLAUDE.md §F); its
-workflow edits may ride with T-11's per-file edits. T-36 after T-15. T-37 starts when T-36 is merged. T-38 after T-37.
+Dependencies: T-33 and T-34 have no dependency on T-13..T-16 and can start now. T-35a (tooling: idempotent patcher,
+W12, JS-node tests; no workflow JSON changes) has no dependency either. T-35b (actually patching and running WF01)
+needs T-13 (`$env`/`$vars`/`fetch`/`crypto` readability) and follows the same "push only after the operator's manual
+run" rule as T-11 (CLAUDE.md §F); its workflow edits may ride with T-11's per-file edits. T-36 after T-15. T-37
+starts when T-36 is merged. T-38 after T-37.
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-33 | Claude | P0 docs: requirements §34 + §32-1 D8/D9, this phase, `n8n/skills/15-fact-check.md`, `20-auditor-gate.md` / `10-article-writer.md` / `skill-base.md` updates, `n8n/prompts/50-fact-check.md` registered `LIBRARY_ONLY` until T-35 | standalone `docs:` commit + `feat(prompts):` commit; `check_wired` / `run_eval` (52, FP=0/FN=0) / `unittest` (46) green on Windows `py -3` |
 | T-34 ✅ | Claude | P1 server: §34-5 rules + evidence re-verification in `scripts/content_audit.py`; `evidence` pass-through, `evidence_summary`, `warnings` writes in `scripts/auditor_server.py`; `warnings` table in `scripts/memory_init.py`; `run_eval.py` extension + eval cases E01–E16; unit tests; `ratchet_check.py --warn`; Fly redeploy | done 2026-09-17: eval 68 cases FP=0/FN=0 with 0 warning mismatches; unittest 87 OK; the existing 52 cases keep their verdicts (INV-R2a); Fly redeployed, `/health` → `{"status":"ok","memory_db":true,"auth":true}` |
-| T-35 | Claude + operator | P2 pilot on WF01: probes node (`EVIDENCE_PROBES`), verifier HTTP node (`claude-haiku-4-5`, `50-fact-check.md`, `output_config.format` json_schema, continue-on-fail), Evidence Pack node, gate body + `source_text`/`source_lang`/`evidence`; W12 in `check_wired.py`; drop the `LIBRARY_ONLY` entry | operator manual run shows a WP draft and `evidence_summary` in the execution log; W12 PASS; pushed only after that run |
+| T-35a | Claude | P2a tooling: idempotent `scripts/patch_evidence_pack.py` (WF01 config), W12 in `check_wired.py` with an empty `EVIDENCE_REQUIRED_WORKFLOWS` registry, Node.js-executed tests for the generated Code-node JS, guard on the stale `scripts/patch_workflows.py`. Does not touch `n8n/workflows/*.json` | unittest green incl. patcher idempotency + JS-harness tests; `git status --short n8n/workflows` empty |
+| T-35b | Claude + operator | P2b (after T-13): run the patcher on WF01, re-import to n8n cloud, operator manual run, `EVIDENCE_REQUIRED_WORKFLOWS` gains `01-`, drop the `50-fact-check.md` `LIBRARY_ONLY` entry | operator manual run shows a WP draft and `evidence_summary` in the execution log; W12 PASS for WF01; pushed only after that run |
 | T-36 | Claude + operator | P3 wire WF02–09 (WF07 has no source: `WARN:NO_SOURCE_FOR_FACTCHECK` expected) | W12 PASS 9/9; manual-run logs pasted |
 | T-37 | operator | P4 30-day observation: weekly `py -3 scripts/ratchet_check.py --warn`, hand-label samples per code, fill the §34-9 precision table | table filled and signed (INV-R1) |
 | T-38 | Claude | P5 promotion, one code per PR, eval cases first (§32-2), per §34-5 criteria | each PR green + signed row in §34-9 |
@@ -168,6 +171,6 @@ Last recomputed 2026-09-17 (T-34 done: Evidence Pack server-side rules + warning
 - **最重要ギャップ**: ゲートの呼び先サービスが無く、本番では全件 `SKIP`。Phase A で解消する。
 - **workflow JSON の変更（T-11 / T-17 / T-19 / T-20）** は CLAUDE.md §F により、操作者の n8n 手動実行→WP 下書き確認の後にのみ push する。
 - **未検証事項**: n8n cloud で Code ノードの `$env` が使えるか（docs.n8n.io が本セッションでは取得不可）。T-13 で確認し、不可なら T-11 の `$vars` フォールバックが必須になる。
-- **Phase D2（§34 Evidence Pack）**: ファクトチェック層。検証モデルは操作者決定で `claude-haiku-4-5`（コスト理由）。T-33/T-34 は今すぐ着手可、T-35 以降は T-13 と手動実行が前提。
+- **Phase D2（§34 Evidence Pack）**: ファクトチェック層。検証モデルは操作者決定で `claude-haiku-4-5`（コスト理由）。T-33/T-34/T-35a は今すぐ着手可（T-35a はワークフローJSONを変更しないツール整備のみ）、T-35b 以降は T-13 と手動実行が前提。
 
 </details>
