@@ -69,6 +69,24 @@ class AuditorHTTPServer(ThreadingHTTPServer):
                   flush=True)
             return None
 
+    def store_warnings(self, rows: list[tuple[str, str, str, str, str, str]]) -> int:
+        """§34-6: persist WARN: observations for the 30-day review, regardless of verdict."""
+        if not self.memory_db or not rows:
+            return 0
+        try:
+            with self.db_lock:
+                conn = memory_init.connect(self.db_path)
+                try:
+                    for row in rows:
+                        memory_init.insert_warning(conn, *row)
+                    return len(rows)
+                finally:
+                    conn.close()
+        except Exception as exc:
+            print(f"auditor memory database write failed: {exc}", file=sys.stderr,
+                  flush=True)
+            return 0
+
     def find_prior_fact(self, content_hash: str) -> int | None:
         """§32-1 D5: look up a prior non-PASS verdict for this exact content hash."""
         if not self.memory_db:
@@ -145,6 +163,7 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
                 "verdict": verdict,
                 "skill_ref": skill_ref,
                 "ms": elapsed,
+                "warnings": getattr(self, "_warnings_written", 0),
             }, ensure_ascii=False), flush=True)
 
     def _read_json(self) -> dict[str, Any] | None:
@@ -202,6 +221,7 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     source_lang = payload.get("source_lang")
     if not isinstance(source_lang, str):
         source_lang = None
+    evidence = payload.get("evidence")
 
     content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
@@ -210,9 +230,10 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     # a WARN and does not write a second facts row for the same hash.
     rejected_fact_id = handler.server.find_prior_fact(content_hash)
 
-    result = content_audit.audit(content, source_urls, source_text, source_lang)
+    result = content_audit.audit(content, source_urls, source_text, source_lang, evidence)
     verdict = result["verdict"]
     reasons = list(result["reasons"])
+    evidence_summary = result.get("evidence_summary")
     fact_id = rejected_fact_id
     if rejected_fact_id is not None:
         reasons.append(f"WARN:ALREADY_REJECTED:{rejected_fact_id}")
@@ -229,13 +250,33 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
             skill_ref=skill_ref,
             content_hash=content_hash,
         )
-    handler._send_json(200, {
+
+    # §34-6: every WARN: reason is persisted regardless of verdict (PASS rows
+    # never land in `facts`, so this is the only record the 30-day review has).
+    prompt_sha256 = ""
+    if isinstance(evidence, dict):
+        verifier = evidence.get("verifier")
+        if isinstance(verifier, dict) and isinstance(verifier.get("prompt_sha256"), str):
+            prompt_sha256 = verifier["prompt_sha256"]
+    warning_rows = []
+    for reason in reasons:
+        if reason.startswith("WARN:"):
+            pieces = reason.split(":", 2)
+            code = ":".join(pieces[:2])
+            detail = pieces[2] if len(pieces) == 3 else ""
+            warning_rows.append((content_hash, skill_ref, verdict, code, detail, prompt_sha256))
+    handler._warnings_written = handler.server.store_warnings(warning_rows)
+
+    response: dict[str, Any] = {
         "verdict": verdict,
         "reasons": reasons,
         "skill_ref": skill_ref,
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "fact_id": fact_id,
-    })
+    }
+    if evidence_summary is not None:
+        response["evidence_summary"] = evidence_summary
+    handler._send_json(200, response)
     return 200, verdict, skill_ref
 
 

@@ -60,6 +60,14 @@ class AuditorServerTests(unittest.TestCase):
         finally:
             conn.close()
 
+    def warnings(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            return [dict(r) for r in conn.execute("SELECT * FROM warnings ORDER BY id")]
+        finally:
+            conn.close()
+
     def test_health_reports_available_memory_database(self):
         status, body = self.request("/health")
         self.assertEqual(status, 200)
@@ -204,6 +212,87 @@ class AuditorServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("WARN:MISSING_TRANSLATION_LABEL", body["reasons"])
         self.assertEqual(body["verdict"], "PASS")
+
+    def _evidence_pack(self, claims):
+        return {
+            "version": 1,
+            "verifier": {"model": "claude-haiku-4-5", "prompt_ref": "50-fact-check.md",
+                        "prompt_sha256": "0" * 64, "ok": True, "error": None,
+                        "usage": {"input_tokens": 0, "output_tokens": 0}},
+            "claims": claims, "probes": [], "ground_truth": {},
+        }
+
+    def test_evidence_pack_persists_warning_row_and_summary(self):
+        content = ('<h2>One</h2><h2>Two</h2><h2>Three</h2>'
+                   '<a href="https://example.test">source</a>')
+        evidence = self._evidence_pack([
+            {"id": "c1", "text": "x", "type": "FACT", "status": "SUPPORTED",
+             "evidence": "this exact span is not in the source at all",
+             "source_index": 0, "value": None, "gt_ref": None,
+             "feasibility": None, "note": ""},
+        ])
+        status, body = self.request("/audit", "POST", {
+            "content": content, "source_text": "[S0] completely unrelated source text.",
+            "evidence": evidence,
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(body["verdict"], "PASS")
+        self.assertEqual(body["evidence_summary"]["evidence_missing"], 1)
+        self.assertEqual(self.facts(), [])
+        rows = self.warnings()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["verdict"], "PASS")
+        self.assertEqual(rows[0]["code"], "WARN:EVIDENCE_NOT_IN_SOURCE")
+        self.assertEqual(rows[0]["detail"], "1")
+        self.assertEqual(rows[0]["prompt_sha256"], "0" * 64)
+
+    def test_no_evidence_no_summary_no_warnings_row(self):
+        content = ('<h2>One</h2><h2>Two</h2><h2>Three</h2>'
+                   '<a href="https://example.test">source</a>')
+        status, body = self.request("/audit", "POST", {"content": content})
+        self.assertEqual(status, 200)
+        self.assertNotIn("evidence_summary", body)
+        self.assertEqual(self.warnings(), [])
+
+    def test_fail_hype_with_evidence_still_writes_fact_and_fails(self):
+        content = "革命的な記事"
+        evidence = self._evidence_pack([])
+        status, body = self.request("/audit", "POST", {"content": content, "evidence": evidence})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["verdict"], "FAIL")
+        self.assertEqual(len(self.facts()), 1)
+
+    def test_zh_missing_label_warning_is_also_persisted(self):
+        content = "<h2>A</h2><h2>B</h2><h2>C</h2><p>本文には翻訳ラベルがありません。</p>"
+        status, body = self.request("/audit", "POST", {
+            "content": content,
+            "source_urls": ["https://example.cn/article"],
+            "source_lang": "zh",
+        })
+        self.assertEqual(status, 200)
+        rows = self.warnings()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["code"], "WARN:MISSING_TRANSLATION_LABEL")
+
+    def test_unavailable_database_does_not_block_warnings_either(self):
+        blocker = Path(self.temp_dir.name) / "not-a-directory2"
+        blocker.write_text("block")
+        server = make_server("127.0.0.1", 0, blocker / "memory.db")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        try:
+            request = Request(base_url + "/audit", data=json.dumps({
+                "content": "革命的な記事",
+            }).encode(), method="POST")
+            with urlopen(request) as response:
+                body = json.loads(response.read())
+            self.assertEqual(response.status, 200)
+            self.assertEqual(body["verdict"], "FAIL")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
 
 
 class AuditorServerAuthTests(unittest.TestCase):
