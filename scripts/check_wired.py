@@ -15,6 +15,7 @@ Checks:
   W9  Auditor service and n8n AINAVI_GATE_URL wiring exist
   W10 workflow/category taxonomy map and source_workflow values agree
   W11 workflow category_id values match taxonomy wp_id values
+  W12 Evidence Pack wiring for workflows in EVIDENCE_REQUIRED_WORKFLOWS (§34-8)
 """
 
 from __future__ import annotations
@@ -36,6 +37,9 @@ REQUIRED_WORKFLOWS = {
     "01": "01-", "02": "02-", "03": "03-", "04": "04-",
     "05": "05-", "06": "06-", "07": "07-", "08": "08-", "09": "09-",
 }
+
+# prefixes whose Auditor Gate must carry an Evidence Pack (§34-8); T-35b adds "01-", T-36 the rest
+EVIDENCE_REQUIRED_WORKFLOWS: set[str] = set()
 
 # Intentionally unwired files, each with a reason. Anything else unwired = FAIL.
 LIBRARY_ONLY_PROMPTS = {
@@ -82,6 +86,23 @@ def node_texts(wf: dict) -> list[tuple[str, str]]:
         text = params.get("jsCode", "") or json.dumps(params, ensure_ascii=False)
         out.append((node.get("name", "?"), text))
     return out
+
+
+def evidence_wiring_errors(wf: dict) -> list[str]:
+    """§34-8 W12: Evidence Pack wiring for a workflow registered in EVIDENCE_REQUIRED_WORKFLOWS."""
+    errors: list[str] = []
+    texts = node_texts(wf)
+    blob = "\n".join(t for _, t in texts)
+    if not ("50-fact-check.md" in blob and "claude-haiku-4-5" in blob
+            and "output_config" in blob):
+        errors.append("no verifier node (50-fact-check.md + claude-haiku-4-5 + output_config)")
+    if "EVIDENCE_PROBES" not in blob:
+        errors.append("no probes node (EVIDENCE_PROBES marker)")
+    gate_texts = [t for _, t in texts if "AINAVI_GATE_URL" in t]
+    if not gate_texts or not any(
+            "source_text" in t and "evidence" in t for t in gate_texts):
+        errors.append("gate node jsCode missing source_text/evidence")
+    return errors
 
 
 def main() -> int:
@@ -255,6 +276,18 @@ def main() -> int:
             fail(f"W11 {name}: category_id {category_id} has no recorded wp_id")
         else:
             ok(f"W11 {name}: category check (skipped: no wp_id yet)")
+
+    print("== W12: Evidence Pack wiring (§34-8) ==")
+    for name, wf in workflows.items():
+        required = any(name.startswith(prefix) for prefix in EVIDENCE_REQUIRED_WORKFLOWS)
+        if not required:
+            ok(f"W12 {name}: evidence wiring not required yet (§34-8)")
+            continue
+        errors = evidence_wiring_errors(wf)
+        if errors:
+            fail(f"W12 {name}: {'; '.join(errors)}")
+        else:
+            ok(f"W12 {name}: evidence wiring present")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")
