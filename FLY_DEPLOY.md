@@ -40,7 +40,7 @@ Output will show:
 Created app ainavi-auditor-gate in organization <your-org>
 ```
 
-The app name is `ainavi-auditor-gate` (renamed from `ainavi-auditor-gate` to avoid confusion with the Claim-Auditor repository). The hostname will be `ainavi-auditor-gate.fly.dev`.
+The app name is `ainavi-auditor-gate` (renamed from `claim-auditor` to avoid confusion with the Claim-Auditor repository). The hostname will be `ainavi-auditor-gate.fly.dev`.
 
 Verify `fly.toml` exists in the repo root (already committed).
 
