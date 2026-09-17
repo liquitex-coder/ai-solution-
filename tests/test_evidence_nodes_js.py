@@ -279,6 +279,103 @@ class GateNodeJSTests(unittest.TestCase):
         out = run_js(self._gate_js(), prelude)
         self.assertEqual(out[0]["json"]["wp_status"], "draft")
 
+    def test_wf09_source_urls_array_passed_through(self):
+        cfg09 = WF_CONFIG["09"]
+        seen = {}
+        fetch_body = """
+        async function fetch(url, opts) {
+          __seen.body = JSON.parse(opts.body);
+          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [] }) };
+        }
+        """
+        prelude = ("const __seen = {};\n" +
+                  dollar_prelude(
+                      {"content": "hi", "source_urls": ["https://a.test", "https://b.test"]},
+                      {"AINAVI_GATE_URL": "https://gate.test"}, {}, fetch_body))
+        js = _gate_js(self._original_gate_source(), cfg09)
+        harness = prelude + "\n(async function(){\n" + js + "\n})()" \
+            ".then(r => { process.stdout.write(JSON.stringify({result: r, seen: __seen})); })" \
+            ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "harness.js"
+            path.write_text(harness, encoding="utf-8")
+            result = subprocess.run([NODE, str(path)], capture_output=True, text=True,
+                                    encoding="utf-8", timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        out = json.loads(result.stdout)
+        self.assertEqual(out["seen"]["body"]["source_urls"], ["https://a.test", "https://b.test"])
+
+    def _original_gate_source(self):
+        return (
+            "function decide(verdict) {\n"
+            "  if (verdict !== 'PASS') return 'draft';\n"
+            "  return 'draft';\n"
+            "}\n"
+        )
+
+
+@unittest.skipUnless(NODE, "node not installed")
+class ProbesAllWorkflowsJSTests(unittest.TestCase):
+    """§34-9 T-36a: exercise the generated probes node for every configured workflow."""
+
+    NO_FETCH = "async function fetch(){ throw new Error('must not be called'); }"
+
+    STUBS = {
+        "01": {"name": "acme/x", "description": "d", "stars": 1, "language": "Python",
+               "url": "https://github.com/acme/x", "topics": "t", "forks": 0},
+        "02": {"title": "T", "summary": "S", "link": "https://example.com/a"},
+        "03": {"title": "T", "channelTitle": "C", "description": "D",
+               "videoUrl": "https://youtube.com/x"},
+        "04": {"posts": [{"text": "hello AI", "permalink": "https://threads.net/p/1"}]},
+        "05": {"title": "T", "summary": "S"},
+        "06": {"sections": [{"label": "L1", "content": "C1"}, {"label": "L2", "content": "C2"}]},
+        "07": None,
+        "08": {"title_zh": "TZ", "summary_zh": "SZ"},
+        "09": {"items": [
+            {"medium": "github", "title": "acme/y", "url": "https://github.com/acme/y",
+             "snippet": "s", "stars": 10},
+            {"medium": "rss", "title": "news", "url": "https://news.example/z", "snippet": "s2"},
+        ]},
+    }
+    EXPECTED_LANG = {"01": None, "02": "en", "03": None, "04": None, "05": "ja",
+                     "06": None, "07": None, "08": "zh", "09": None}
+
+    def _run_probes(self, num: str, item):
+        cfg = WF_CONFIG[num]
+        nodes = {} if item is None else {cfg["item_node"]: item}
+        prelude = dollar_prelude({"content": ""}, {}, nodes, self.NO_FETCH)
+        return run_js(_probes_js(cfg), prelude)[0]["json"]
+
+    def test_source_text_and_lang_per_workflow(self):
+        for num in WF_CONFIG:
+            with self.subTest(wf=num):
+                out = self._run_probes(num, self.STUBS[num])
+                if num == "07":
+                    self.assertEqual(out["source_text"], "")
+                else:
+                    self.assertTrue(out["source_text"].startswith("[S0] "))
+                self.assertEqual(out["source_lang"], self.EXPECTED_LANG[num])
+
+    def test_wf02_note_link_forces_japanese(self):
+        out = self._run_probes("02", {"title": "T", "summary": "S", "link": "https://note.com/x/y"})
+        self.assertEqual(out["source_lang"], "ja")
+
+    def test_wf04_multiple_posts_join_with_multiple_source_indices(self):
+        out = self._run_probes("04", {"posts": [
+            {"text": "a", "permalink": "u1"}, {"text": "b", "permalink": "u2"}]})
+        self.assertIn("[S0]", out["source_text"])
+        self.assertIn("[S1]", out["source_text"])
+
+    def test_wf06_sections_join_with_multiple_source_indices(self):
+        out = self._run_probes("06", self.STUBS["06"])
+        self.assertIn("[S0]", out["source_text"])
+        self.assertIn("[S1]", out["source_text"])
+
+    def test_wf09_ground_truth_only_from_github_items(self):
+        out = self._run_probes("09", self.STUBS["09"])
+        self.assertEqual(out["ground_truth"], {"acme/y": {"stars": 10}})
+        self.assertIn("[S1]", out["source_text"])
+
 
 if __name__ == "__main__":
     unittest.main()
