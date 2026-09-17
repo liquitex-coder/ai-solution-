@@ -45,6 +45,7 @@ LIBRARY_ONLY_PROMPTS = {
     "04-threads-summary.md": "legacy variant, superseded by 04-threads-influencer.md",
     # superseded by 05-note-monitor.md
     "05-note-summary.md": "legacy variant, superseded by 05-note-monitor.md",
+    "50-fact-check.md": "Evidence Pack verifier prompt (requirements §34); wired in T-35 after the WF01 manual run",
 }
 
 SECRET_PATTERNS = [
