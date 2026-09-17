@@ -1,7 +1,7 @@
 ---
 skill: auditor-gate
 version: "1.0"
-agent: claim-auditor
+agent: ainavi-gate
 phase: REVIEW
 inputs:
   - content: string
@@ -21,7 +21,7 @@ memory_write:
   - 事実層
 ---
 
-# 20-auditor-gate — Claim-Auditor LLM-free Verdict Gate
+# 20-auditor-gate — AI Navi Auditor Gate: LLM-free Verdict Gate
 
 **INV-R2**: verdict は LLM-free 決定論的ロジックのみ。
 **INV-R1**: PASS なしに WordPress 投稿は不可。
@@ -83,7 +83,7 @@ Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verd
 ```json
 {
   "method": "POST",
-  "url": "{{ $env.CLAIM_AUDITOR_URL }}/audit",
+  "url": "{{ $env.AINAVI_GATE_URL }}/audit",
   "body": {
     "content": "{{ $json.article_draft }}",
     "claims": "{{ $json.claims }}",

@@ -11,7 +11,7 @@
 ---
 skill: <kebab-case-name>           # ユニーク識別子
 version: "1.0"                     # semver
-agent: <claim-crew|claim-llm|claim-auditor|claim-builder|claim-evolve>
+agent: <claim-crew|claim-llm|ainavi-gate|claim-builder|claim-evolve>
 phase: <DEFINE|PLAN|BUILD|REVIEW|SHIP>  # このスキルが主に属するフェーズ
 inputs:                             # n8n から受け取るフィールド
   - field_name: type               # 例: topic: string
@@ -69,6 +69,6 @@ BUILD に差し戻し（最大 3 回）、それ以降は人間レビュー待�
 
 Auditor HTTP Request:
 - Method: POST
-- URL: `{{ $env.CLAIM_AUDITOR_URL }}/audit`
+- URL: `{{ $env.AINAVI_GATE_URL }}/audit`
 - Body: `{ "content": "...", "claims": [...], "source_urls": [...] }`
 - Response: `{ "verdict": "PASS|FAIL|UNVERIFIABLE", "reasons": [...], "confidence": "..." }`

@@ -334,7 +334,7 @@ def build() -> None:
             "Threads/ZH/NoimosAI は専用WF (04/08/07) がカバー → coverage に明記\n"
             "確度スコア: 複数媒体で裏取り=HIGH / 公式ブログ・500★以上=MED / 他=LOW\n"
             "取材失敗媒体は UNVERIFIABLE として記事プロンプトに渡す（沈黙しない）\n"
-            "Auditor Gate: CLAIM_AUDITOR_URL 未設定 → 下書き保存\n"
+            "Auditor Gate: AINAVI_GATE_URL 未設定 → 下書き保存\n"
             "スケジュール: 毎週木曜 22:00 UTC (= 金曜 07:00 JST)\n"
             "必要な認証情報: Claude API Key / WordPress App Password\n"
             "任意: GITHUB_TOKEN, YOUTUBE_API_KEY (n8n 環境変数)"

@@ -145,6 +145,6 @@ Write-Host "  - GITHUB_TOKEN must be set as an n8n Environment variable (Setting
 Write-Host "    for the prompt-loading Code nodes to fetch from GitHub - this is separate from credentials."
 Write-Host "  - No workflow was activated. Manually execute each once, confirm a WordPress draft is"
 Write-Host "    created, then toggle Active (SETUP_GUIDE.md Step 5)."
-Write-Host "  - Set CLAIM_AUDITOR_URL and CLAIM_AUDITOR_MODE as n8n Environment/Variables for"
+Write-Host "  - Set AINAVI_GATE_URL and AINAVI_GATE_MODE as n8n Environment/Variables for"
 Write-Host "    production (n8n.cloud) use (SETUP_GUIDE.md Step 4b). The local docker-compose"
 Write-Host "    sandbox already sets both automatically; this manual step is cloud-only."

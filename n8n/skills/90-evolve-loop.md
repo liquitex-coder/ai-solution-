@@ -99,7 +99,7 @@ claim-evolve 改善リクエスト (claim-llm 経由):
 ```json
 {
   "method": "POST",
-  "url": "{{ $env.CLAIM_AUDITOR_URL }}/audit",
+  "url": "{{ $env.AINAVI_GATE_URL }}/audit",
   "body": {
     "content": "{{ updated_skill_content }}",
     "skill_ref": "90-evolve-loop",

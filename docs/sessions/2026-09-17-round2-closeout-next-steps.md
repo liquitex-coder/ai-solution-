@@ -33,7 +33,7 @@ Code checked for the round-2 acceptance items (file:line at `b36ec28`):
 | Real D2 `WARN:VERBATIM_COPY` (body outside blockquotes, 200-char windows, step 100, longest match ≥ 120) | `scripts/content_audit.py` L106–L124 | present, at most one per audit |
 | D5 non-PASS lookup | `scripts/auditor_server.py` L72–L85 `find_prior_fact`, SQL `verdict != 'PASS'` | present |
 | Non-ASCII Bearer → 401 | `scripts/auditor_server.py` L110–L118 bytes `hmac.compare_digest` | present |
-| `PORT` precedence | `scripts/auditor_server.py` L272 `resolve_port`; `Dockerfile` L11 ENV without `CLAIM_AUDITOR_PORT`, L16 HEALTHCHECK same order | present |
+| `PORT` precedence | `scripts/auditor_server.py` L272 `resolve_port`; `Dockerfile` L11 ENV without `AINAVI_GATE_PORT`, L16 HEALTHCHECK same order | present |
 
 Operator evidence on PR #13 (2026-09-15, Docker 29.4.3): `docker build` OK; `-e PORT=10000` → `/health` 200
 `{"memory_db": true, "auth": false}`; bind-mounted volume written (`memory.db` 65536 bytes) with

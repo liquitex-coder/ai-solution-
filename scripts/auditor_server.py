@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HTTP callee for the n8n Claim Auditor Gate."""
+"""HTTP callee for the n8n Auditor Gate (ai-solution's own content gate)."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ class AuditorHTTPServer(ThreadingHTTPServer):
         self.db_lock = threading.Lock()
         self.memory_db = False
         if not self.token:
-            print("CLAIM_AUDITOR_TOKEN not set - unauthenticated mode (sandbox only)",
+            print("AINAVI_GATE_TOKEN not set - unauthenticated mode (sandbox only)",
                   file=sys.stderr, flush=True)
         try:
             conn = memory_init.connect(db_path)
@@ -172,7 +172,7 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
 def health(handler: AuditorRequestHandler) -> tuple[int, None, None]:
     handler._send_json(200, {
         "status": "ok",
-        "service": "claim-auditor-gate",
+        "service": "ainavi-auditor-gate",
         "memory_db": handler.server.memory_db,
         "auth": bool(handler.server.token),
     })
@@ -260,7 +260,7 @@ ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, 
     ("POST", "/embed-diagrams"): embed_diagrams_route,
 }
 
-# §28-2 (v2.4): write paths require auth when CLAIM_AUDITOR_TOKEN is set; /health never does.
+# §28-2 (v2.4): write paths require auth when AINAVI_GATE_TOKEN is set; /health never does.
 AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams")}
 
 
@@ -270,15 +270,15 @@ def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> T
 
 
 def resolve_port(env: Mapping[str, str]) -> int:
-    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
-    return int(env.get("CLAIM_AUDITOR_PORT") or env.get("PORT") or "8090")
+    """§28-2 port row: AINAVI_GATE_PORT -> PORT (Render/Fly.io) -> 8090."""
+    return int(env.get("AINAVI_GATE_PORT") or env.get("PORT") or "8090")
 
 
 def main() -> None:
-    bind = os.environ.get("CLAIM_AUDITOR_BIND", "0.0.0.0")
+    bind = os.environ.get("AINAVI_GATE_BIND", "0.0.0.0")
     port = resolve_port(os.environ)
-    token = os.environ.get("CLAIM_AUDITOR_TOKEN", "")
-    configured_db = Path(os.environ.get("CLAIM_MEMORY_DB", "data/memory.db"))
+    token = os.environ.get("AINAVI_GATE_TOKEN", "")
+    configured_db = Path(os.environ.get("AINAVI_GATE_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db
     server = make_server(bind, port, db_path, token)
     try:
