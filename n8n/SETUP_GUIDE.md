@@ -253,19 +253,21 @@ n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外�
 
 ---
 
-## Step 4b: Claim-Auditor gate 変数
+## Step 4b: Auditor Gate 変数（本リポジトリのゲートサービス — Claim-Auditor 本体ではない、要件§34）
 
 各ワークフローの「Auditor Gate」Codeノードは `$env.CLAIM_AUDITOR_URL` / `$env.CLAIM_AUDITOR_MODE`
 を参照し、`${CLAIM_AUDITOR_URL}/audit` にPOSTして判定結果（`verdict`/`reasons`）を受け取る
 （要件§28）。
 
 - **ローカルサンドボックス（`docker-compose up`）**: `docker-compose.yml` の `n8n` サービスに
-  `CLAIM_AUDITOR_URL=http://auditor:8090` と `CLAIM_AUDITOR_MODE=report_only` が既に設定済みで、
+  `AUDITOR_GATE_URL=http://auditor:8090` と `AUDITOR_GATE_MODE=report_only`（および T-11 まで
+  ゲートノードが読む旧名 `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE` の同値エイリアス）が既に設定済みで、
   **手動設定は不要**。
 - **本番（n8n cloud）**: ローカルのDockerネットワークが無いため、`auditor` サービス
   （`scripts/auditor_server.py`）を到達可能な場所にHTTPSで公開し、そのURLを n8n の
-  Environment/Variables に `CLAIM_AUDITOR_URL` として手動設定する必要がある（公開先の確定は
-  未了・要件§28-3 T-12）。まずは `CLAIM_AUDITOR_MODE=report_only` で運用を開始する。
+  Variables に `AUDITOR_GATE_URL`（T-11 までは旧名 `CLAIM_AUDITOR_URL` も同値で並設、要件§34）として
+  手動設定する必要がある（公開先: Fly.io `ainavi-auditor-gate`、要件§28-3 T-12）。まずは
+  `AUDITOR_GATE_MODE=report_only` で運用を開始する。
 
 ### 動作確認
 
@@ -310,7 +312,7 @@ n8nの環境変数機能で設定する（`scripts/n8n_deploy.ps1` は対象外�
 1. https://liquitex929aa21393-eyqci.wordpress.com/wp-admin/
 2. 「投稿」→「下書き」
 
-全ワークフローが既定（`CLAIM_AUDITOR_MODE=report_only`）では下書き（`draft`）として投稿される
+全ワークフローが既定（`AUDITOR_GATE_MODE=report_only`）では下書き（`draft`）として投稿される
 （週次レポート含め、自動公開されるワークフローは無い）。各実行結果の「Auditor Gate」ノードの
 出力に `verdict`（判定結果）・`audit_mode`（適用中のロールアウトモード）・`fact_id`（判定が
 FAIL/UNVERIFIABLEの場合に記憶層へ書き込まれた行のID、PASS時はnull）が表示されるので、

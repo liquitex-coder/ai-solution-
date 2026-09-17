@@ -18,7 +18,7 @@ An automated Japanese AI news hub for beginners and intermediate learners. n8n c
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Auditor Gate (Code node) → scripts/auditor_server.py         │
-│ POST /audit; CLAIM_AUDITOR_MODE: report_only | canary | full │
+│ POST /audit; AUDITOR_GATE_MODE: report_only | canary | full  │
 └─────────────────────────────┬───────────────────────────────┘
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -50,7 +50,7 @@ Docker Compose waits for the auditor healthcheck before starting n8n.
 | WordPress | http://localhost:8080 | CMS / REST API |
 | n8n | http://localhost:5678 | Workflow management |
 | MySQL | localhost:3306 | Database (no direct access needed) |
-| auditor | internal: http://auditor:8090 (no host port) | Claim-Auditor gate HTTP service |
+| auditor | internal: http://auditor:8090 (no host port) | Auditor Gate HTTP service (`ainavi-auditor-gate`; this repo's `scripts/auditor_server.py`, not the Claim-Auditor repository) |
 
 ## Workflows
 
@@ -147,7 +147,7 @@ echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
 | `PERPLEXITY_API_KEY` | https://www.perplexity.ai/settings/api |
 | `WP_APP_PASSWORD` | Local sandbox: WordPress Admin |
 | `WP_SITE` / `WP_BEARER_TOKEN` | Production WordPress.com OAuth2 variables (requirements §24) |
-| `CLAIM_AUDITOR_MODE` | `report_only` (default), `canary`, or `full` |
+| `AUDITOR_GATE_MODE` | `report_only` (default), `canary`, or `full` (was `CLAIM_AUDITOR_MODE`; requirements §34) |
 | `KIMI_API_KEY` | WF08 Kimi/Moonshot AI Chinese-source translation |
 | `FAL_API_KEY` | Reserved for future featured-image generation (Flux.1 via fal.ai); not yet wired into a workflow |
 
@@ -208,7 +208,7 @@ The pre-push hook runs them in that order. Enable it with `git config core.hooks
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Auditor Gate（Codeノード）→ scripts/auditor_server.py         │
-│ POST /audit; CLAIM_AUDITOR_MODE: report_only | canary | full │
+│ POST /audit; AUDITOR_GATE_MODE: report_only | canary | full  │
 └─────────────────────────────┬───────────────────────────────┘
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -240,7 +240,7 @@ Docker Composeはauditorのヘルスチェック完了後にn8nを起動しま�
 | WordPress | http://localhost:8080 | CMS / REST API |
 | n8n | http://localhost:5678 | ワークフロー管理 |
 | MySQL | localhost:3306 | データベース（直接アクセス不要） |
-| auditor | internal: http://auditor:8090（ホストポートなし） | Claim-AuditorゲートのHTTPサービス |
+| auditor | internal: http://auditor:8090（ホストポートなし） | Auditor Gate HTTPサービス（`ainavi-auditor-gate`。本リポジトリの `scripts/auditor_server.py` であり、Claim-Auditor リポジトリではない） |
 
 ## ワークフロー
 
@@ -337,7 +337,7 @@ echo -n "admin:xxxx xxxx xxxx xxxx xxxx xxxx" | base64
 | `PERPLEXITY_API_KEY` | https://www.perplexity.ai/settings/api |
 | `WP_APP_PASSWORD` | ローカルサンドボックス用: WordPress Admin |
 | `WP_SITE` / `WP_BEARER_TOKEN` | 本番WordPress.com OAuth2変数（requirements §24） |
-| `CLAIM_AUDITOR_MODE` | `report_only`（既定）、`canary`、`full` |
+| `AUDITOR_GATE_MODE` | `report_only`（既定）、`canary`、`full`（旧 `CLAIM_AUDITOR_MODE`、要件§34） |
 | `KIMI_API_KEY` | WF08のKimi/Moonshot AI中国語ソース翻訳用 |
 | `FAL_API_KEY` | 将来のアイキャッチ画像生成（fal.aiのFlux.1）用に予約済み。現時点でワークフローには未接続 |
 

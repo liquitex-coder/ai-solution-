@@ -83,6 +83,29 @@ root-owned volume, so §28-3 (iii) stays a post-deploy check.
 Session tasks (this note's PR): T-29 ROADMAP sync ✅ · T-30 §32-1 rows ✅ · T-31 this note ✅ ·
 T-32 gates + push + draft PR — 📊 4/4 (100%) once the PR is open.
 
+## 6. Addendum — naming: the gate is not Claim-Auditor (same day, operator decision)
+
+Operator: "claim-auditor is the audit tool; I do not agree to using that name here. Fix it
+wherever it is applied outside the Claim-Auditor repository." Survey (code, not docs):
+
+- Real Claim-Auditor namespace: `CLAIM_AUDITOR_END`, `CLAIM_AUDITOR_ORCHESTRATOR_PORT`,
+  `POST /audit/proposal`. This repo's `CLAIM_AUDITOR_URL/MODE/TOKEN/PORT/BIND` and
+  `"service": "claim-auditor-gate"` sat inside that namespace while naming a different service.
+- Sibling repos only *reference* the real tool (`.claim-auditor/case.yaml`, Claim-Crew's
+  `CLAIM_AUDITOR_SRC` = a Claim-Auditor checkout) — nothing to rename there; scope limited to
+  ai-solution- at the operator's request.
+
+Done here (T-33, requirements §34): `/health` `service` → `ainavi-auditor-gate`;
+`AUDITOR_GATE_*` read first in `scripts/auditor_server.py` (`gate_setting`, `resolve_port`),
+deprecated `CLAIM_AUDITOR_*` still honoured with a stderr warning; `Dockerfile` HEALTHCHECK,
+`docker-compose.yml`, `fly.toml`, `.env.example`, `scripts/check_wired.py` (W2/W7 accept both,
+W9 requires `AUDITOR_GATE_URL`), README, FLY_DEPLOY, SETUP_GUIDE.
+
+Deferred to T-11 (CLAUDE.md §F — workflow JSON is not pushed without a manual n8n run):
+the nine gate nodes' `$env.CLAIM_AUDITOR_*`, `scripts/patch_workflows.py` / `build_wf09.py`,
+`n8n/skills/*.md` `$env.CLAIM_AUDITOR_URL`, `scripts/n8n_deploy.ps1` reminder text, and the
+n8n cloud Variables (T-13 sets both names until then). The server fallback is removed with T-11.
+
 <details>
 <summary>🇯🇵 日本語要約</summary>
 
@@ -95,5 +118,6 @@ T-32 gates + push + draft PR — 📊 4/4 (100%) once the PR is open.
 - 未検証: 操作者が `flyctl deploy` を実行済みかはリポジトリから判断できない。§28-3 にホスト名・
   完了日・`/health` 実測が入って T-12 完了。
 - 次: PR #14 マージ → T-12 → T-13 → T-11（手動実行後にのみ push）→ T-14 → T-28 → T-15 → T-16。
+- 追記（同日）: 操作者の指摘で本リポジトリのゲート識別子から `claim-auditor` を排除（T-33、要件§34）。`AUDITOR_GATE_*` / `ainavi-auditor-gate` に改名、旧名はサーバー側フォールバックとして T-11 まで残す。workflow JSON・生成器・skill 文書・n8n Variables の切替は §F により T-11 に同梱。
 
 </details>

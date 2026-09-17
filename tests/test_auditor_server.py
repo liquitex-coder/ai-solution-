@@ -11,23 +11,47 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from scripts import auditor_server
-from scripts.auditor_server import make_server, resolve_port
+from scripts.auditor_server import deprecated_settings, gate_setting, make_server, resolve_port
 
 
 class ResolvePortTests(unittest.TestCase):
-    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
+    """§28-2 port row: AUDITOR_GATE_PORT -> CLAIM_AUDITOR_PORT (deprecated) -> PORT -> 8090."""
 
-    def test_claim_auditor_port_wins_over_port(self):
-        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "8091", "PORT": "10000"}), 8091)
+    def test_gate_port_wins_over_port(self):
+        self.assertEqual(resolve_port({"AUDITOR_GATE_PORT": "8091", "PORT": "10000"}), 8091)
 
-    def test_port_used_when_claim_auditor_port_unset(self):
+    def test_gate_port_wins_over_deprecated_name(self):
+        self.assertEqual(resolve_port({"AUDITOR_GATE_PORT": "8091", "CLAIM_AUDITOR_PORT": "8092",
+                                       "PORT": "10000"}), 8091)
+
+    def test_deprecated_name_still_honoured_until_t11(self):
+        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "8092", "PORT": "10000"}), 8092)
+
+    def test_port_used_when_gate_port_unset(self):
         self.assertEqual(resolve_port({"PORT": "10000"}), 10000)
 
     def test_default_8090_when_neither_set(self):
         self.assertEqual(resolve_port({}), 8090)
 
-    def test_empty_claim_auditor_port_falls_through_to_port(self):
-        self.assertEqual(resolve_port({"CLAIM_AUDITOR_PORT": "", "PORT": "10000"}), 10000)
+    def test_empty_gate_port_falls_through_to_port(self):
+        self.assertEqual(resolve_port({"AUDITOR_GATE_PORT": "", "PORT": "10000"}), 10000)
+
+
+class GateSettingTests(unittest.TestCase):
+    """§34: AUDITOR_GATE_* first, deprecated CLAIM_AUDITOR_* second, default last."""
+
+    def test_new_name_wins(self):
+        self.assertEqual(gate_setting({"AUDITOR_GATE_TOKEN": "new", "CLAIM_AUDITOR_TOKEN": "old"}, "TOKEN"), "new")
+
+    def test_deprecated_name_is_fallback(self):
+        self.assertEqual(gate_setting({"CLAIM_AUDITOR_BIND": "127.0.0.1"}, "BIND", "0.0.0.0"), "127.0.0.1")
+
+    def test_default_when_neither_set(self):
+        self.assertEqual(gate_setting({}, "BIND", "0.0.0.0"), "0.0.0.0")
+
+    def test_deprecated_settings_lists_only_set_legacy_names(self):
+        env = {"CLAIM_AUDITOR_TOKEN": "x", "CLAIM_AUDITOR_BIND": "", "AUDITOR_GATE_PORT": "1", "PORT": "2"}
+        self.assertEqual(deprecated_settings(env), ["CLAIM_AUDITOR_TOKEN"])
 
 
 class AuditorServerTests(unittest.TestCase):
@@ -63,7 +87,7 @@ class AuditorServerTests(unittest.TestCase):
     def test_health_reports_available_memory_database(self):
         status, body = self.request("/health")
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"status": "ok", "service": "claim-auditor-gate",
+        self.assertEqual(body, {"status": "ok", "service": "ainavi-auditor-gate",
                                  "memory_db": True, "auth": False})
 
     def test_pass_does_not_add_fact(self):
@@ -207,7 +231,7 @@ class AuditorServerTests(unittest.TestCase):
 
 
 class AuditorServerAuthTests(unittest.TestCase):
-    """§28-2 (v2.4) / T-27: CLAIM_AUDITOR_TOKEN on the write paths."""
+    """§28-2 (v2.4) / T-27: AUDITOR_GATE_TOKEN on the write paths."""
 
     TOKEN = "test-shared-secret"
 
@@ -282,7 +306,7 @@ class AuditorServerAuthTests(unittest.TestCase):
 
 
 class AuditorServerNoTokenTests(unittest.TestCase):
-    """Unset CLAIM_AUDITOR_TOKEN: behaviour unchanged, /health reports auth=false."""
+    """Unset AUDITOR_GATE_TOKEN: behaviour unchanged, /health reports auth=false."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()

@@ -1,6 +1,6 @@
-# Fly.io configuration for Claim Auditor service
+# Fly.io configuration for the AI Navi Auditor Gate service (this repo's gate, not Claim-Auditor — requirements §34)
 # Deploy: fly deploy -c fly.toml
-# Secrets: fly secrets set CLAIM_AUDITOR_TOKEN=<value>
+# Secrets: fly secrets set AUDITOR_GATE_TOKEN=<value>
 
 app = "ainavi-auditor-gate"
 primary_region = "nrt"  # Tokyo (adjust to operator's region)
@@ -9,8 +9,8 @@ primary_region = "nrt"  # Tokyo (adjust to operator's region)
 dockerfile = "Dockerfile"
 
 [env]
-CLAIM_AUDITOR_BIND = "0.0.0.0"
-CLAIM_AUDITOR_PORT = "8090"
+AUDITOR_GATE_BIND = "0.0.0.0"
+AUDITOR_GATE_PORT = "8090"
 CLAIM_MEMORY_DB = "/app/data/memory.db"
 PYTHONUNBUFFERED = "1"
 

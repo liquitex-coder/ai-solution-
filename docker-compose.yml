@@ -36,9 +36,9 @@ services:
       - ./data:/app/data
     environment:
       CLAIM_MEMORY_DB: /app/data/memory.db
-      CLAIM_AUDITOR_PORT: 8090
-      CLAIM_AUDITOR_BIND: 0.0.0.0
-      CLAIM_AUDITOR_TOKEN: ${CLAIM_AUDITOR_TOKEN:-}
+      AUDITOR_GATE_PORT: 8090
+      AUDITOR_GATE_BIND: 0.0.0.0
+      AUDITOR_GATE_TOKEN: ${AUDITOR_GATE_TOKEN:-}
     expose:
       - "8090"
     healthcheck:
@@ -60,9 +60,14 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - AUDITOR_GATE_URL=http://auditor:8090
+      - AUDITOR_GATE_MODE=${AUDITOR_GATE_MODE:-report_only}
+      - AUDITOR_GATE_TOKEN=${AUDITOR_GATE_TOKEN:-}
+      # Deprecated aliases (requirements §34): the gate nodes still read
+      # $env.CLAIM_AUDITOR_* until T-11 rewrites them; remove these three then.
       - CLAIM_AUDITOR_URL=http://auditor:8090
-      - CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}
-      - CLAIM_AUDITOR_TOKEN=${CLAIM_AUDITOR_TOKEN:-}
+      - CLAIM_AUDITOR_MODE=${AUDITOR_GATE_MODE:-report_only}
+      - CLAIM_AUDITOR_TOKEN=${AUDITOR_GATE_TOKEN:-}
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
     volumes:
       - n8n_data:/home/node/.n8n

@@ -68,22 +68,22 @@ Output:
 
 ## Step 4: Set Secrets
 
-Store `CLAIM_AUDITOR_TOKEN` as a Fly secret (read from `$CLAIM_AUDITOR_TOKEN` env var locally):
+Store `AUDITOR_GATE_TOKEN` as a Fly secret (read from `$AUDITOR_GATE_TOKEN` env var locally):
 
 ```bash
 # Option A: if you have the token value ready
-flyctl secrets set CLAIM_AUDITOR_TOKEN=your-bearer-token-value --app ainavi-auditor-gate
+flyctl secrets set AUDITOR_GATE_TOKEN=your-bearer-token-value --app ainavi-auditor-gate
 
 # Option B: interactive input (more secure)
-echo -n "Enter CLAIM_AUDITOR_TOKEN: "
+echo -n "Enter AUDITOR_GATE_TOKEN: "
 read -s token
-flyctl secrets set CLAIM_AUDITOR_TOKEN="$token" --app ainavi-auditor-gate
+flyctl secrets set AUDITOR_GATE_TOKEN="$token" --app ainavi-auditor-gate
 ```
 
 Verify:
 ```bash
 flyctl secrets list --app ainavi-auditor-gate
-# Shows: CLAIM_AUDITOR_TOKEN (value hidden)
+# Shows: AUDITOR_GATE_TOKEN (value hidden)
 ```
 
 ---
@@ -125,7 +125,7 @@ curl -s https://ainavi-auditor-gate.fly.dev/health | jq .
 ```json
 {
   "status": "ok",
-  "service": "claim-auditor-gate",
+  "service": "ainavi-auditor-gate",
   "memory_db": true,
   "auth": true
 }
@@ -166,9 +166,14 @@ Update `docs/requirements.md` §28-3 with the actual hostname:
 Once the hostname is confirmed, log into n8n.cloud and set Variables:
 
 ```
-CLAIM_AUDITOR_URL  = https://ainavi-auditor-gate.fly.dev
-CLAIM_AUDITOR_MODE = report_only
-CLAIM_AUDITOR_TOKEN = <same value as Step 4>
+AUDITOR_GATE_URL   = https://ainavi-auditor-gate.fly.dev
+AUDITOR_GATE_MODE  = report_only
+AUDITOR_GATE_TOKEN = <same value as Step 4>
+# Until T-11 rewrites the gate nodes they still read the old names, so also set
+# (requirements §34):
+CLAIM_AUDITOR_URL   = <same as AUDITOR_GATE_URL>
+CLAIM_AUDITOR_MODE  = report_only
+CLAIM_AUDITOR_TOKEN = <same as AUDITOR_GATE_TOKEN>
 ```
 
 (Details in SETUP_GUIDE Step 2–3)
@@ -186,7 +191,7 @@ CLAIM_AUDITOR_TOKEN = <same value as Step 4>
 - Check logs: `docker logs <container_id>`
 - Restart: `flyctl restart --app ainavi-auditor-gate`
 
-### CLAIM_AUDITOR_TOKEN not read
+### AUDITOR_GATE_TOKEN not read
 - Verify: `flyctl secrets list --app ainavi-auditor-gate`
 - Re-run Step 4 if missing
 - Redeploy: `flyctl deploy --app ainavi-auditor-gate`

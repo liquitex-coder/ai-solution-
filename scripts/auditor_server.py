@@ -38,7 +38,7 @@ class AuditorHTTPServer(ThreadingHTTPServer):
         self.db_lock = threading.Lock()
         self.memory_db = False
         if not self.token:
-            print("CLAIM_AUDITOR_TOKEN not set - unauthenticated mode (sandbox only)",
+            print("AUDITOR_GATE_TOKEN not set - unauthenticated mode (sandbox only)",
                   file=sys.stderr, flush=True)
         try:
             conn = memory_init.connect(db_path)
@@ -172,7 +172,7 @@ class AuditorRequestHandler(BaseHTTPRequestHandler):
 def health(handler: AuditorRequestHandler) -> tuple[int, None, None]:
     handler._send_json(200, {
         "status": "ok",
-        "service": "claim-auditor-gate",
+        "service": "ainavi-auditor-gate",  # §34: this repo's gate, not Claim-Auditor
         "memory_db": handler.server.memory_db,
         "auth": bool(handler.server.token),
     })
@@ -260,7 +260,7 @@ ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, 
     ("POST", "/embed-diagrams"): embed_diagrams_route,
 }
 
-# §28-2 (v2.4): write paths require auth when CLAIM_AUDITOR_TOKEN is set; /health never does.
+# §28-2 (v2.4): write paths require auth when AUDITOR_GATE_TOKEN is set; /health never does.
 AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams")}
 
 
@@ -269,15 +269,36 @@ def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> T
     return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token)
 
 
+# §34: identifiers owned by this repo use AUDITOR_GATE_*. The CLAIM_AUDITOR_* names
+# collided with the real Claim-Auditor's namespace; they stay readable as a deprecated
+# fallback until T-11 rewrites the n8n gate nodes, then the fallback is removed.
+GATE_ENV_PREFIX = "AUDITOR_GATE_"
+DEPRECATED_ENV_PREFIX = "CLAIM_AUDITOR_"
+
+
+def gate_setting(env: Mapping[str, str], key: str, default: str = "") -> str:
+    """Read AUDITOR_GATE_<key>, else the deprecated CLAIM_AUDITOR_<key>, else default."""
+    return env.get(GATE_ENV_PREFIX + key) or env.get(DEPRECATED_ENV_PREFIX + key) or default
+
+
+def deprecated_settings(env: Mapping[str, str]) -> list[str]:
+    """Deprecated CLAIM_AUDITOR_* names present in env (for the startup warning)."""
+    return sorted(k for k, v in env.items() if k.startswith(DEPRECATED_ENV_PREFIX) and v)
+
+
 def resolve_port(env: Mapping[str, str]) -> int:
-    """§28-2 port row: CLAIM_AUDITOR_PORT -> PORT (Render/Fly.io) -> 8090."""
-    return int(env.get("CLAIM_AUDITOR_PORT") or env.get("PORT") or "8090")
+    """§28-2 port row: AUDITOR_GATE_PORT -> CLAIM_AUDITOR_PORT (deprecated) -> PORT -> 8090."""
+    return int(gate_setting(env, "PORT") or env.get("PORT") or "8090")
 
 
 def main() -> None:
-    bind = os.environ.get("CLAIM_AUDITOR_BIND", "0.0.0.0")
+    bind = gate_setting(os.environ, "BIND", "0.0.0.0")
     port = resolve_port(os.environ)
-    token = os.environ.get("CLAIM_AUDITOR_TOKEN", "")
+    token = gate_setting(os.environ, "TOKEN")
+    legacy = deprecated_settings(os.environ)
+    if legacy:
+        print(f"deprecated {', '.join(legacy)} - use AUDITOR_GATE_* (requirements §34)",
+              file=sys.stderr, flush=True)
     configured_db = Path(os.environ.get("CLAIM_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db
     server = make_server(bind, port, db_path, token)
