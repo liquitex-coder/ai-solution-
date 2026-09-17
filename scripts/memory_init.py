@@ -64,6 +64,18 @@ CREATE TABLE IF NOT EXISTS facts (
 );
 CREATE INDEX IF NOT EXISTS idx_facts_skill ON facts (skill_ref, created_at);
 
+CREATE TABLE IF NOT EXISTS warnings (
+    id INTEGER PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    skill_ref TEXT DEFAULT '',
+    verdict TEXT NOT NULL,
+    code TEXT NOT NULL,
+    detail TEXT DEFAULT '',
+    prompt_sha256 TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, created_at);
+
 CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -144,6 +156,19 @@ def insert_fact(conn: sqlite3.Connection, content: str, source_url: str = "",
         " skill_ref, content_hash, created_at) VALUES (?,?,?,?,?,?,?,?)",
         (content, source_url, confidence, verdict, fail_reason, skill_ref,
          content_hash, now_iso()),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def insert_warning(conn: sqlite3.Connection, content_hash: str, skill_ref: str,
+                   verdict: str, code: str, detail: str = "",
+                   prompt_sha256: str = "") -> int:
+    """Store one WARN: observation row and return its database id (requirements §34-6)."""
+    cur = conn.execute(
+        "INSERT INTO warnings (content_hash, skill_ref, verdict, code, detail,"
+        " prompt_sha256, created_at) VALUES (?,?,?,?,?,?,?)",
+        (content_hash, skill_ref, verdict, code, detail, prompt_sha256, now_iso()),
     )
     conn.commit()
     return cur.lastrowid
@@ -332,7 +357,7 @@ def cmd_prune(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 def cmd_stats(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
     out = {}
-    for table in ("conversation", "facts", "scenes", "persona"):
+    for table in ("conversation", "facts", "scenes", "persona", "warnings"):
         out[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
     out["facts_by_confidence"] = {
         r["confidence"]: r["n"] for r in conn.execute(
