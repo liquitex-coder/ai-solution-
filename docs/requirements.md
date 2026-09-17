@@ -1103,7 +1103,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
 | ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `CLAIM_AUDITOR_URL=http://auditor:8090`、`CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}` |
-| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `CLAIM_AUDITOR_TOKEN` は `fly secrets set CLAIM_AUDITOR_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13 | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE=report_only` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
+| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `CLAIM_AUDITOR_TOKEN` は `fly secrets set CLAIM_AUDITOR_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13、**デプロイ完了: 2026-09-17**（region `nrt`、volume `vol_40o0mnm90wnn5qk4` 1GB、`GET /health` → `{"status":"ok","auth":true,"memory_db":true}` 確認済み） | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE=report_only` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
 
 `.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 

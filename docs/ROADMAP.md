@@ -72,7 +72,7 @@ Critical path: **T-25 → T-24 → T-27 → T-26 → (merge PR #10) → T-12 →
 
 PR #10 was merged by the operator on 2026-09-13 (`fb688b1`) with T-24 and T-26 still in round 2; round 2 continues on the same branch name as a new PR. T-12 can start in parallel: on Fly.io the `internal_port` can be pinned to 8090 so the T-26 `PORT` defect does not block it; on Render it does until round 2 lands.
 
-Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅, T-12 in progress — [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename) merged 2026-09-17 (`41f58a3`), deployment not yet recorded.
+Round 2 landed in [PR #13](https://github.com/liquitex-coder/ai-solution-/pull/13) (`9539897` T-24, `a2496f1` T-26; merged `b36ec28`, 2026-09-15) and T-12 hosting docs in [PR #12](https://github.com/liquitex-coder/ai-solution-/pull/12) (`fb4e598`). Status re-verified on 2026-09-17 (`docs/sessions/2026-09-17-round2-closeout-next-steps.md`): T-24 ✅, T-26 ✅; [PR #14](https://github.com/liquitex-coder/ai-solution-/pull/14) (Fly app rename) merged 2026-09-17 (`41f58a3`). T-12 deployment completed 2026-09-17: `ainavi-auditor-gate.fly.dev` live, `/health` returns `auth:true`/`memory_db:true` (§28-3). Next up: T-13 (n8n cloud Variables, operator-only — `CLAIM_AUDITOR_TOKEN` value is in a local file outside the repo, not committed).
 
 Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code session (`session_018xECHLKgpZWCvB5EphmANb`), not Codex; the Owner column names the implementer role, not the tool. `e71ad6a` marked T-24 and T-26 ✅ from the implementer's self-evaluation; superseded by the 2026-09-13 review below (T-24 🔁, T-26 🔁).
 
@@ -99,7 +99,7 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
-| T-12 🔄 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | hosting decided 2026-09-13 (Fly.io, `fly.toml` + `FLY_DEPLOY.md`, PR #12); app renamed to `ainavi-auditor-gate` in PR #14 (merged 2026-09-17, `41f58a3`). Done when `GET https://<host>/health` → `{"status":"ok","auth":true,"memory_db":true}` and the hostname + completion date are recorded in §28-3 |
+| T-12 ✅ | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | done 2026-09-17: `ainavi-auditor-gate` app + 1GB `data` volume (`nrt`) created, `CLAIM_AUDITOR_TOKEN` secret set, `flyctl deploy -c fly.toml` succeeded, `GET https://ainavi-auditor-gate.fly.dev/health` → `{"status":"ok","service":"claim-auditor-gate","memory_db":true,"auth":true}`; hostname + date recorded in §28-3 |
 | T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
 | T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
 | T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
@@ -134,11 +134,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase A | 6 | 6 | 100% |
 | Phase B | 5 | 5 | 100% |
 | Phase C | 3 | 4 | 75% |
-| Phase D | 0 | 6 | 0% |
-| Phase 1 definition (A–D) | 14 | 21 | 67% |
-| Whole roadmap (A–F) | 14 | 28 | 50% |
+| Phase D | 1 | 6 | 17% |
+| Phase 1 definition (A–D) | 15 | 21 | 71% |
+| Whole roadmap (A–F) | 15 | 28 | 54% |
 
-Last recomputed 2026-09-17 (T-24, T-26 closed by PR #13; T-12 in progress).
+Last recomputed 2026-09-17 (T-12 deployed to Fly.io, `/health` verified).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
