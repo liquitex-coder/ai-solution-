@@ -1335,7 +1335,21 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 
 - Verifier に渡す `source_text` と、ゲートに送る `source_text` は**同一文字列**でなければならない（§34-5 の逐語照合が前提）。
 - Verifier ノードは「continue on fail」。失敗時は `evidence.verifier.ok=false` にして送る（ゲートは止めない、§14）。
-- スキル: `n8n/skills/15-fact-check.md`。プロンプト: `n8n/prompts/50-fact-check.md`（T-35 で配線するまで `check_wired.py` の LIBRARY_ONLY に理由付きで登録）。
+- スキル: `n8n/skills/15-fact-check.md`。プロンプト: `n8n/prompts/50-fact-check.md`（T-35b で配線するまで `check_wired.py` の LIBRARY_ONLY に理由付きで登録）。
+
+#### WF 別ソース構成（T-36a で確定）
+
+| WF | item ノード | source_text | ground_truth | source_lang | 備考 |
+|---|---|---|---|---|---|
+| 01 | 上位5件を整形 | GitHub リポジトリ情報（name/description/stars/language/topics/url） | `{name: {stars, forks, language}}` | `null` | 実測値あり |
+| 02 | 新記事フィルタリング（重複除外） | `title` + `summary` | `{}` | `link` が note.com なら `'ja'`、それ以外 `'en'` | RSSは英語ソースが主、note経由のみ日本語 |
+| 03 | 新動画フィルタリング | `title`/`channelTitle` + `description` + `videoUrl` | `{}` | `null` | API スニペットからは言語判定不可 |
+| 04 | AI関連投稿をフィルタリング | `posts[]` を `[S0]`,`[S1]`... で連結 | `{}` | `null` | 投稿は日英混在 |
+| 05 | 新記事フィルタリング | `title` + `summary` | `{}` | `'ja'` | note.com（日本語）専用ソース |
+| 06 | トレンドデータ集約（`.first()`） | `sections[]`（Perplexity 出力）を `[S0]`,`[S1]`... で連結 | `{}` | `null` | 備考: ソースは Perplexity の生成文であり一次情報ではない（§34-11 item 6） |
+| 07 | なし | `''` | `{}` | `null` | ソース無し。`WARN:NO_SOURCE_FOR_FACTCHECK` が常態 |
+| 08 | 新ZH記事フィルタリング | `title_zh` + `summary_zh` | `{}` | `'zh'` | ZH原文をそのまま逐語照合に使う |
+| 09 | 確度スコア付与 | `items[]`（最大20件）を `[S0]`,`[S1]`... で連結 | GitHub 由来項目（`medium==='github'`）のみ `{title: {stars}}` | `null` | 媒体混在。既存の `source_urls` 配列をゲートがそのまま転送（§34-5 body 拡張） |
 
 ### 34-4. `/audit` リクエスト拡張（スキーマ v1）
 
@@ -1461,7 +1475,8 @@ CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, crea
 | P1 | T-34 | `content_audit.py` 規則、`auditor_server.py` 透過 + `warnings`、`memory_init.py`、`run_eval.py` 拡張 + E01〜E16、単体テスト、`ratchet_check --warn`、Fly 再デプロイ | eval FP=0/FN=0 + warnings 不一致 0、unittest OK、既存 52 case の verdict 不変、`/health` ok → **done 2026-09-17**（eval 68 cases FP=0/FN=0 warning-mismatches=0、unittest 87 OK、52件の既存 verdict 不変を確認済み） |
 | P2a | T-35a | 冪等パッチャ `scripts/patch_evidence_pack.py`（WF01 設定）、W12（空レジストリ）、生成 JS の node 実行テスト、`patch_workflows.py` 実行ガード。**workflow JSON は変更しない** | unittest に patcher 冪等性 + JS ハーネスが入り green |
 | P2b | T-35b | **T-13 後**: パッチャで WF01 JSON 生成 → n8n cloud へ再取込 → 操作者の手動実行 → 実行ログに Evidence Pack 出力と `evidence_summary`、WP 下書き → JSON コミット、`EVIDENCE_REQUIRED_WORKFLOWS` に `01-`、`50-fact-check.md` の LIBRARY_ONLY 解除、§28-3 に T-13 実測3点 | W12 PASS（対象1）、W5 が LIBRARY_ONLY 無しで PASS、手動実行ログ貼付 |
-| P3 | T-36 | WF02〜09 配線（WF07 は `NO_SOURCE_FOR_FACTCHECK` が常態） | 9/9 W12 PASS、手動実行ログ |
+| P3a | T-36a | パッチャ設定 WF02〜09 + 各 WF の patcher/JS テスト（JSON 変更なし） | unittest が9 WF分パラメータ化され green |
+| P3b | T-36b | T-35b と同じ操作者手順を WF02〜09 に適用、`EVIDENCE_REQUIRED_WORKFLOWS` を全件に（WF07 は `NO_SOURCE_FOR_FACTCHECK` が常態） | 9/9 W12 PASS、手動実行ログ |
 | P4 | T-37 | 30日観察: 週次 `ratchet_check.py --warn`、コード別に標本を人手ラベル、精度を下表に記録 | 下表が埋まり署名 |
 | P5 | T-38 | §34-5 の条件を満たしたコードから 1 コード 1 PR で昇格（評価セット先行） | 各 PR の eval/unittest green + 署名 |
 
@@ -1488,4 +1503,5 @@ Fly 再デプロイ: **完了 2026-09-17** — `GET https://ainavi-auditor-gate.
 3. ソース（RSS/Reddit/HN/note）は攻撃者が書ける。対策は逐語照合・INV-R2a・構造化出力・データ区切り指示・ツール無し。注入が成功した場合の最悪は「今日と同じ verdict」または「保留」であり、公開方向には作用しない。
 4. probes はサイト側の bot 対策で `TIMEOUT` になり得る。`DEAD` は 404/410 のみ。
 5. 逐語 evidence はソース言語（EN/ZH）のまま。`source_lang` による D2/D7 のスキップ条件は本節の照合には適用しない。
+6. WF06 のソースは Perplexity の生成文であり一次情報ではない。同 WF の照合は「Perplexity 出力との整合」にとどまる。
 

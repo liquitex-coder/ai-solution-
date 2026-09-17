@@ -85,6 +85,7 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 | T-09 ✅ | Codex | `n8n/SETUP_GUIDE.md` (Step 6 fix, WF07–09, `AINAVI_GATE_*` setup, n8n cloud `$env` check step) + `scripts/n8n_deploy.ps1` stale reminder removal | done 2026-09-12 (`8e786f3`) |
 | T-25 ✅ | Codex | **Gate portability** (§33): explicit `encoding="utf-8"` on every text I/O in `scripts/`; `tests/test_encoding_guard.py` AST sensor; `.githooks/pre-push` falls back to `py -3` | done 2026-09-13 (`a6cd6ae`): Linux AST scan 0 implicit-encoding calls, guard test in unittest (36 OK), `py -3` fallback in the hook; operator evidence in a cp932 console: `py -3 scripts/check_wired.py` 79 PASS exit 0, `py -3 -m unittest discover -s tests` OK exit 0, pre-push chain green (PR #10 comment) |
 | T-24 ✅ | Codex | Auditor spec/code parity per §32-1 D1/D2/D3/D5 (eval cases first; new checks are `WARN:` only per §32-2) | round 1 (`5012356`) landed D1 (0.34, eval 52 FP=0/FN=0), D3, D5; rejected on review 2026-09-13 (D2 inverted = D7, D5 FAIL-only); round 2 done 2026-09-15 (`9539897`, PR #13): `WARN:QUOTE_ALTERED` (D7) + real `WARN:VERBATIM_COPY` (D2) in `scripts/content_audit.py`, `find_prior_fact` with `verdict != 'PASS'` (D5) and bytes `compare_digest` (non-ASCII Bearer → 401) in `scripts/auditor_server.py`. Re-verified 2026-09-17: eval 52 FP=0/FN=0, unittest 46 OK, `check_wired` 79 PASS; §32-1 D2/D5/D7 rows updated the same day |
+| T-39 | Codex/Claude | commit-msg sensor for CLAUDE.md §C-1 (file mentions outside the staged diff) | `.githooks/commit-msg` rejects a body naming a tracked file not in the diff; unit test |
 
 ## Phase C — Service hardening + visual layer
 
@@ -115,8 +116,9 @@ to the operator first. Not part of the Phase 1 definition above; it lands alongs
 Dependencies: T-33 and T-34 have no dependency on T-13..T-16 and can start now. T-35a (tooling: idempotent patcher,
 W12, JS-node tests; no workflow JSON changes) has no dependency either. T-35b (actually patching and running WF01)
 needs T-13 (`$env`/`$vars`/`fetch`/`crypto` readability) and follows the same "push only after the operator's manual
-run" rule as T-11 (CLAUDE.md §F); its workflow edits may ride with T-11's per-file edits. T-36 after T-15. T-37
-starts when T-36 is merged. T-38 after T-37.
+run" rule as T-11 (CLAUDE.md §F); its workflow edits may ride with T-11's per-file edits. T-36a (tooling for
+WF02-09, no workflow JSON changes) has no dependency and can start now. T-36b after T-15 and after T-35b (same
+operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit-msg sensor) has no dependency.
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
@@ -124,7 +126,8 @@ starts when T-36 is merged. T-38 after T-37.
 | T-34 ✅ | Claude | P1 server: §34-5 rules + evidence re-verification in `scripts/content_audit.py`; `evidence` pass-through, `evidence_summary`, `warnings` writes in `scripts/auditor_server.py`; `warnings` table in `scripts/memory_init.py`; `run_eval.py` extension + eval cases E01–E16; unit tests; `ratchet_check.py --warn`; Fly redeploy | done 2026-09-17: eval 68 cases FP=0/FN=0 with 0 warning mismatches; unittest 87 OK; the existing 52 cases keep their verdicts (INV-R2a); Fly redeployed, `/health` → `{"status":"ok","memory_db":true,"auth":true}` |
 | T-35a | Claude | P2a tooling: idempotent `scripts/patch_evidence_pack.py` (WF01 config), W12 in `check_wired.py` with an empty `EVIDENCE_REQUIRED_WORKFLOWS` registry, Node.js-executed tests for the generated Code-node JS, guard on the stale `scripts/patch_workflows.py`. Does not touch `n8n/workflows/*.json` | unittest green incl. patcher idempotency + JS-harness tests; `git status --short n8n/workflows` empty |
 | T-35b | Claude + operator | P2b (after T-13): run the patcher on WF01, re-import to n8n cloud, operator manual run, `EVIDENCE_REQUIRED_WORKFLOWS` gains `01-`, drop the `50-fact-check.md` `LIBRARY_ONLY` entry | operator manual run shows a WP draft and `evidence_summary` in the execution log; W12 PASS for WF01; pushed only after that run |
-| T-36 | Claude + operator | P3 wire WF02–09 (WF07 has no source: `WARN:NO_SOURCE_FOR_FACTCHECK` expected) | W12 PASS 9/9; manual-run logs pasted |
+| T-36a | Claude | P3a tooling: patcher configs + patcher/JS tests for WF02–09 (no workflow JSON changes) | unittest parametrized over all 9 workflows, green |
+| T-36b | Claude + operator | P3b: same operator procedure as T-35b applied to WF02–09, `EVIDENCE_REQUIRED_WORKFLOWS` gains the rest (WF07 has no source: `WARN:NO_SOURCE_FOR_FACTCHECK` expected) | W12 PASS 9/9; manual-run logs pasted |
 | T-37 | operator | P4 30-day observation: weekly `py -3 scripts/ratchet_check.py --warn`, hand-label samples per code, fill the §34-9 precision table | table filled and signed (INV-R1) |
 | T-38 | Claude | P5 promotion, one code per PR, eval cases first (§32-2), per §34-5 criteria | each PR green + signed row in §34-9 |
 
@@ -154,14 +157,14 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Scope | Done | Total | % |
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
-| Phase B | 5 | 5 | 100% |
+| Phase B | 5 | 6 | 83% |
 | Phase C | 3 | 4 | 75% |
 | Phase D | 1 | 6 | 17% |
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Whole roadmap (A–F, D2) | 16 | 34 | 47% |
+| Whole roadmap (A–F, D2) | 16 | 35 | 46% |
 
-Last recomputed 2026-09-17 (T-34 done: Evidence Pack server-side rules + warnings persistence, Fly redeployed).
+Last recomputed 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
@@ -171,6 +174,7 @@ Last recomputed 2026-09-17 (T-34 done: Evidence Pack server-side rules + warning
 - **最重要ギャップ**: ゲートの呼び先サービスが無く、本番では全件 `SKIP`。Phase A で解消する。
 - **workflow JSON の変更（T-11 / T-17 / T-19 / T-20）** は CLAUDE.md §F により、操作者の n8n 手動実行→WP 下書き確認の後にのみ push する。
 - **未検証事項**: n8n cloud で Code ノードの `$env` が使えるか（docs.n8n.io が本セッションでは取得不可）。T-13 で確認し、不可なら T-11 の `$vars` フォールバックが必須になる。
-- **Phase D2（§34 Evidence Pack）**: ファクトチェック層。検証モデルは操作者決定で `claude-haiku-4-5`（コスト理由）。T-33/T-34/T-35a は今すぐ着手可（T-35a はワークフローJSONを変更しないツール整備のみ）、T-35b 以降は T-13 と手動実行が前提。
+- **Phase D2（§34 Evidence Pack）**: ファクトチェック層。検証モデルは操作者決定で `claude-haiku-4-5`（コスト理由）。T-33/T-34/T-35a/T-36a は今すぐ着手可（ワークフローJSONを変更しないツール整備のみ）、T-35b/T-36b 以降は T-13 と手動実行が前提。
+- **T-39**: 3件のPRで「commit本文が対象コミットに含まれないファイル名を挙げる」ミスが再発したため、`.githooks/commit-msg` に機械チェックを追加する（CLAUDE.md §C-1のラチェット）。
 
 </details>
