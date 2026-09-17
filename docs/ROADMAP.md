@@ -93,14 +93,15 @@ Note (2026-09-13): the round-1 implementer for T-24..T-27 was a Claude Code sess
 | T-10 ✅ | Codex | `scripts/kroki_embed.py` + `POST /embed-diagrams` + `tests/test_kroki_embed.py` | done 2026-09-12 (`10f2532`); endpoint unconsumed until T-11 |
 | T-27 ✅ | Codex | `CLAIM_AUDITOR_TOKEN` shared secret on `POST /audit` and `POST /embed-diagrams` (§28-2); `/health` open with `auth` flag; sandbox zero-config | done 2026-09-13 (`3ad09b2`): Linux live run — missing/wrong token 401, facts rows 0 after the 401s, `/health` `auth:true`, token absent from the request log; unittest 36 OK. Follow-up folded into the T-24 round 2 prompt: a non-ASCII Bearer value returns 400 (str `compare_digest` TypeError) instead of 401 — fixed in `9539897` (bytes comparison, 401) |
 | T-26 ✅ | Codex | `Dockerfile` + `.dockerignore`; compose builds the image; `$PORT` honoured; memory DB on a volume | round 1 (`70510a6`) landed Dockerfile / `.dockerignore` / compose `build: .`; rejected 2026-09-13 because `ENV CLAIM_AUDITOR_PORT=8090` overrode a PaaS `PORT` (orchestrator error, CLAUDE.md §C-4); round 2 done 2026-09-15 (`a2496f1`, PR #13): ENV line dropped, `resolve_port()` (`CLAIM_AUDITOR_PORT` → `PORT` → 8090) with precedence unit tests, HEALTHCHECK resolves the same order. Operator docker verification on PR #13 (Docker 29.4.3): `docker build` OK, `-e PORT=10000` → `/health` 200 with `memory_db: true`; bind-mounted volume written. Fly root-owned-volume case stays a T-12 post-deploy check (§28-3 (iii)) |
-| T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
+| T-33 🔄 | Claude | **Naming (§34)**: this repo's gate is not Claim-Auditor — `/health` `service` → `ainavi-auditor-gate`; `CLAIM_AUDITOR_*` → `AUDITOR_GATE_*` in the server, tests, `Dockerfile`, compose, `fly.toml`, `.env.example`, `check_wired`, README / FLY_DEPLOY / SETUP_GUIDE; old names kept as a deprecated server fallback | done when unittest covers the precedence and `service` value, `check_wired` 79 PASS, and no `claim-auditor` identifier remains outside the T-11 deferred set (workflow JSON, generators, skill docs, n8n Variables) |
+| T-11 | Codex + operator | **After T-13.** WF01–09 wiring, one file per Codex call: `$env`→`$vars` config fallback, `Authorization: Bearer` when token set, WF08 `source_lang:'zh'`, "図解埋め込み" node, `article-base.md` mermaid rule; **rename** gate nodes, `scripts/patch_workflows.py` / `build_wf09.py`, skill docs and n8n Variables from `CLAIM_AUDITOR_*` to `AUDITOR_GATE_*` (§34), then drop the server's old-name fallback | push **only after** the operator's manual run shows a WP draft with verdict metadata and a rendered Kroki image (CLAUDE.md §F) |
 
 ## Phase D — Production rollout (operator)
 
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-12 🔄 | operator | Choose hosting (Fly.io volume / Render / Cloudflare Tunnel, table in the v2 note) and deploy the T-26 image with `CLAIM_AUDITOR_TOKEN`; record host in §28-3 | hosting decided 2026-09-13 (Fly.io, `fly.toml` + `FLY_DEPLOY.md`, PR #12); app renamed to `ainavi-auditor-gate` in PR #14 (merged 2026-09-17, `41f58a3`). Done when `GET https://<host>/health` → `{"status":"ok","auth":true,"memory_db":true}` and the hostname + completion date are recorded in §28-3 |
-| T-13 | operator | n8n cloud Variables: `CLAIM_AUDITOR_URL`, `CLAIM_AUDITOR_MODE=report_only`, `CLAIM_AUDITOR_TOKEN`; throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
+| T-13 | operator | n8n cloud Variables: `AUDITOR_GATE_URL`, `AUDITOR_GATE_MODE=report_only`, `AUDITOR_GATE_TOKEN` plus the same values under the old `CLAIM_AUDITOR_*` names until T-11 (§34); throwaway Code node records whether `$env` is readable; result into §28-3 / §15 | one execution log shows the values readable via `$vars` |
 | T-14 | operator | Re-run `scripts/wp-init.ps1` / `.sh` with the corrected taxonomy (WF07–09) | output pasted in PR / session note |
 | T-28 | Codex | Record WF07–09 `wp_id` in `data/wp-taxonomy.json` and `category_id` in the 07/08/09 workflow JSON | W11 PASS for 9/9 without "skipped"; pushed together with T-11 after the manual run |
 | T-15 | operator | Manual run WF01→02→05→06→03→04→07→08→09, confirm drafts + verdict metadata + category, then Activate | execution logs pasted; README Phase 1 = ✅ |
@@ -133,10 +134,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 |---|---|---|---|
 | Phase A | 6 | 6 | 100% |
 | Phase B | 5 | 5 | 100% |
-| Phase C | 3 | 4 | 75% |
+| Phase C | 3 | 5 | 60% |
 | Phase D | 0 | 6 | 0% |
-| Phase 1 definition (A–D) | 14 | 21 | 67% |
-| Whole roadmap (A–F) | 14 | 28 | 50% |
+| Phase 1 definition (A–D) | 14 | 22 | 64% |
+| Whole roadmap (A–F) | 14 | 29 | 48% |
 
 Last recomputed 2026-09-17 (T-24, T-26 closed by PR #13; T-12 in progress).
 

@@ -50,10 +50,13 @@ AI content automation platform: n8n → Claude API → WordPress.
 2. 「実装しました。動くはずです」— テスト出力なしの完了報告は無効。
 3. `read_text()` / `write_text()` / `open()` に `encoding="utf-8"` を必ず明示 —
    Windows cp932 で `UnicodeDecodeError`、`write_text` は無言で cp932 を書く（2026-09-13 実例、要件§33）。
-4. コンテナイメージに `ENV CLAIM_AUDITOR_PORT=...` を焼き込まない — PaaS が注入する `PORT` を
+4. コンテナイメージにゲートのポート変数（`AUDITOR_GATE_PORT`、旧 `CLAIM_AUDITOR_PORT`）を `ENV` で焼き込まない — PaaS が注入する `PORT` を
    無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
 5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
    突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。
+6. 本リポジトリが所有する識別子（サービス名・app 名・環境変数・`/health` の `service`）に `claim-auditor` /
+   `CLAIM_AUDITOR` を使わない — Claim-Auditor は別リポジトリの本物の監査ツールであり、同名は混同を招く
+   （2026-09-16 実例、要件§34。正式名は `ainavi-auditor-gate` / `AUDITOR_GATE_*`）。
 
 ---
 

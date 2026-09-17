@@ -1081,12 +1081,12 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 
 | Method / Path | Request | Response |
 |---|---|---|
-| `GET /health` | — | `200 {"status":"ok","service":"claim-auditor-gate","memory_db":true|false}` |
+| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false,"auth":true|false}`（§34: `service` は本リポジトリのゲート名。`claim-auditor-gate` は 2026-09-17 に改名） |
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
-| 認証 | `CLAIM_AUDITOR_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
-| ポート | `CLAIM_AUDITOR_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `CLAIM_AUDITOR_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `CLAIM_AUDITOR_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
+| 認証 | `AUDITOR_GATE_TOKEN`（§34。旧 `CLAIM_AUDITOR_TOKEN` は移行期間のみ）が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
+| ポート | `AUDITOR_GATE_PORT` → 無ければ旧 `CLAIM_AUDITOR_PORT`（移行期間のみ、§34）→ 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）はポート変数を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `CLAIM_AUDITOR_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
 - **事実層への書込み（§19-3）**: verdict が `FAIL` または `UNVERIFIABLE` のとき `facts` に1行挿入する。
@@ -1096,14 +1096,14 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 - 記憶層 DB が開けない場合は §14 の方針どおり**ログを出して verdict は返す**（`fact_id: null`）。ゲートを止めない。
 - ゲート側は `{...$json, ...result}` で応答を展開するため、応答キーは既存フィールド（`title/content/wp_status/source_url`）と**衝突させない**。
 - ログ: 1リクエスト1行の JSON（path, verdict, skill_ref, ms）。記事本文はログに出さない。
-- 環境変数: `CLAIM_AUDITOR_PORT`（既定 8090）/ `CLAIM_AUDITOR_BIND`（既定 `0.0.0.0`）/ `CLAIM_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§31）。
+- 環境変数（§34）: `AUDITOR_GATE_PORT`（既定 8090）/ `AUDITOR_GATE_BIND`（既定 `0.0.0.0`）/ `AUDITOR_GATE_TOKEN` / `CLAIM_MEMORY_DB`（既定 `data/memory.db`）/ `KROKI_BASE_URL`（§31）。
 
 ### 28-3. 配置
 
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
 | ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `CLAIM_AUDITOR_URL=http://auditor:8090`、`CLAIM_AUDITOR_MODE=${CLAIM_AUDITOR_MODE:-report_only}` |
-| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `CLAIM_AUDITOR_TOKEN` は `fly secrets set CLAIM_AUDITOR_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13 | `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE=report_only` / `CLAIM_AUDITOR_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
+| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `AUDITOR_GATE_TOKEN` は `fly secrets set AUDITOR_GATE_TOKEN=<value>` で設定（§34）。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13 | ゲート変数は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。名前は §34: `AUDITOR_GATE_URL` / `AUDITOR_GATE_MODE=report_only` / `AUDITOR_GATE_TOKEN`。T-11 がゲートノードを書き換えるまでは旧名 `CLAIM_AUDITOR_URL` / `CLAIM_AUDITOR_MODE` / `CLAIM_AUDITOR_TOKEN` も同値で並設し、T-11 完了後に旧名を削除する。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
 
 `.env.example` に `CLAIM_AUDITOR_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 
@@ -1286,3 +1286,31 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 3. `.githooks/pre-push` は `python3` が使えない場合 `py -3` にフォールバックする。
 4. 「ゲート green」の報告には **操作者環境（Windows）での実行結果**を1回は含める（T-25 の完了条件）。
 
+## 34. 命名規約 — 本リポジトリのゲートは Claim-Auditor ではない（2026-09-17 操作者指摘）
+
+### 34-1. 検出した事実（コードで確認）
+
+- 本リポジトリの Auditor Gate 呼び先は `scripts/content_audit.py` + `scripts/auditor_server.py`（§32-1 D6）であり、
+  Claim-Auditor 本体（リポジトリ `liquitex-coder/Claim-Auditor`、パッケージ `claim-auditor`、CLI `claim-audit`）ではない。
+- Claim-Auditor 本体は自分の名前空間として `CLAIM_AUDITOR_END` / `CLAIM_AUDITOR_ORCHESTRATOR_PORT` と `POST /audit/proposal` を持つ。
+  本リポジトリが `CLAIM_AUDITOR_URL` / `MODE` / `TOKEN` / `PORT` / `BIND` と `/health` の `"service": "claim-auditor-gate"` を
+  使っていたため、同じ接頭辞に別サービスの設定が混在し、Fly app 名 `claim-auditor` が Claim-Auditor リポジトリと混同された（2026-09-16、PR #14 で app 名のみ改名済み）。
+
+### 34-2. 規約
+
+1. 本リポジトリが所有する識別子（サービス名・app 名・イメージ名・環境変数・`/health` の `service`）に `claim-auditor` / `CLAIM_AUDITOR` を使わない。
+   「Claim-Auditor」は本物のツールを指す文脈でのみ書く。
+2. 正式名: サービス / Fly app / イメージ = `ainavi-auditor-gate`、環境変数 = `AUDITOR_GATE_URL` / `AUDITOR_GATE_MODE` / `AUDITOR_GATE_TOKEN` / `AUDITOR_GATE_PORT` / `AUDITOR_GATE_BIND`。
+
+| 旧 | 新 | 場所 |
+|---|---|---|
+| `claim-auditor`（Fly app） | `ainavi-auditor-gate` | `fly.toml`（PR #14 で済） |
+| `"service": "claim-auditor-gate"` | `"service": "ainavi-auditor-gate"` | `scripts/auditor_server.py` `/health` |
+| `CLAIM_AUDITOR_URL` / `MODE` / `TOKEN` | `AUDITOR_GATE_URL` / `MODE` / `TOKEN` | compose `n8n` env、n8n cloud Variables、ゲートノード（T-11） |
+| `CLAIM_AUDITOR_TOKEN` / `PORT` / `BIND` | `AUDITOR_GATE_TOKEN` / `PORT` / `BIND` | `scripts/auditor_server.py`、compose `auditor` env、`fly.toml`、`Dockerfile` HEALTHCHECK、`.env.example` |
+
+3. 移行: サーバーは新名を先に読み、無ければ旧 `CLAIM_AUDITOR_*` を読む（起動時に stderr へ非推奨警告 1 行）。
+   ゲートノード（`n8n/workflows/*.json`）・生成器（`scripts/patch_workflows.py` / `build_wf09.py`）・skill 文書の `$env.CLAIM_AUDITOR_*`・n8n Variables の旧名は
+   CLAUDE.md §F（workflow JSON は手動実行なしに push しない）により **T-11 で一括切替**し、その完了時にサーバーの旧名フォールバックを削除する。
+4. ゲート: `check_wired` W2/W7 は移行期間中どちらの名前も受理し、W9 は compose の `n8n` 環境に `AUDITOR_GATE_URL` を要求する。
+   `tests/test_auditor_server.py` が `/health` の `service` 値と変数の優先順位（新 → 旧 → `PORT`）を固定する。
