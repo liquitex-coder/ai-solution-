@@ -86,7 +86,7 @@ Auditor gate の実装は本リポジトリの `scripts/content_audit.py`（verd
 `scripts/auditor_server.py`（HTTP サービス、要件 §28）。仕様と実装の差分は要件 §32 の
 ドリフト表が唯一の正（PLAN のうち `VERBATIM_COPY` / `MISSING_TRANSLATION_LABEL` /
 `ALREADY_REJECTED` は §32-2 に従い `WARN:` として実装、`VERBATIM_COPY` の本来の定義と `QUOTE_ALTERED` は T-24 第2ラウンド、`INSUFFICIENT_LENGTH` は不採用）。
-Evidence Pack の受理と §34-5 の規則は T-34、配線は T-35/T-36（要件 §34-9）。
+Evidence Pack の受理と §34-5 の規則は T-34 で実装済み（`scripts/content_audit.py` `evaluate_evidence`）、配線は T-35/T-36（要件 §34-9）。
 このスキルは n8n からの HTTP Request で呼び出す:
 
 ```json

@@ -1254,8 +1254,8 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 | D5 | `ALREADY_REJECTED`（同一ハッシュ再提出） | `20-auditor-gate.md` PLAN | **実装済み（2026-09-13, T-24）**: §28 サービスが facts の `content_hash` を照合 | 再提出時も verdict は再計算し（固定 FAIL にはしない）、一致する既存行があれば `reasons` 末尾に `WARN:ALREADY_REJECTED:<fact_id>` を追加し facts に重複行を書かない。第1ラウンドは `verdict = 'FAIL'` 行のみ照合し UNVERIFIABLE の再提出が重複行になっていた（Linux 実測: 同一内容 2 回投稿で facts 3 行 / 2 ハッシュ）→ **第2ラウンド（`9539897`）で解消**: `auditor_server.py` `find_prior_fact()` が `verdict != 'PASS'` で照合し、`tests/test_auditor_server.py` が UNVERIFIABLE 2 回投稿で facts 1 行のままを検証 |
 | D6 | 実装場所 | `20-auditor-gate.md` BUILD「`src/claim_auditor/` 配下」 | 本リポジトリに存在しない | 文書を `scripts/content_audit.py` + `scripts/auditor_server.py` に訂正（本節と同コミット） |
 | D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | **実装済み（2026-09-15, T-24 第2ラウンド `9539897`）**: 第1ラウンドが `VERBATIM_COPY` の名で実装した blockquote 内照合を `scripts/content_audit.py` の D7 ブロックとして `WARN:QUOTE_ALTERED:<ratio>` にリネーム（`source_text` あり ∧ `source_lang` が `ja` または未指定のときのみ、閾値は D2 と共有の `SIMILARITY_THRESHOLD = 0.85`） | 2026-09-13 に D2 から分離。誤検出リスクは §32-2 の WARN 運用（verdict 不変・30日観察）で吸収し、FAIL 昇格は観察後に判断する |
-| D8 | `claims: list[string]`（`20-auditor-gate.md` inputs / `skill-base.md` L73）と PLAN の「claims が空 → WARN:NO_CLAIMS」「UNVERIFIABLE claims > 50% → UNVERIFIABLE」 | `20-auditor-gate.md` / `skill-base.md` | **未実装・未配線**: `auditor_server.py` `audit()` は `claims` を読まない。WF01〜09 のゲートノードは `{content, source_urls, skill_ref}` のみ送信し、`claims` も `source_text` も送っていない（D2/D7 は本番で休眠） | `claims` は廃止し §34-4 の `evidence` に置換（T-33 で文書、T-34 で実装、T-35/T-36 で配線）。`source_text`/`source_lang` の送信も T-35/T-36 で配線し D2/D7 を本番有効化 |
-| D9 | §32-2「WARN を30日観察してから FAIL 昇格」 | §32-2 | **観察記録が存在しない**: §28-2 により verdict=PASS は facts に書かれず、PASS 記事の `WARN:` は n8n 実行ログにしか残らない（WP 投稿は title/content/status のみ） | §34-6 の `warnings` テーブルに verdict を問わず全 `WARN:` を記録し、`ratchet_check.py --warn` で集計（T-34）。D2/D3/D7 の観察もこれに乗せる |
+| D8 | `claims: list[string]`（`20-auditor-gate.md` inputs / `skill-base.md` L73）と PLAN の「claims が空 → WARN:NO_CLAIMS」「UNVERIFIABLE claims > 50% → UNVERIFIABLE」 | `20-auditor-gate.md` / `skill-base.md` | **サーバ側実装済み（T-34, `181b607`）**: `/audit` は `evidence` を受理し §34-5 の決定論ルールを適用する。配線（n8n ワークフローが実際に `evidence`/`source_text` を送る）は T-35/T-36 で未了 | `claims` は廃止し §34-4 の `evidence` に置換（T-33 で文書、T-34 で実装、T-35/T-36 で配線）。`source_text`/`source_lang` の送信も T-35/T-36 で配線し D2/D7 を本番有効化 |
+| D9 | §32-2「WARN を30日観察してから FAIL 昇格」 | §32-2 | **実装済み（T-34, `8615bf9`/`181b607`）**: `warnings` テーブル（`scripts/memory_init.py`）+ `scripts/ratchet_check.py --warn` で verdict を問わず全 `WARN:` を集計できる | §34-6 の `warnings` テーブルに verdict を問わず全 `WARN:` を記録し、`ratchet_check.py --warn` で集計（T-34）。D2/D3/D7 の観察もこれに乗る |
 
 ### 32-2. ループの運用
 
@@ -1457,11 +1457,14 @@ CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, crea
 | 段階 | タスク | 内容 | 完了条件 |
 |---|---|---|---|
 | P0 | T-33 | 本節・§32-1 D8/D9・ROADMAP・スキル 15/20/10/skill-base・プロンプト 50（LIBRARY_ONLY） | 単独 docs コミット + prompts コミット、§D ゲート green（Windows） |
-| P1 | T-34 | `content_audit.py` 規則、`auditor_server.py` 透過 + `warnings`、`memory_init.py`、`run_eval.py` 拡張 + E01〜E16、単体テスト、`ratchet_check --warn`、Fly 再デプロイ | eval FP=0/FN=0 + warnings 不一致 0、unittest OK、既存 52 case の verdict 不変、`/health` ok |
+| P1 | T-34 | `content_audit.py` 規則、`auditor_server.py` 透過 + `warnings`、`memory_init.py`、`run_eval.py` 拡張 + E01〜E16、単体テスト、`ratchet_check --warn`、Fly 再デプロイ | eval FP=0/FN=0 + warnings 不一致 0、unittest OK、既存 52 case の verdict 不変、`/health` ok → **done 2026-09-17**（eval 68 cases FP=0/FN=0 warning-mismatches=0、unittest 87 OK、52件の既存 verdict 不変を確認済み） |
 | P2 | T-35 | WF01 パイロット配線（probes / verifier / 整形 / ゲート body）、W12、LIBRARY_ONLY 解除 | 操作者の手動実行で WP 下書き + 実行ログに `evidence_summary`、W12 PASS |
 | P3 | T-36 | WF02〜09 配線（WF07 は `NO_SOURCE_FOR_FACTCHECK` が常態） | 9/9 W12 PASS、手動実行ログ |
 | P4 | T-37 | 30日観察: 週次 `ratchet_check.py --warn`、コード別に標本を人手ラベル、精度を下表に記録 | 下表が埋まり署名 |
 | P5 | T-38 | §34-5 の条件を満たしたコードから 1 コード 1 PR で昇格（評価セット先行） | 各 PR の eval/unittest green + 署名 |
+
+Fly 再デプロイ: **完了 2026-09-17** — `GET https://ainavi-auditor-gate.fly.dev/health` →
+`{"status":"ok","service":"ainavi-auditor-gate","memory_db":true,"auth":true}`（`warnings` テーブルが volume 上の DB に追加された）
 
 観察結果（T-37 で記入）:
 
