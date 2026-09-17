@@ -49,8 +49,12 @@ Verifier 失敗時も出力を止めない（`verifier.ok=false`）。
    - 記事本文の https?:// URL を重複除去し最大 10 件を HEAD（405 なら GET）。404/410 → DEAD、200-399 → OK、それ以外/例外 → TIMEOUT、11 件目以降 → SKIPPED。
    - github.com/<owner>/<repo> は GET https://api.github.com/repos/<owner>/<repo>（$env.GITHUB_TOKEN があれば付与）。404 → NOT_FOUND、200 → OK（detail.stars = stargazers_count）、それ以外 → TIMEOUT。
 3. Tier 2 verifier（HTTP Request ノード、credential = 既存 "Claude API Key"、Continue On Fail = on）。
-4. Evidence Pack 整形（Code ノード）: verifier 応答の content[0].text を JSON.parse → claims。失敗/HTTP エラー → ok=false, error=<message 先頭 200 字>, claims=[]。
-   verifier.prompt_sha256 = 50-fact-check.md の SHA-256（プロンプト読込みノードで計算）。usage は応答の usage をそのまま。
+4. Evidence Pack 整形（Code ノード）: verifier ノード（HTTP Request）の出力は入力 item を引き継がないため、
+   `source_text` / `probes` / `ground_truth` は `$('Evidence Probes (WF-NN)').item.json` から、プロンプトの
+   SHA-256 は `$('プロンプト読込み (WF-NN)').item.json.factcheckPromptSha256` から読む。`$json` は API 応答
+   （または `{error}`）のみ。verifier 応答の content[0].text を JSON.parse → claims。失敗/HTTP エラー →
+   ok=false, error=<message 先頭 200 字>, claims=[]。usage は応答の usage をそのまま。
+   設定値は `cfg()`（`$vars` → `$env`、各 try/catch、要件 §32-1 D10）で読む。
 5. 出力: { ...$json, source_text, source_lang, evidence }。
 ```
 
@@ -64,13 +68,15 @@ Verifier HTTP Request（n8n）:
   "method": "POST",
   "url": "https://api.anthropic.com/v1/messages",
   "headers": { "anthropic-version": "2023-06-01" },
+  "onError": "continueRegularOutput",
+  "options": { "timeout": 120000 },
   "body": {
     "model": "claude-haiku-4-5",
     "max_tokens": 4096,
-    "system": "{{ $json.factcheckPrompt }}",
+    "system": "={{ $('プロンプト読込み (WF-NN)').item.json.factcheckPrompt }}",
     "messages": [{
       "role": "user",
-      "content": "<ARTICLE>\n{{ $json.content }}\n</ARTICLE>\n\n<SOURCES>\n{{ $json.source_text }}\n</SOURCES>\n\n<GROUND_TRUTH>\n{{ JSON.stringify($json.ground_truth || {}) }}\n</GROUND_TRUTH>"
+      "content": "<ARTICLE>\n{{ $json.content }}\n</ARTICLE>\n\n<SOURCES>\n{{ $('Evidence Probes (WF-NN)').item.json.source_text }}\n</SOURCES>\n\n<GROUND_TRUTH>\n{{ JSON.stringify($('Evidence Probes (WF-NN)').item.json.ground_truth || {}) }}\n</GROUND_TRUTH>"
     }],
     "output_config": {
       "format": {

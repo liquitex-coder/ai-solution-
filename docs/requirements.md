@@ -1103,7 +1103,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | 環境 | 配置 | n8n 側設定 |
 |---|---|---|
 | ローカルサンドボックス | `docker-compose.yml` の `auditor` サービス（`python:3.11-slim`、`./scripts` と `./data` をマウント、`python3 scripts/auditor_server.py`） | `n8n` サービスの環境変数 `AINAVI_GATE_URL=http://auditor:8090`、`AINAVI_GATE_MODE=${AINAVI_GATE_MODE:-report_only}` |
-| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `AINAVI_GATE_TOKEN` は `fly secrets set AINAVI_GATE_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13、**デプロイ完了: 2026-09-17**（region `nrt`、volume `vol_40o0mnm90wnn5qk4` 1GB、`GET /health` → `{"status":"ok","auth":true,"memory_db":true}` 確認済み） | `AINAVI_GATE_URL` / `AINAVI_GATE_MODE=report_only` / `AINAVI_GATE_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$env` → `$vars` の順で解決する（T-11） |
+| 本番（n8n cloud） | **Fly.io** — T-26 の `Dockerfile` + `fly.toml`（1GB `data` volume、`internal_port: 8090` ピニング）。Fly CLI: `fly deploy -c fly.toml`。環境変数 `AINAVI_GATE_TOKEN` は `fly secrets set AINAVI_GATE_TOKEN=<value>` で設定。Fly app 名: `ainavi-auditor-gate`（Claim-Auditor リポジトリとの混同を避けるため `claim-auditor` から改名・2026-09-16）。ホスト: `https://ainavi-auditor-gate.fly.dev`（自動 HTTPS）。決定日: 2026-09-13、**デプロイ完了: 2026-09-17**（region `nrt`、volume `vol_40o0mnm90wnn5qk4` 1GB、`GET /health` → `{"status":"ok","auth":true,"memory_db":true}` 確認済み） | `AINAVI_GATE_URL` / `AINAVI_GATE_MODE=report_only` / `AINAVI_GATE_TOKEN` は n8n cloud の **Variables（`$vars`）** に設定する（T-13）。Code ノードで `$env` が読めるかは T-13 で実測し本表に記録。ゲートは `$vars` → `$env` の順で解決する（`cfg()`、要件 §32-1 D10）。T-13 では追加で Code ノードの `fetch` 可否・`require('crypto')` 可否の2点も実測し記録する（§34-9 P2b の前提） |
 
 `.env.example` に `AINAVI_GATE_MODE=report_only` を追加する（URL は compose 内で固定するため .env 不要）。
 
@@ -1256,6 +1256,7 @@ T-14 の `wp-init` 再実行で発行後に同じ方式で追記する。ワー�
 | D7 | ⑤改変禁止の本来の意味（blockquote **内**テキストが原文と ≥ 0.85 で一致していること） | §17-1 表 | **実装済み（2026-09-15, T-24 第2ラウンド `9539897`）**: 第1ラウンドが `VERBATIM_COPY` の名で実装した blockquote 内照合を `scripts/content_audit.py` の D7 ブロックとして `WARN:QUOTE_ALTERED:<ratio>` にリネーム（`source_text` あり ∧ `source_lang` が `ja` または未指定のときのみ、閾値は D2 と共有の `SIMILARITY_THRESHOLD = 0.85`） | 2026-09-13 に D2 から分離。誤検出リスクは §32-2 の WARN 運用（verdict 不変・30日観察）で吸収し、FAIL 昇格は観察後に判断する |
 | D8 | `claims: list[string]`（`20-auditor-gate.md` inputs / `skill-base.md` L73）と PLAN の「claims が空 → WARN:NO_CLAIMS」「UNVERIFIABLE claims > 50% → UNVERIFIABLE」 | `20-auditor-gate.md` / `skill-base.md` | **サーバ側実装済み（T-34, `181b607`）**: `/audit` は `evidence` を受理し §34-5 の決定論ルールを適用する。配線（n8n ワークフローが実際に `evidence`/`source_text` を送る）は T-35/T-36 で未了 | `claims` は廃止し §34-4 の `evidence` に置換（T-33 で文書、T-34 で実装、T-35/T-36 で配線）。`source_text`/`source_lang` の送信も T-35/T-36 で配線し D2/D7 を本番有効化 |
 | D9 | §32-2「WARN を30日観察してから FAIL 昇格」 | §32-2 | **実装済み（T-34, `8615bf9`/`181b607`）**: `warnings` テーブル（`scripts/memory_init.py`）+ `scripts/ratchet_check.py --warn` で verdict を問わず全 `WARN:` を集計できる | §34-6 の `warnings` テーブルに verdict を問わず全 `WARN:` を記録し、`ratchet_check.py --warn` で集計（T-34）。D2/D3/D7 の観察もこれに乗る |
+| D10 | ワークフロー JSON の生成手段 / Code ノードの `$env` | `scripts/patch_workflows.py`（2026-07-10 の一回限りパッチ）/ 全 Code ノードの `$env.*` 参照 | **再実行禁止**: `patch_workflows.py` はゲートノードを二重追加し `AINAVI_GATE_MODE`・`category_id` を持たない旧コードで上書きする（W7/W11 退行）。n8n 2.x は既定で Code ノードの `$env` を遮断（`N8N_BLOCK_ENV_ACCESS_IN_NODE=true`）し、参照は例外になる。n8n Cloud の Code ノードは `crypto`/`moment` のみ import 可、公式には HTTP 不可（既存ノードの `fetch` は未検証の前提） | T-35a: `patch_workflows.py` に実行ガード、新規 `scripts/patch_evidence_pack.py`（冪等）を正とする。全 Code ノードは `cfg()`（`$vars` → `$env`、各 try/catch）で設定を読む。T-13 で `$vars` 可読性・Code ノード `fetch`・`require('crypto')` の3点を実測し §28-3 に記録 |
 
 ### 32-2. ループの運用
 
@@ -1448,8 +1449,8 @@ CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, crea
 
 ### 34-8. 配線ゲート（W12）と LIBRARY_ONLY
 
-- **W12（T-35 で追加）**: ゲート body に `evidence` を含む全ワークフローについて、(a) `50-fact-check.md` と `claude-haiku-4-5` を含むノードが存在、(b) `EVIDENCE_PROBES` マーカーを含む Code ノードが存在、(c) ゲート body に `source_text` を含む。いずれか欠落で FAIL。
-- T-35 より前は `50-fact-check.md` を `LIBRARY_ONLY_PROMPTS` に理由付きで登録（§21）。T-35 で登録を外す。
+- **W12（T-35a で追加、対象レジストリ `EVIDENCE_REQUIRED_WORKFLOWS` は空で開始、T-35b で `01-`、T-36 で全件）**: レジストリ内の各ワークフローについて (a) 本文に `50-fact-check.md` が含まれ、`claude-haiku-4-5` と `output_config` を含むノードが存在、(b) `EVIDENCE_PROBES` マーカーを含む Code ノードが存在、(c) `AINAVI_GATE_URL` を含むゲートノードの jsCode に `source_text` と `evidence` が含まれる。いずれか欠落で FAIL。レジストリ外は「not required yet」として PASS 表示。
+- T-35b より前は `50-fact-check.md` を `LIBRARY_ONLY_PROMPTS` に理由付きで登録（§21）。T-35b で登録を外す。
 - 新しい理由コードは `fail_reason` の先頭2要素規則により、FAIL 昇格後は自動的に §23 のラチェット集計に乗る。
 
 ### 34-9. 段階的ロールアウト（ROADMAP Phase D2、T-33〜T-38）
@@ -1458,7 +1459,8 @@ CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, crea
 |---|---|---|---|
 | P0 | T-33 | 本節・§32-1 D8/D9・ROADMAP・スキル 15/20/10/skill-base・プロンプト 50（LIBRARY_ONLY） | 単独 docs コミット + prompts コミット、§D ゲート green（Windows） |
 | P1 | T-34 | `content_audit.py` 規則、`auditor_server.py` 透過 + `warnings`、`memory_init.py`、`run_eval.py` 拡張 + E01〜E16、単体テスト、`ratchet_check --warn`、Fly 再デプロイ | eval FP=0/FN=0 + warnings 不一致 0、unittest OK、既存 52 case の verdict 不変、`/health` ok → **done 2026-09-17**（eval 68 cases FP=0/FN=0 warning-mismatches=0、unittest 87 OK、52件の既存 verdict 不変を確認済み） |
-| P2 | T-35 | WF01 パイロット配線（probes / verifier / 整形 / ゲート body）、W12、LIBRARY_ONLY 解除 | 操作者の手動実行で WP 下書き + 実行ログに `evidence_summary`、W12 PASS |
+| P2a | T-35a | 冪等パッチャ `scripts/patch_evidence_pack.py`（WF01 設定）、W12（空レジストリ）、生成 JS の node 実行テスト、`patch_workflows.py` 実行ガード。**workflow JSON は変更しない** | unittest に patcher 冪等性 + JS ハーネスが入り green |
+| P2b | T-35b | **T-13 後**: パッチャで WF01 JSON 生成 → n8n cloud へ再取込 → 操作者の手動実行 → 実行ログに Evidence Pack 出力と `evidence_summary`、WP 下書き → JSON コミット、`EVIDENCE_REQUIRED_WORKFLOWS` に `01-`、`50-fact-check.md` の LIBRARY_ONLY 解除、§28-3 に T-13 実測3点 | W12 PASS（対象1）、W5 が LIBRARY_ONLY 無しで PASS、手動実行ログ貼付 |
 | P3 | T-36 | WF02〜09 配線（WF07 は `NO_SOURCE_FOR_FACTCHECK` が常態） | 9/9 W12 PASS、手動実行ログ |
 | P4 | T-37 | 30日観察: 週次 `ratchet_check.py --warn`、コード別に標本を人手ラベル、精度を下表に記録 | 下表が埋まり署名 |
 | P5 | T-38 | §34-5 の条件を満たしたコードから 1 コード 1 PR で昇格（評価セット先行） | 各 PR の eval/unittest green + 署名 |
