@@ -292,14 +292,23 @@ const UA = { 'User-Agent': 'n8n-ai-navi/1.0' };
 const allUrls = [...new Set(content.match(/https?:\\/\\/[^\\s"'<>)]+/g) || [])];
 const urls = allUrls.slice(0, 10);
 const probes = [];
-async function probeUrl(u) {
+const __httpRequest = this.helpers.httpRequest.bind(this.helpers);
+// this.helpers.httpRequest resolves on 2xx and throws on non-2xx, with the
+// HTTP status on the thrown error's `status` property (n8n cloud, confirmed
+// 2026-09-20, requirements §32-1 D10) -- unlike fetch(), there is no `res.ok`
+// to branch on, so each request is normalized to { ok, status, message }.
+async function req(method, u, headers) {
   try {
-    let r = await fetch(u, { method: 'HEAD', redirect: 'follow', headers: UA, signal: AbortSignal.timeout(8000) });
-    if (r.status === 405) r = await fetch(u, { method: 'GET', redirect: 'follow', headers: UA, signal: AbortSignal.timeout(8000) });
-    if (r.status === 404 || r.status === 410) return { kind: 'URL', target: u, result: 'DEAD', detail: String(r.status) };
-    if (r.ok) return { kind: 'URL', target: u, result: 'OK', detail: String(r.status) };
-    return { kind: 'URL', target: u, result: 'TIMEOUT', detail: String(r.status) };
-  } catch (e) { return { kind: 'URL', target: u, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) }; }
+    await __httpRequest({ method, url: u, headers, timeout: 8000 });
+    return { ok: true, status: 200 };
+  } catch (e) { return { ok: false, status: e && e.status, message: e && e.message }; }
+}
+async function probeUrl(u) {
+  let r = await req('HEAD', u, UA);
+  if (r.status === 405) r = await req('GET', u, UA);
+  if (r.status === 404 || r.status === 410) return { kind: 'URL', target: u, result: 'DEAD', detail: String(r.status) };
+  if (r.ok) return { kind: 'URL', target: u, result: 'OK', detail: String(r.status || 200) };
+  return { kind: 'URL', target: u, result: 'TIMEOUT', detail: r.status ? String(r.status) : String(r.message || '').slice(0, 80) };
 }
 for (const u of urls) probes.push(await probeUrl(u));
 for (const u of allUrls.slice(10)) probes.push({ kind: 'URL', target: u, result: 'SKIPPED', detail: 'cap' });
@@ -308,11 +317,14 @@ for (const repo of repos) {
   try {
     const h = { ...UA, 'Accept': 'application/vnd.github.v3+json' };
     if (GITHUB_TOKEN) h['Authorization'] = `token ${GITHUB_TOKEN}`;
-    const r = await fetch(`https://api.github.com/repos/${repo}`, { headers: h, signal: AbortSignal.timeout(8000) });
-    if (r.status === 404) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'NOT_FOUND', detail: '404' });
-    else if (r.ok) { const d = await r.json(); probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'OK', detail: { stars: d.stargazers_count } }); }
-    else probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(r.status) });
-  } catch (e) { probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) }); }
+    const d = await __httpRequest({ method: 'GET', url: `https://api.github.com/repos/${repo}`, headers: h, json: true, timeout: 8000 });
+    probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'OK', detail: { stars: d.stargazers_count } });
+  } catch (e) {
+    const status = e && e.status;
+    if (status === 404) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'NOT_FOUND', detail: '404' });
+    else if (status) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(status) });
+    else probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) });
+  }
 }
 return [{ json: { ...$json, source_text, source_lang, ground_truth, probes } }];"""
     return (template

@@ -82,21 +82,26 @@ class ProbesNodeJSTests(unittest.TestCase):
                    "https://example.com/throws https://github.com/acme/widget "
                    "https://github.com/acme/ghost " + " ".join(urls) +
                    " ".join(f"https://example.com/cap{i}" for i in range(6)))
-        fetch_body = """
-        async function fetch(url, opts) {
-          if (url === 'https://example.com/ok') return { status: 200, ok: true };
-          if (url === 'https://example.com/dead') return { status: 404, ok: false };
+        # this.helpers.httpRequest resolves on 2xx and throws with a `status`
+        # property on non-2xx (n8n cloud, confirmed 2026-09-20, §32-1 D10) --
+        # there is no `res.ok`/`res.status` on a resolved value to branch on.
+        http_request_stub = """
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          const url = opts.url;
+          function fail(status, message) { const e = new Error(message || `HTTP ${status}`); e.status = status; throw e; }
+          if (url === 'https://example.com/ok') return {};
+          if (url === 'https://example.com/dead') fail(404);
           if (url === 'https://example.com/throws') throw new Error('network down');
           if (url === 'https://api.github.com/repos/acme/widget') {
             if (!opts.headers['Authorization']) throw new Error('missing auth header');
-            return { status: 200, ok: true, json: async () => ({ stargazers_count: 999 }) };
+            return { stargazers_count: 999 };
           }
-          if (url === 'https://api.github.com/repos/acme/ghost') return { status: 404, ok: false };
-          return { status: 200, ok: true };
-        }
+          if (url === 'https://api.github.com/repos/acme/ghost') fail(404);
+          return {};
+        } } };
         """
         prelude = dollar_prelude(
-            {"content": content}, {"GITHUB_TOKEN": "tok123"}, {CFG["item_node"]: item}, fetch_body)
+            {"content": content}, {"GITHUB_TOKEN": "tok123"}, {CFG["item_node"]: item}, http_request_stub)
         out = run_js(_probes_js(CFG), prelude)[0]["json"]
 
         self.assertTrue(out["source_text"].startswith("[S0] "))
