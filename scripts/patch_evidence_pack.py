@@ -388,16 +388,13 @@ try {{
   if ($json.source_text) body.source_text = $json.source_text;
   if ($json.source_lang) body.source_lang = $json.source_lang;
   if ($json.evidence && typeof $json.evidence === 'object') body.evidence = $json.evidence;
-  const res = await fetch(`${{auditorUrl}}/audit`, {{
+  const result = await this.helpers.httpRequest({{
     method: 'POST',
+    url: `${{auditorUrl}}/audit`,
     headers: {{ 'Content-Type': 'application/json', ...(token ? {{ 'Authorization': `Bearer ${{token}}` }} : {{}}) }},
-    body: JSON.stringify(body)
+    body,
+    json: true
   }});
-  if (!res.ok) {{
-    return [{{ json: {{ ...$json, verdict: 'UNVERIFIABLE', audit_mode: mode, wp_status: 'draft',
-      audit_note: `Auditor HTTP ${{res.status}}` }} }}];
-  }}
-  const result = await res.json();
   return [{{ json: {{ ...$json, ...result, audit_mode: mode,
     wp_status: decide(result.verdict) }} }}];
 }} catch(e) {{

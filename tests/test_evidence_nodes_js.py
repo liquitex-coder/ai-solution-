@@ -26,9 +26,22 @@ const $env = new Proxy({}, { get() { throw new Error('access to env vars denied'
 """
 
 
+DEFAULT_THIS_ARG_JS = (
+    "globalThis.__thisArg || { helpers: { httpRequest: async () => "
+    "{ throw new Error('httpRequest not stubbed'); } } }"
+)
+
+
 def run_js(js_code: str, prelude: str) -> dict:
-    """Run one Code node's jsCode under node with a stubbed n8n environment."""
-    harness = prelude + "\n(async function(){\n" + js_code + "\n})()" \
+    """Run one Code node's jsCode under node with a stubbed n8n environment.
+
+    `this` inside the Code node (n8n binds it to the execution context, giving
+    access to `this.helpers.httpRequest` -- see requirements §32-1 D10, `fetch`
+    is not defined in n8n cloud Code nodes) is emulated via `.call(...)`. A
+    test sets `globalThis.__thisArg = { helpers: { httpRequest: ... } }` in its
+    prelude to stub it; otherwise it defaults to a stub that throws.
+    """
+    harness = prelude + "\n(async function(){\n" + js_code + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
         ".then(r => { process.stdout.write(JSON.stringify(r === undefined ? null : r)); })" \
         ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
     with tempfile.TemporaryDirectory() as tmp:
@@ -227,24 +240,21 @@ class GateNodeJSTests(unittest.TestCase):
         return _gate_js(original, CFG)
 
     def test_full_request_includes_evidence_and_auth(self):
-        seen = {}
-        fetch_body = """
-        async function fetch(url, opts) {
-          __seen.url = url; __seen.opts = opts;
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [],
-                                                   evidence_summary: { claims: 1 } }) };
-        }
+        this_arg_js = """
+        globalThis.__seen = {};
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          __seen.opts = opts;
+          return { verdict: 'PASS', reasons: [], evidence_summary: { claims: 1 } };
+        } } };
         """
-        prelude = ("const __seen = {};\n" +
-                  dollar_prelude(
-                      {"content": "hi", "source_text": "src", "source_lang": "ja",
-                       "evidence": {"version": 1}, "source_url": "https://x"},
-                      {"AINAVI_GATE_URL": "https://gate.test", "AINAVI_GATE_MODE": "report_only",
-                       "AINAVI_GATE_TOKEN": "t"}, {}, fetch_body) +
-                  "\nglobalThis.__seenExport = () => __seen;\n")
+        prelude = (dollar_prelude(
+            {"content": "hi", "source_text": "src", "source_lang": "ja",
+             "evidence": {"version": 1}, "source_url": "https://x"},
+            {"AINAVI_GATE_URL": "https://gate.test", "AINAVI_GATE_MODE": "report_only",
+             "AINAVI_GATE_TOKEN": "t"}, {}, "") +
+                  this_arg_js)
         js = self._gate_js() + "\n"
-        # capture __seen via a second console print appended to the harness
-        harness = prelude + "\n(async function(){\n" + js + "\n})()" \
+        harness = prelude + "\n(async function(){\n" + js + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
             ".then(r => { process.stdout.write(JSON.stringify({result: r, seen: __seen})); })" \
             ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
         with tempfile.TemporaryDirectory() as tmp:
@@ -254,46 +264,44 @@ class GateNodeJSTests(unittest.TestCase):
                                     encoding="utf-8", timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         out = json.loads(result.stdout)
-        body = json.loads(out["seen"]["opts"]["body"])
+        body = out["seen"]["opts"]["body"]
         self.assertEqual(body["source_text"], "src")
         self.assertEqual(body["evidence"], {"version": 1})
         self.assertEqual(out["seen"]["opts"]["headers"]["Authorization"], "Bearer t")
         self.assertEqual(out["result"][0]["json"]["wp_status"], "draft")
 
-    def test_no_url_returns_skip_without_calling_fetch(self):
-        fetch_body = "async function fetch(){ throw new Error('must not be called'); }"
-        prelude = dollar_prelude(
-            {"content": "hi"}, {}, {}, fetch_body)
+    def test_no_url_returns_skip_without_calling_http_request(self):
+        prelude = (dollar_prelude({"content": "hi"}, {}, {}, "") +
+                  "globalThis.__thisArg = { helpers: { httpRequest: async () => "
+                  "{ throw new Error('must not be called'); } } };\n")
         out = run_js(self._gate_js(), prelude)
         self.assertEqual(out[0]["json"]["verdict"], "SKIP")
 
     def test_no_token_omits_authorization_header(self):
-        fetch_body = """
-        async function fetch(url, opts) {
+        prelude = (dollar_prelude(
+            {"content": "hi"}, {"AINAVI_GATE_URL": "https://gate.test"}, {}, "") +
+                  """globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
           if (opts.headers['Authorization']) throw new Error('should not have auth header');
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [] }) };
-        }
-        """
-        prelude = dollar_prelude(
-            {"content": "hi"}, {"AINAVI_GATE_URL": "https://gate.test"}, {}, fetch_body)
+          return { verdict: 'PASS', reasons: [] };
+        } } };\n""")
         out = run_js(self._gate_js(), prelude)
         self.assertEqual(out[0]["json"]["wp_status"], "draft")
 
     def test_wf09_source_urls_array_passed_through(self):
         cfg09 = WF_CONFIG["09"]
-        seen = {}
-        fetch_body = """
-        async function fetch(url, opts) {
-          __seen.body = JSON.parse(opts.body);
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [] }) };
-        }
+        this_arg_js = """
+        globalThis.__seen = {};
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          __seen.body = opts.body;
+          return { verdict: 'PASS', reasons: [] };
+        } } };
         """
-        prelude = ("const __seen = {};\n" +
-                  dollar_prelude(
-                      {"content": "hi", "source_urls": ["https://a.test", "https://b.test"]},
-                      {"AINAVI_GATE_URL": "https://gate.test"}, {}, fetch_body))
+        prelude = (dollar_prelude(
+            {"content": "hi", "source_urls": ["https://a.test", "https://b.test"]},
+            {"AINAVI_GATE_URL": "https://gate.test"}, {}, "") +
+                  this_arg_js)
         js = _gate_js(self._original_gate_source(), cfg09)
-        harness = prelude + "\n(async function(){\n" + js + "\n})()" \
+        harness = prelude + "\n(async function(){\n" + js + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
             ".then(r => { process.stdout.write(JSON.stringify({result: r, seen: __seen})); })" \
             ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
         with tempfile.TemporaryDirectory() as tmp:
