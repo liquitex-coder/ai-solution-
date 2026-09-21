@@ -55,6 +55,11 @@ AI content automation platform: n8n → Claude API → WordPress.
    無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
 5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
    突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。
+6. `n8n-nodes-base.httpRequest` ノードに `headers`/`body`/`queryParameters` を書くだけでは送信されない —
+   同時に `sendHeaders`/`sendBody`/`sendQuery`（真偽値）と `specifyHeaders`/`specifyBody`/`specifyQuery`
+   （モード）を明示しないと、n8n cloud への Import from File 後にそのパラメータ群が無視される
+   （2026-09-21 実例、WF01 手動実行で Claude ノードが空ボディ送信・GitHub ノードが空クエリ送信になり判明。
+   全9ワークフローの HTTP Request ノードに欠落していたため一括修正）。
 
 ---
 
