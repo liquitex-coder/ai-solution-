@@ -132,8 +132,12 @@ VERIFIER_SCHEMA = {
                     "source_index": {"type": ["integer", "null"]},
                     "value": {"type": ["number", "null"]},
                     "gt_ref": {"type": ["string", "null"]},
-                    "feasibility": {"type": ["string", "null"],
-                                    "enum": ["PLAUSIBLE", "IMPLAUSIBLE", "UNKNOWN", None]},
+                    # anyOf, not `type: [..., "null"]` + enum: the structured-outputs
+                    # validator rejects enum on a type array (requirements §32-1 D12)
+                    "feasibility": {"anyOf": [
+                        {"type": "string", "enum": ["PLAUSIBLE", "IMPLAUSIBLE", "UNKNOWN"]},
+                        {"type": "null"},
+                    ]},
                     "note": {"type": "string"},
                 },
                 "required": ["id", "text", "type", "status", "evidence", "source_index",
@@ -375,7 +379,8 @@ const ground_truth = @@GROUND_TRUTH_JS@@;
 const source_lang = @@SOURCE_LANG_JS@@;
 const GITHUB_TOKEN = cfg('GITHUB_TOKEN');
 const UA = { 'User-Agent': 'n8n-ai-navi/1.0' };
-const allUrls = [...new Set(content.match(/https?:\\/\\/[^\\s"'<>)]+/g) || [])];
+// strip trailing (full-width) punctuation: 「（https://…）」 must not probe the paren (§32-1 D13)
+const allUrls = [...new Set((content.match(/https?:\\/\\/[^\\s"'<>)]+/g) || []).map(u => u.replace(/[）」』】〉》、。，．！？!?:;,.]+$/, '')))];
 const urls = allUrls.slice(0, 10);
 const probes = [];
 const __httpRequest = this.helpers.httpRequest.bind(this.helpers);

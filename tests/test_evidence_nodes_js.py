@@ -78,7 +78,7 @@ class ProbesNodeJSTests(unittest.TestCase):
                 "language": "Python", "url": "https://github.com/acme/widget",
                 "topics": "ai, tools", "forks": 3}
         urls = [f"https://example.com/extra{i}" for i in range(2)]
-        content = ("見よ https://example.com/ok 良い記事 https://example.com/dead "
+        content = ("見よ https://example.com/ok 良い記事（https://example.com/paren）。 https://example.com/dead "
                    "https://example.com/throws https://github.com/acme/widget "
                    "https://github.com/acme/ghost " + " ".join(urls) +
                    " ".join(f"https://example.com/cap{i}" for i in range(6)))
@@ -111,6 +111,9 @@ class ProbesNodeJSTests(unittest.TestCase):
         probes = out["probes"]
         by_target = {(p["kind"], p["target"]): p for p in probes}
         self.assertEqual(by_target[("URL", "https://example.com/ok")]["result"], "OK")
+        # full-width paren after a URL must be stripped, not probed (§32-1 D13)
+        self.assertEqual(by_target[("URL", "https://example.com/paren")]["result"], "OK")
+        self.assertNotIn(("URL", "https://example.com/paren）"), by_target)
         self.assertEqual(by_target[("URL", "https://example.com/dead")]["result"], "DEAD")
         self.assertEqual(by_target[("URL", "https://example.com/throws")]["result"], "TIMEOUT")
         self.assertEqual(by_target[("GITHUB_REPO", "acme/widget")]["result"], "OK")
