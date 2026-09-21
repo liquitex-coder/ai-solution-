@@ -67,7 +67,9 @@
               "value": "5"
             }
           ]
-        }
+        },
+        "sendQuery": true,
+        "specifyQuery": "keypair"
       },
       "id": "wf03aa03-0000-4003-8003-000000000003",
       "name": "YouTube Data API動画取得",
@@ -161,7 +163,11 @@
               "value": "2023-06-01"
             }
           ]
-        }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "wf03aa07-0000-4003-8003-000000000007",
       "name": "Claude APIで動画要約記事生成",
@@ -205,7 +211,9 @@
             "status": "={{ $json.wp_status }}",
             "categories": "={{ [$json.category_id] }}"
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "wf03aa09-0000-4003-8003-000000000009",
       "name": "WordPressに下書き投稿",

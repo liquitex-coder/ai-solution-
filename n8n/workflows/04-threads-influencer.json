@@ -55,7 +55,9 @@
               "value": "10"
             }
           ]
-        }
+        },
+        "sendQuery": true,
+        "specifyQuery": "keypair"
       },
       "id": "3344ccdd-eeff-0011-2233-445566778899",
       "name": "Threads API投稿取得",
@@ -149,7 +151,11 @@
               "value": "2023-06-01"
             }
           ]
-        }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "6677ff00-1122-3344-5566-778899001122",
       "name": "Claude APIでまとめ記事生成",
@@ -193,7 +199,9 @@
             "status": "={{ $json.wp_status }}",
             "categories": "={{ [$json.category_id] }}"
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "8899bb22-3344-5566-7788-990011223344",
       "name": "WordPressに下書き投稿",

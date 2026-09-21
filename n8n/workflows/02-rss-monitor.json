@@ -182,7 +182,11 @@
               "value": "2023-06-01"
             }
           ]
-        }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "0d1e2f3a-4b5c-6789-0123-345678901234",
       "name": "Claude APIで日本語記事生成",
@@ -226,7 +230,9 @@
             "status": "={{ $json.wp_status }}",
             "categories": "={{ [$json.category_id] }}"
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "2f3a4b5c-6d7e-8901-2345-567890123456",
       "name": "WordPressに下書き投稿",

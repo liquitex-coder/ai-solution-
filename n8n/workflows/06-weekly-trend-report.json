@@ -52,7 +52,9 @@
             ],
             "max_tokens": 1500
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "33334444-5555-6666-7777-888899990000",
       "name": "Perplexity APIでトレンド検索",
@@ -121,7 +123,11 @@
               "value": "2023-06-01"
             }
           ]
-        }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "55556666-7777-8888-9999-000011112222",
       "name": "Claude APIで週次レポート生成",
@@ -165,7 +171,9 @@
             "status": "={{ $json.wp_status }}",
             "categories": "={{ [$json.category_id] }}"
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json"
       },
       "id": "77778888-9999-0000-1111-222233334444",
       "name": "WordPressに即時公開",
