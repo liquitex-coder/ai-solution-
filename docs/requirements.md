@@ -978,6 +978,14 @@ Active化はスクリプトでは行わず、人間が手動実行で確認し�
    n8n API のスキーマ外のため除去）。各ノードの `credentials.*.id`
    プレースホルダーを、作成済みCredentialの実IDへ書き換える。
    同名ワークフローが既に存在すれば `[SKIP]`（冪等）。
+   **`-Update` スイッチ（2026-09-21 追加）**: 同名ワークフローが存在する場合は SKIP せず
+   `PUT /api/v1/workflows/{id}` で同じペイロードを上書きする（id / URL / 実行履歴は維持）。
+   `-Only <prefix>`（例 `-Only 01`）でファイル名前方一致の1本だけを対象にできる。
+   背景: n8n UI の「Import from File」は credential 参照を毎回壊す（表示名は残るが id が無効になり
+   `Credentials not found`）ため、T-35b/T-36b の再取込は本スイッチ経由を正とする。
+   **前提**: n8n cloud 側の Credential 名が本表の名前と一致していること。UI で作った Credential は
+   `Header Auth account N` のような既定名になるため、`GitHub API Token` / `Claude API Key` /
+   `WordPress App Password` に改名してから実行する（名前不一致は `missing creds` として報告される）。
 4. **Active化はしない** — 作成後は人間が n8n UI で手動実行 → WordPress下書き
    確認 → Active ON、という既存フロー（SETUP_GUIDE Step 5）に委ねる。
 
