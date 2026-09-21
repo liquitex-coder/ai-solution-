@@ -26,9 +26,22 @@ const $env = new Proxy({}, { get() { throw new Error('access to env vars denied'
 """
 
 
+DEFAULT_THIS_ARG_JS = (
+    "globalThis.__thisArg || { helpers: { httpRequest: async () => "
+    "{ throw new Error('httpRequest not stubbed'); } } }"
+)
+
+
 def run_js(js_code: str, prelude: str) -> dict:
-    """Run one Code node's jsCode under node with a stubbed n8n environment."""
-    harness = prelude + "\n(async function(){\n" + js_code + "\n})()" \
+    """Run one Code node's jsCode under node with a stubbed n8n environment.
+
+    `this` inside the Code node (n8n binds it to the execution context, giving
+    access to `this.helpers.httpRequest` -- see requirements §32-1 D10, `fetch`
+    is not defined in n8n cloud Code nodes) is emulated via `.call(...)`. A
+    test sets `globalThis.__thisArg = { helpers: { httpRequest: ... } }` in its
+    prelude to stub it; otherwise it defaults to a stub that throws.
+    """
+    harness = prelude + "\n(async function(){\n" + js_code + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
         ".then(r => { process.stdout.write(JSON.stringify(r === undefined ? null : r)); })" \
         ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
     with tempfile.TemporaryDirectory() as tmp:
@@ -65,25 +78,30 @@ class ProbesNodeJSTests(unittest.TestCase):
                 "language": "Python", "url": "https://github.com/acme/widget",
                 "topics": "ai, tools", "forks": 3}
         urls = [f"https://example.com/extra{i}" for i in range(2)]
-        content = ("見よ https://example.com/ok 良い記事 https://example.com/dead "
+        content = ("見よ https://example.com/ok 良い記事（https://example.com/paren）。 https://example.com/dead "
                    "https://example.com/throws https://github.com/acme/widget "
                    "https://github.com/acme/ghost " + " ".join(urls) +
                    " ".join(f"https://example.com/cap{i}" for i in range(6)))
-        fetch_body = """
-        async function fetch(url, opts) {
-          if (url === 'https://example.com/ok') return { status: 200, ok: true };
-          if (url === 'https://example.com/dead') return { status: 404, ok: false };
+        # this.helpers.httpRequest resolves on 2xx and throws with a `status`
+        # property on non-2xx (n8n cloud, confirmed 2026-09-20, §32-1 D10) --
+        # there is no `res.ok`/`res.status` on a resolved value to branch on.
+        http_request_stub = """
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          const url = opts.url;
+          function fail(status, message) { const e = new Error(message || `HTTP ${status}`); e.status = status; throw e; }
+          if (url === 'https://example.com/ok') return {};
+          if (url === 'https://example.com/dead') fail(404);
           if (url === 'https://example.com/throws') throw new Error('network down');
           if (url === 'https://api.github.com/repos/acme/widget') {
             if (!opts.headers['Authorization']) throw new Error('missing auth header');
-            return { status: 200, ok: true, json: async () => ({ stargazers_count: 999 }) };
+            return { stargazers_count: 999 };
           }
-          if (url === 'https://api.github.com/repos/acme/ghost') return { status: 404, ok: false };
-          return { status: 200, ok: true };
-        }
+          if (url === 'https://api.github.com/repos/acme/ghost') fail(404);
+          return {};
+        } } };
         """
         prelude = dollar_prelude(
-            {"content": content}, {"GITHUB_TOKEN": "tok123"}, {CFG["item_node"]: item}, fetch_body)
+            {"content": content}, {"GITHUB_TOKEN": "tok123"}, {CFG["item_node"]: item}, http_request_stub)
         out = run_js(_probes_js(CFG), prelude)[0]["json"]
 
         self.assertTrue(out["source_text"].startswith("[S0] "))
@@ -93,6 +111,9 @@ class ProbesNodeJSTests(unittest.TestCase):
         probes = out["probes"]
         by_target = {(p["kind"], p["target"]): p for p in probes}
         self.assertEqual(by_target[("URL", "https://example.com/ok")]["result"], "OK")
+        # full-width paren after a URL must be stripped, not probed (§32-1 D13)
+        self.assertEqual(by_target[("URL", "https://example.com/paren")]["result"], "OK")
+        self.assertNotIn(("URL", "https://example.com/paren）"), by_target)
         self.assertEqual(by_target[("URL", "https://example.com/dead")]["result"], "DEAD")
         self.assertEqual(by_target[("URL", "https://example.com/throws")]["result"], "TIMEOUT")
         self.assertEqual(by_target[("GITHUB_REPO", "acme/widget")]["result"], "OK")
@@ -227,24 +248,21 @@ class GateNodeJSTests(unittest.TestCase):
         return _gate_js(original, CFG)
 
     def test_full_request_includes_evidence_and_auth(self):
-        seen = {}
-        fetch_body = """
-        async function fetch(url, opts) {
-          __seen.url = url; __seen.opts = opts;
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [],
-                                                   evidence_summary: { claims: 1 } }) };
-        }
+        this_arg_js = """
+        globalThis.__seen = {};
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          __seen.opts = opts;
+          return { verdict: 'PASS', reasons: [], evidence_summary: { claims: 1 } };
+        } } };
         """
-        prelude = ("const __seen = {};\n" +
-                  dollar_prelude(
-                      {"content": "hi", "source_text": "src", "source_lang": "ja",
-                       "evidence": {"version": 1}, "source_url": "https://x"},
-                      {"AINAVI_GATE_URL": "https://gate.test", "AINAVI_GATE_MODE": "report_only",
-                       "AINAVI_GATE_TOKEN": "t"}, {}, fetch_body) +
-                  "\nglobalThis.__seenExport = () => __seen;\n")
+        prelude = (dollar_prelude(
+            {"content": "hi", "source_text": "src", "source_lang": "ja",
+             "evidence": {"version": 1}, "source_url": "https://x"},
+            {"AINAVI_GATE_URL": "https://gate.test", "AINAVI_GATE_MODE": "report_only",
+             "AINAVI_GATE_TOKEN": "t"}, {}, "") +
+                  this_arg_js)
         js = self._gate_js() + "\n"
-        # capture __seen via a second console print appended to the harness
-        harness = prelude + "\n(async function(){\n" + js + "\n})()" \
+        harness = prelude + "\n(async function(){\n" + js + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
             ".then(r => { process.stdout.write(JSON.stringify({result: r, seen: __seen})); })" \
             ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
         with tempfile.TemporaryDirectory() as tmp:
@@ -254,46 +272,44 @@ class GateNodeJSTests(unittest.TestCase):
                                     encoding="utf-8", timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         out = json.loads(result.stdout)
-        body = json.loads(out["seen"]["opts"]["body"])
+        body = out["seen"]["opts"]["body"]
         self.assertEqual(body["source_text"], "src")
         self.assertEqual(body["evidence"], {"version": 1})
         self.assertEqual(out["seen"]["opts"]["headers"]["Authorization"], "Bearer t")
         self.assertEqual(out["result"][0]["json"]["wp_status"], "draft")
 
-    def test_no_url_returns_skip_without_calling_fetch(self):
-        fetch_body = "async function fetch(){ throw new Error('must not be called'); }"
-        prelude = dollar_prelude(
-            {"content": "hi"}, {}, {}, fetch_body)
+    def test_no_url_returns_skip_without_calling_http_request(self):
+        prelude = (dollar_prelude({"content": "hi"}, {}, {}, "") +
+                  "globalThis.__thisArg = { helpers: { httpRequest: async () => "
+                  "{ throw new Error('must not be called'); } } };\n")
         out = run_js(self._gate_js(), prelude)
         self.assertEqual(out[0]["json"]["verdict"], "SKIP")
 
     def test_no_token_omits_authorization_header(self):
-        fetch_body = """
-        async function fetch(url, opts) {
+        prelude = (dollar_prelude(
+            {"content": "hi"}, {"AINAVI_GATE_URL": "https://gate.test"}, {}, "") +
+                  """globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
           if (opts.headers['Authorization']) throw new Error('should not have auth header');
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [] }) };
-        }
-        """
-        prelude = dollar_prelude(
-            {"content": "hi"}, {"AINAVI_GATE_URL": "https://gate.test"}, {}, fetch_body)
+          return { verdict: 'PASS', reasons: [] };
+        } } };\n""")
         out = run_js(self._gate_js(), prelude)
         self.assertEqual(out[0]["json"]["wp_status"], "draft")
 
     def test_wf09_source_urls_array_passed_through(self):
         cfg09 = WF_CONFIG["09"]
-        seen = {}
-        fetch_body = """
-        async function fetch(url, opts) {
-          __seen.body = JSON.parse(opts.body);
-          return { ok: true, json: async () => ({ verdict: 'PASS', reasons: [] }) };
-        }
+        this_arg_js = """
+        globalThis.__seen = {};
+        globalThis.__thisArg = { helpers: { httpRequest: async (opts) => {
+          __seen.body = opts.body;
+          return { verdict: 'PASS', reasons: [] };
+        } } };
         """
-        prelude = ("const __seen = {};\n" +
-                  dollar_prelude(
-                      {"content": "hi", "source_urls": ["https://a.test", "https://b.test"]},
-                      {"AINAVI_GATE_URL": "https://gate.test"}, {}, fetch_body))
+        prelude = (dollar_prelude(
+            {"content": "hi", "source_urls": ["https://a.test", "https://b.test"]},
+            {"AINAVI_GATE_URL": "https://gate.test"}, {}, "") +
+                  this_arg_js)
         js = _gate_js(self._original_gate_source(), cfg09)
-        harness = prelude + "\n(async function(){\n" + js + "\n})()" \
+        harness = prelude + "\n(async function(){\n" + js + f"\n}}).call({DEFAULT_THIS_ARG_JS})" \
             ".then(r => { process.stdout.write(JSON.stringify({result: r, seen: __seen})); })" \
             ".catch(e => { process.stderr.write(String(e && e.stack || e)); process.exit(1); });"
         with tempfile.TemporaryDirectory() as tmp:

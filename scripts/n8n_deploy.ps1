@@ -12,6 +12,14 @@
 #   $env:WP_BEARER_TOKEN = "..."
 #   # optional: GITHUB_TOKEN, PERPLEXITY_API_KEY, KIMI_API_KEY, THREADS_ACCESS_TOKEN, YOUTUBE_API_KEY
 #   powershell -ExecutionPolicy Bypass -File scripts/n8n_deploy.ps1
+#   # -Update: overwrite an existing same-name workflow via PUT (keeps its id/URL)
+#   # -Only 01: only the workflow file(s) whose name starts with "01"
+#   powershell -ExecutionPolicy Bypass -File scripts/n8n_deploy.ps1 -Update -Only 01
+
+param(
+    [switch]$Update,
+    [string]$Only = ""
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -95,11 +103,15 @@ $workflowDir = Join-Path $PSScriptRoot "..\n8n\workflows"
 $workflowFiles = Get-ChildItem -Path $workflowDir -Filter "*.json" | Sort-Object Name
 
 foreach ($file in $workflowFiles) {
+    if ($Only -and -not $file.Name.StartsWith($Only)) {
+        continue
+    }
+
     $wf = Get-Content -Raw -Path $file.FullName -Encoding UTF8 | ConvertFrom-Json
 
-    $already = $existingWorkflows | Where-Object { $_.name -eq $wf.name }
-    if ($already) {
-        Write-Host "[SKIP] Workflow already exists: $($wf.name)"
+    $already = $existingWorkflows | Where-Object { $_.name -eq $wf.name } | Select-Object -First 1
+    if ($already -and -not $Update) {
+        Write-Host "[SKIP] Workflow already exists: $($wf.name) (use -Update to overwrite)"
         continue
     }
 
@@ -128,9 +140,15 @@ foreach ($file in $workflowFiles) {
     } | ConvertTo-Json -Depth 50 -Compress
 
     try {
-        $result = Invoke-RestMethod -Uri "$BaseUrl/workflows" -Headers $Headers -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($payload))
         $note = if ($missingCreds.Count -gt 0) { " (missing creds, fix manually: $($missingCreds -join ', '))" } else { "" }
-        Write-Host "[CREATED] Workflow: $($wf.name) (id=$($result.id))$note"
+        if ($already) {
+            $result = Invoke-RestMethod -Uri "$BaseUrl/workflows/$($already.id)" -Headers $Headers -Method Put -Body ([Text.Encoding]::UTF8.GetBytes($payload))
+            Write-Host "[UPDATED] Workflow: $($wf.name) (id=$($result.id))$note"
+        }
+        else {
+            $result = Invoke-RestMethod -Uri "$BaseUrl/workflows" -Headers $Headers -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($payload))
+            Write-Host "[CREATED] Workflow: $($wf.name) (id=$($result.id))$note"
+        }
     }
     catch {
         Write-Warning "Failed to import workflow '$($file.Name)': $($_.Exception.Message)"

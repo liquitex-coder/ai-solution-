@@ -6,13 +6,15 @@ never the committed n8n/workflows/*.json files.
 
 import hashlib
 import json
+import re
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from scripts import check_wired
-from scripts.patch_evidence_pack import WF_CONFIG, derive_positions, extract_decide, patch_workflow
+from scripts.patch_evidence_pack import (VERIFIER_SCHEMA, WF_CONFIG, derive_positions, extract_decide,
+                                         patch_workflow)
 
 ROOT = Path(__file__).resolve().parent.parent
 WF_DIR = ROOT / "n8n" / "workflows"
@@ -64,11 +66,41 @@ class PatchEvidencePackTests(unittest.TestCase):
                 verifier = self._node(wf, cfg["verifier_name"])
                 self.assertEqual(verifier["onError"], "continueRegularOutput")
                 self.assertEqual(verifier["credentials"]["httpHeaderAuth"]["name"], "Claude API Key")
-                body = verifier["parameters"]["body"]["jsonBody"]
+                p = verifier["parameters"]
+                self.assertNotIn("body", p)
+                self.assertNotIn("headers", p)
+                self.assertTrue(p["sendBody"])
+                self.assertEqual(p["specifyBody"], "json")
+                self.assertTrue(p["sendHeaders"])
+                tpl = p["jsonBody"]
+                self.assertTrue(tpl.startswith("="))
+                # every {{ }} must be a JSON.stringify(...) so the template stays valid JSON
+                exprs = re.findall(r"\{\{(.*?)\}\}", tpl, flags=re.S)
+                self.assertTrue(exprs)
+                for e in exprs:
+                    self.assertTrue(e.strip().startswith("JSON.stringify("), e)
+                body = json.loads(re.sub(r"\{\{.*?\}\}", '"<expr>"', tpl[1:], flags=re.S))
                 self.assertEqual(body["model"], "claude-haiku-4-5")
                 self.assertEqual(body["output_config"]["format"]["type"], "json_schema")
-                self.assertIn(cfg["prompt_node"], body["system"])
+                self.assertEqual(body["system"], "<expr>")
+                self.assertIn(cfg["prompt_node"], tpl)
                 self.assertNotIn("thinking", json.dumps(verifier))
+
+    def test_verifier_schema_never_puts_enum_on_a_type_array(self):
+        # Anthropic structured outputs reject `enum` next to `type: [..., "null"]` (§32-1 D12)
+        def walk(schema):
+            if isinstance(schema, dict):
+                if "enum" in schema:
+                    self.assertNotIsInstance(schema.get("type"), list, schema)
+                    self.assertNotIn(None, schema["enum"], schema)
+                for value in schema.values():
+                    walk(value)
+            elif isinstance(schema, list):
+                for value in schema:
+                    walk(value)
+        walk(VERIFIER_SCHEMA)
+        feas = VERIFIER_SCHEMA["properties"]["claims"]["items"]["properties"]["feasibility"]
+        self.assertEqual([b.get("type") for b in feas["anyOf"]], ["string", "null"])
 
     def test_connection_chain(self):
         for num, cfg in WF_CONFIG.items():
