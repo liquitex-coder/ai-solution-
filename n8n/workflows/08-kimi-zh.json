@@ -104,24 +104,11 @@
         "url": "https://api.moonshot.cn/v1/chat/completions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "moonshot-v1-128k",
-            "max_tokens": 3000,
-            "messages": [
-              {
-                "role": "system",
-                "content": "{{ $json.promptContent }}"
-              },
-              {
-                "role": "user",
-                "content": "={{ '【翻訳元記事】\\nタイトル (ZH): ' + $json.title_zh + '\\nURL: ' + $json.link + '\\n概要 (ZH): ' + ($json.summary_zh || '') }}"
-              }
-            ]
-          }
-        },
-        "headers": {
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json",
+        "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
@@ -129,10 +116,8 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "sendBody": true,
-        "specifyBody": "json"
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"moonshot-v1-128k\",\n  \"max_tokens\": 3000,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": {{ JSON.stringify(($json.promptContent)) }}\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(('【翻訳元記事】\\nタイトル (ZH): ' + $json.title_zh + '\\nURL: ' + $json.link + '\\n概要 (ZH): ' + ($json.summary_zh || ''))) }}\n    }\n  ]\n}"
       },
       "id": "wf08aa07-0000-4008-8008-000000000007",
       "name": "Kimi APIでZH→JA翻訳・記事生成",
@@ -181,16 +166,10 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify(($json.title)) }},\n  \"content\": {{ JSON.stringify(($json.content)) }},\n  \"status\": {{ JSON.stringify(($json.wp_status)) }}\n}"
       },
       "id": "wf08aa09-0000-4008-8008-000000000009",
       "name": "WordPressに下書き投稿",

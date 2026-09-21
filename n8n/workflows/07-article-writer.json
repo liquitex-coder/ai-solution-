@@ -44,20 +44,11 @@
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "claude-sonnet-5",
-            "max_tokens": 4000,
-            "messages": [
-              {
-                "role": "user",
-                "content": "={{ $json.promptContent + '\\n\\n【記事パラメータ】\\nトピック: ' + $json.topic + '\\n切り口: ' + $json.angle + '\\nキーワード: ' + $json.keywords }}"
-              }
-            ]
-          }
-        },
-        "headers": {
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json",
+        "headerParameters": {
           "parameters": [
             {
               "name": "anthropic-version",
@@ -65,10 +56,8 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "sendBody": true,
-        "specifyBody": "json"
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-5\",\n  \"max_tokens\": 4000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(($json.promptContent + '\\n\\n【記事パラメータ】\\nトピック: ' + $json.topic + '\\n切り口: ' + $json.angle + '\\nキーワード: ' + $json.keywords)) }}\n    }\n  ]\n}"
       },
       "id": "wf07aa04-0000-4007-8007-000000000004",
       "name": "Claude APIで記事生成",
@@ -117,16 +106,10 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}"
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify(($json.title)) }},\n  \"content\": {{ JSON.stringify(($json.content)) }},\n  \"status\": {{ JSON.stringify(($json.wp_status)) }}\n}"
       },
       "id": "wf07aa06-0000-4007-8007-000000000006",
       "name": "WordPressに投稿",

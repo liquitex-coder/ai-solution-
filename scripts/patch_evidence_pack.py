@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -28,6 +29,91 @@ CFG_JS = """function cfg(name) {
   try { const v = (typeof $env !== 'undefined' && $env) ? $env[name] : ''; if (v) return String(v); } catch (e) {}
   return '';
 }"""
+
+_WHOLE_EXPR = re.compile(r"^\{\{(.*)\}\}$", re.S)
+_INLINE_EXPR = re.compile(r"\{\{(.*?)\}\}", re.S)
+
+
+def _js_template_literal(text: str) -> str:
+    """Turn an n8n inline template ('a {{ e }} b') into a JS template literal."""
+    out = []
+    pos = 0
+    for m in _INLINE_EXPR.finditer(text):
+        out.append(_escape_tpl_literal(text[pos:m.start()]))
+        out.append("${" + m.group(1).strip() + "}")
+        pos = m.end()
+    out.append(_escape_tpl_literal(text[pos:]))
+    return "`" + "".join(out) + "`"
+
+
+def _escape_tpl_literal(s: str) -> str:
+    return (s.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+             .replace("\r", "\\r").replace("\n", "\\n"))
+
+
+def _json_body_value(v, indent: int) -> str:
+    pad = "  " * indent
+    if isinstance(v, str):
+        tpl = v[1:] if v.startswith("=") else (v if "{{" in v else None)
+        if tpl is None:
+            return json.dumps(v, ensure_ascii=False)
+        m = _WHOLE_EXPR.match(tpl.strip())
+        if m:
+            return "{{ JSON.stringify((" + m.group(1).strip() + ")) }}"
+        return "{{ JSON.stringify(" + _js_template_literal(tpl) + ") }}"
+    if isinstance(v, dict):
+        if not v:
+            return "{}"
+        items = [f'{pad}  {json.dumps(k, ensure_ascii=False)}: {_json_body_value(x, indent + 1)}'
+                 for k, x in v.items()]
+        return "{\n" + ",\n".join(items) + "\n" + pad + "}"
+    if isinstance(v, list):
+        if not v:
+            return "[]"
+        items = [f"{pad}  {_json_body_value(x, indent + 1)}" for x in v]
+        return "[\n" + ",\n".join(items) + "\n" + pad + "]"
+    return json.dumps(v)
+
+
+def json_body_template(obj) -> str:
+    """Render a body object as n8n's `jsonBody` parameter (requirements §32-1 D11).
+
+    n8n's HTTP Request node v4.x takes `jsonBody` as a string template: text is
+    literal JSON and `{{ }}` sections are evaluated. Values that were written
+    as expressions (`={{ ... }}`, or inline `a {{ b }} c`) are emitted as
+    `{{ JSON.stringify(...) }}` so quotes/newlines in the evaluated value
+    cannot break the JSON.
+    """
+    return "=" + _json_body_value(obj, 0)
+
+
+def convert_http_node(node: dict) -> bool:
+    """Rewrite the nested pseudo-schema (`headers`, `body.jsonBody` object) into
+    the real HTTP Request v4.x parameters. Returns True if anything changed."""
+    if node.get("type") != "n8n-nodes-base.httpRequest":
+        return False
+    p = node["parameters"]
+    changed = False
+    if "queryParameters" in p and not p.get("sendQuery"):
+        p["sendQuery"] = True
+        p["specifyQuery"] = "keypair"
+        changed = True
+    headers = p.pop("headers", None)
+    if isinstance(headers, dict):
+        p["sendHeaders"] = True
+        p["specifyHeaders"] = "keypair"
+        p["headerParameters"] = headers
+        changed = True
+    body = p.get("body")
+    if isinstance(body, dict):
+        del p["body"]
+        p["sendBody"] = True
+        p["contentType"] = body.get("contentType", "json")
+        p["specifyBody"] = "json"
+        p["jsonBody"] = json_body_template(body.get("jsonBody", {}))
+        changed = True
+    return changed
+
 
 VERIFIER_SCHEMA = {
     "type": "object",
@@ -472,26 +558,27 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
             "authentication": "genericCredentialType",
             "genericAuthType": "httpHeaderAuth",
             "sendHeaders": True,
+            "specifyHeaders": "keypair",
             "headerParameters": {"parameters": [
                 {"name": "anthropic-version", "value": "2023-06-01"},
             ]},
             "options": {"timeout": 120000},
-            "body": {
-                "contentType": "json",
-                "jsonBody": {
-                    "model": "claude-haiku-4-5",
-                    "max_tokens": 4096,
-                    "system": f"={{{{ $('{cfg['prompt_node']}').item.json.factcheckPrompt }}}}",
-                    "messages": [{
-                        "role": "user",
-                        "content": ("={{ '<ARTICLE>\\n' + ($json.content || '') + '\\n</ARTICLE>\\n\\n"
-                                     "<SOURCES>\\n' + ($json.source_text || '') + '\\n</SOURCES>\\n\\n"
-                                     "<GROUND_TRUTH>\\n' + JSON.stringify($json.ground_truth || {}) "
-                                     "+ '\\n</GROUND_TRUTH>' }}"),
-                    }],
-                    "output_config": {"format": {"type": "json_schema", "schema": VERIFIER_SCHEMA}},
-                },
-            },
+            "sendBody": True,
+            "contentType": "json",
+            "specifyBody": "json",
+            "jsonBody": json_body_template({
+                "model": "claude-haiku-4-5",
+                "max_tokens": 4096,
+                "system": f"={{{{ $('{cfg['prompt_node']}').item.json.factcheckPrompt }}}}",
+                "messages": [{
+                    "role": "user",
+                    "content": ("={{ '<ARTICLE>\\n' + ($json.content || '') + '\\n</ARTICLE>\\n\\n"
+                                 "<SOURCES>\\n' + ($json.source_text || '') + '\\n</SOURCES>\\n\\n"
+                                 "<GROUND_TRUTH>\\n' + JSON.stringify($json.ground_truth || {}) "
+                                 "+ '\\n</GROUND_TRUTH>' }}"),
+                }],
+                "output_config": {"format": {"type": "json_schema", "schema": VERIFIER_SCHEMA}},
+            }),
             "onError": "continueRegularOutput",
         },
         "id": cfg["ids"]["verifier"], "name": cfg["verifier_name"],

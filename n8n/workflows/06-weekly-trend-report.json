@@ -40,21 +40,10 @@
         "url": "https://api.perplexity.ai/chat/completions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "llama-3.1-sonar-large-128k-online",
-            "messages": [
-              {
-                "role": "user",
-                "content": "=日本語で回答。トピック「{{ $json.label }}」の今週のトレンド・主要ニュース・実務への影響を調査してください。"
-              }
-            ],
-            "max_tokens": 1500
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-sonar-large-128k-online\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(`日本語で回答。トピック「${$json.label}」の今週のトレンド・主要ニュース・実務への影響を調査してください。`) }}\n    }\n  ],\n  \"max_tokens\": 1500\n}"
       },
       "id": "33334444-5555-6666-7777-888899990000",
       "name": "Perplexity APIでトレンド検索",
@@ -103,20 +92,11 @@
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "claude-sonnet-5",
-            "max_tokens": 4000,
-            "messages": [
-              {
-                "role": "user",
-                "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\n期間: ' + $json.weekStr + '\\n\\nリサーチ結果:\\n' + JSON.stringify($json.sections) }}"
-              }
-            ]
-          }
-        },
-        "headers": {
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json",
+        "headerParameters": {
           "parameters": [
             {
               "name": "anthropic-version",
@@ -124,10 +104,8 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "sendBody": true,
-        "specifyBody": "json"
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-5\",\n  \"max_tokens\": 4000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(($json.promptContent + '\\n\\n【入力データ】\\n期間: ' + $json.weekStr + '\\n\\nリサーチ結果:\\n' + JSON.stringify($json.sections))) }}\n    }\n  ]\n}"
       },
       "id": "55556666-7777-8888-9999-000011112222",
       "name": "Claude APIで週次レポート生成",
@@ -163,17 +141,10 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}",
-            "categories": "={{ [$json.category_id] }}"
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify(($json.title)) }},\n  \"content\": {{ JSON.stringify(($json.content)) }},\n  \"status\": {{ JSON.stringify(($json.wp_status)) }},\n  \"categories\": {{ JSON.stringify(([$json.category_id])) }}\n}"
       },
       "id": "77778888-9999-0000-1111-222233334444",
       "name": "WordPressに即時公開",

@@ -67,7 +67,11 @@
             }
           ]
         },
-        "headers": {
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
           "parameters": [
             {
               "name": "Accept",
@@ -78,11 +82,7 @@
               "value": "AIナビ-n8n-bot/1.0"
             }
           ]
-        },
-        "sendQuery": true,
-        "specifyQuery": "keypair",
-        "sendHeaders": true,
-        "specifyHeaders": "keypair"
+        }
       },
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
       "name": "GitHub APIでAIリポジトリ取得",
@@ -131,20 +131,11 @@
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 3000,
-            "messages": [
-              {
-                "role": "user",
-                "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\n名前: ' + $json.name + '\\n説明: ' + $json.description + '\\nスター数: ' + $json.stars + '\\n言語: ' + ($json.language || '不明') + '\\nURL: ' + $json.url + '\\nトピック: ' + ($json.topics || '') + '\\nフォーク数: ' + $json.forks }}"
-              }
-            ]
-          }
-        },
-        "headers": {
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json",
+        "headerParameters": {
           "parameters": [
             {
               "name": "anthropic-version",
@@ -152,10 +143,8 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "sendBody": true,
-        "specifyBody": "json"
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 3000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(($json.promptContent + '\\n\\n【入力データ】\\n名前: ' + $json.name + '\\n説明: ' + $json.description + '\\nスター数: ' + $json.stars + '\\n言語: ' + ($json.language || '不明') + '\\nURL: ' + $json.url + '\\nトピック: ' + ($json.topics || '') + '\\nフォーク数: ' + $json.forks)) }}\n    }\n  ]\n}"
       },
       "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
       "name": "Claude APIで日本語記事生成",
@@ -191,17 +180,10 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}",
-            "categories": "={{ [$json.category_id] }}"
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify(($json.title)) }},\n  \"content\": {{ JSON.stringify(($json.content)) }},\n  \"status\": {{ JSON.stringify(($json.wp_status)) }},\n  \"categories\": {{ JSON.stringify(([$json.category_id])) }}\n}"
       },
       "id": "a7b8c9d0-e1f2-3456-abcd-567890123456",
       "name": "WordPressに下書き投稿",

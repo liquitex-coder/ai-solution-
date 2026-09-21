@@ -143,20 +143,11 @@
         "url": "https://api.anthropic.com/v1/messages",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 2000,
-            "messages": [
-              {
-                "role": "user",
-                "content": "={{ $json.promptContent + '\\n\\n【入力データ】\\nタイトル: ' + $json.title + '\\nチャンネル: ' + $json.channelTitle + '\\n動画URL: ' + $json.videoUrl + '\\n公開日: ' + $json.publishedAt + '\\n概要: ' + $json.description }}"
-              }
-            ]
-          }
-        },
-        "headers": {
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "sendBody": true,
+        "specifyBody": "json",
+        "headerParameters": {
           "parameters": [
             {
               "name": "anthropic-version",
@@ -164,10 +155,8 @@
             }
           ]
         },
-        "sendHeaders": true,
-        "specifyHeaders": "keypair",
-        "sendBody": true,
-        "specifyBody": "json"
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"claude-haiku-4-5-20251001\",\n  \"max_tokens\": 2000,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(($json.promptContent + '\\n\\n【入力データ】\\nタイトル: ' + $json.title + '\\nチャンネル: ' + $json.channelTitle + '\\n動画URL: ' + $json.videoUrl + '\\n公開日: ' + $json.publishedAt + '\\n概要: ' + $json.description)) }}\n    }\n  ]\n}"
       },
       "id": "wf03aa07-0000-4003-8003-000000000007",
       "name": "Claude APIで動画要約記事生成",
@@ -203,17 +192,10 @@
         "url": "https://public-api.wordpress.com/wp/v2/sites/liquitex929aa21393-eyqci.wordpress.com/posts",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "body": {
-          "contentType": "json",
-          "jsonBody": {
-            "title": "={{ $json.title }}",
-            "content": "={{ $json.content }}",
-            "status": "={{ $json.wp_status }}",
-            "categories": "={{ [$json.category_id] }}"
-          }
-        },
         "sendBody": true,
-        "specifyBody": "json"
+        "specifyBody": "json",
+        "contentType": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify(($json.title)) }},\n  \"content\": {{ JSON.stringify(($json.content)) }},\n  \"status\": {{ JSON.stringify(($json.wp_status)) }},\n  \"categories\": {{ JSON.stringify(([$json.category_id])) }}\n}"
       },
       "id": "wf03aa09-0000-4003-8003-000000000009",
       "name": "WordPressに下書き投稿",
