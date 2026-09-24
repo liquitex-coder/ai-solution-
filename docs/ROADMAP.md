@@ -166,6 +166,16 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 
 ---
 
+## Phase H — Future expansion (not scheduled, requirements §36)
+
+> Recorded for visibility only. No task here is registered via TaskCreate and none is started.
+> The operator decides when (or whether) a spoke moves into an active phase.
+
+| Idea | Note |
+|---|---|
+| Spoke A: idea-to-product hub | Idea submission -> design -> prototyping match -> sale. New repository, not this one |
+| Spoke B: AI-driven people matching | "i am you"-style. Needs claim-security- for PII handling. New repository, not this one |
+
 ## Progress
 
 Formula: `% = completed / total × 100` (rounded). Update at every task completion.
