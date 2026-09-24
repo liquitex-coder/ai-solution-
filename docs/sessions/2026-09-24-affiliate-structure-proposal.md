@@ -83,3 +83,10 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
   requirements.md §36 に記録
 - 方向性: ai-solution- は入口ハブに留め、実処理は別スポーク（新規リポジトリ）に分離する案
 - 未決定: 着手順序 / リポジトリ分割の粒度 / 参照サービスの具体仕様
+
+## 10. T-47 信頼ページ（2026-09-24 追記）
+- §35-12 を追記し（`96bc663`）、`data/trust_pages.json` と `scripts/trust_pages.py` を実装（`2898bfb`）
+- 6ページ中3件（編集方針・広告PRポリシー・Claim Platform紹介）は既存仕様から機械生成し ready
+- 残り3件（運営者情報・プライバシー・お問い合わせ）は実データが要件定義書のどこにもないため pending
+  - 捏造を避け、正直な保留文のみを出す。公開対象からも除外する
+- W16 と18件のテストで検証。ゲート: check_wired 95 PASS / eval 79/79 GREEN / unittest 204 OK
