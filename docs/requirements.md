@@ -1739,6 +1739,28 @@ aiguide.blog/
   `content_audit` で PASS になることを検査する。`pending` のページは監査だけ行い（結果は記録するが）
   FAIL にはしない（未確定という事実そのものは誤りではないため）。
 
+### 35-13. 内部リンク規則の実装（T-50）
+
+**検出した事実（2026-09-24）**
+- プロンプトは実行時に GitHub API で既定ブランチから取得される（各 WF の「プロンプト読込み」ノード）。
+- `n8n/prompts/article-base.md` を読むのは WF07 のみで、ニュース系（WF01〜06・08）は読まない。
+  したがって R1 を LLM への指示だけで実現すると、ニュース記事には効かず、効いても確実ではない。
+
+**方針**: R1 は **LLM に頼らずコードで決定論的に挿入**し、漏れは Auditor が WARN で検出する（INV-R2 と同じ考え方）。
+
+| 規則 | 実装 |
+|---|---|
+| R1 | `scripts/tool_links.py` の `link_tools()` が、記事中で `data/tools.json` のツール名が**最初に出現した箇所**に `/tools/{slug}/` へのリンクを挿入する。挿入しない場所: 既存の `<a>` の中、見出し（`h1`〜`h6`）、`<blockquote>`（引用の改変禁止、§17 ⑤）、`<code>`/`<pre>`。英字のツール名は前後が英数字でないときだけ一致させる（「n8n」が別語の一部に誤一致しないため） |
+| R1 の監査 | `content_audit` に任意引数 `tools` を追加。ツール名が本文にあるのに `/tools/{slug}/` へのリンクがなければ `WARN:MISSING_TOOL_LINK:{slug}`（Report-Only。verdict は変えない） |
+| R2 | 実装済み（§35-11、ツールページからタグアーカイブへのリンク） |
+| R3 | 比較サイロのワークフロー（T-48）で実装する。本タスクでは扱わない |
+
+- サービスには `POST /link-tools {content}` → `{content, links: [slug...]}` を追加する。
+  ワークフローからの呼び出しは T-45 でまとめて配線するため、それまでは W14 の `LIBRARY_ONLY_ROUTES` に登録する。
+- `/audit` はツールカタログを読み込めた場合だけ R1 を検査する。読み込めたかどうかは `/health` の `tools_catalog` で確認できるようにし、黙って無効にならないようにする。
+- カタログの配置: Fly では `/app/data` がボリュームに置き換わり `data/tools.json` が見えないため、
+  Docker イメージに `/app/catalog/tools.json` として同梱する。読み込み順は `AINAVI_TOOLS_FILE` → `data/tools.json` → `catalog/tools.json`。
+
 ### 35-7. 範囲外（別タスク）
 
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
