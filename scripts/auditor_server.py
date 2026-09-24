@@ -19,11 +19,12 @@ from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
 try:
-    from . import content_audit, kroki_embed, memory_init
+    from . import content_audit, kroki_embed, memory_init, tool_links
 except ImportError:  # Direct execution leaves scripts/ as sys.path[0].
     import content_audit
     import kroki_embed
     import memory_init
+    import tool_links
 
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "memory.db"
@@ -50,6 +51,8 @@ class AuditorHTTPServer(ThreadingHTTPServer):
         self.db_path = db_path
         self.token = token
         self.news_daily_limit = news_daily_limit
+        # §35-13: R1 runs only when the tool catalog loads; /health reports it.
+        self.tools = tool_links.load_catalog()
         self.db_lock = threading.Lock()
         self.memory_db = False
         if not self.token:
@@ -248,6 +251,7 @@ def health(handler: AuditorRequestHandler) -> tuple[int, None, None]:
         "service": "ainavi-auditor-gate",
         "memory_db": handler.server.memory_db,
         "auth": bool(handler.server.token),
+        "tools_catalog": handler.server.tools is not None,
     })
     return 200, None, None
 
@@ -284,7 +288,8 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     # a WARN and does not write a second facts row for the same hash.
     rejected_fact_id = handler.server.find_prior_fact(content_hash)
 
-    result = content_audit.audit(content, source_urls, source_text, source_lang, evidence)
+    result = content_audit.audit(content, source_urls, source_text, source_lang, evidence,
+                                 tools=handler.server.tools)
     verdict = result["verdict"]
     reasons = list(result["reasons"])
     evidence_summary = result.get("evidence_summary")
@@ -369,6 +374,26 @@ def publish_slot_route(handler: AuditorRequestHandler) -> tuple[int, None, None]
     return 200, None, None
 
 
+def link_tools_route(handler: AuditorRequestHandler) -> tuple[int, None, None]:
+    """§35-13 R1: POST /link-tools — insert one /tools/{slug}/ link per catalog tool."""
+    payload = handler._read_json()
+    if payload is None:
+        handler._send_json(400, {"error": "invalid JSON body"})
+        return 400, None, None
+    content = payload.get("content")
+    if not isinstance(content, str):
+        handler._send_json(400, {"error": "content must be a string"})
+        return 400, None, None
+    tools = handler.server.tools
+    if tools is None:
+        # Never fail the pipeline: return the article unchanged and say why.
+        handler._send_json(200, {"content": content, "links": [], "catalog": False})
+        return 200, None, None
+    linked_content, links = tool_links.link_tools(content, tools)
+    handler._send_json(200, {"content": linked_content, "links": links, "catalog": True})
+    return 200, None, None
+
+
 def embed_diagrams_route(handler: AuditorRequestHandler) -> tuple[int, None, None]:
     payload = handler._read_json()
     if payload is None:
@@ -389,10 +414,12 @@ ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, 
     ("POST", "/audit"): audit,
     ("POST", "/embed-diagrams"): embed_diagrams_route,
     ("POST", "/publish-slot"): publish_slot_route,
+    ("POST", "/link-tools"): link_tools_route,
 }
 
 # §28-2 (v2.4): write paths require auth when AINAVI_GATE_TOKEN is set; /health never does.
-AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams"), ("POST", "/publish-slot")}
+AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams"), ("POST", "/publish-slot"),
+                        ("POST", "/link-tools")}
 
 
 def make_server(bind: str, port: int, db_path: str | Path, token: str = "",

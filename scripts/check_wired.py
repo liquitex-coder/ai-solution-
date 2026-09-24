@@ -60,6 +60,7 @@ LIBRARY_ONLY_PROMPTS = {
 LIBRARY_ONLY_ROUTES = {
     "/embed-diagrams": "Kroki diagram embedding (§31); wired in T-11 after an operator manual run",
     "/publish-slot": "news daily publish cap (§35-9); wired into decide() in T-45 after an operator manual run",
+    "/link-tools": "R1 tool-page links (§35-13); wired before the Auditor Gate in T-45 after an operator manual run",
 }
 
 SECRET_PATTERNS = [

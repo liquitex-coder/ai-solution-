@@ -287,7 +287,7 @@ def evaluate_evidence(content: str, source_text: str | None, evidence: object) -
 
 def audit(content: str, source_urls: list[str] | None = None,
           source_text: str | None = None, source_lang: str | None = None,
-          evidence: dict | None = None) -> dict:
+          evidence: dict | None = None, tools: list | None = None) -> dict:
     source_urls = [u for u in (source_urls or []) if u]
     reasons: list[str] = []
     unverifiable: list[str] = []
@@ -392,6 +392,15 @@ def audit(content: str, source_urls: list[str] | None = None,
                      and any(u in content for u in source_urls))
         if not has_label:
             warnings.append("WARN:MISSING_TRANSLATION_LABEL")
+
+    # §35-13 R1 (Report-Only): a catalog tool mentioned without a link to its tool page.
+    if tools:
+        try:
+            from .tool_links import missing_tool_links
+        except ImportError:  # executed as a script, scripts/ is sys.path[0]
+            from tool_links import missing_tool_links
+        for slug in missing_tool_links(content, tools):
+            warnings.append(f"WARN:MISSING_TOOL_LINK:{slug}")
 
     # Evidence Pack (requirements §34): LLM-supplied signals feed only WARN: entries
     # (INV-R2a) — never gated by source_lang (§34-11 item 5).
