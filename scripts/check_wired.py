@@ -19,6 +19,7 @@ Checks:
   W13 taxonomy silo hierarchy: every parent exists, depth <= 2, every WF category has a silo (§35-3)
   W14 every POST route of the auditor service is called by a workflow (or LIBRARY_ONLY_ROUTES) (§35-10)
   W15 data/tools.json is valid, tag-linked, and every generated tool page passes content_audit (§35-11)
+  W16 data/trust_pages.json covers the six §35-3 pages and every 'ready' page passes content_audit (§35-12)
 """
 
 from __future__ import annotations
@@ -366,6 +367,16 @@ def main() -> int:
         fail(f"W15 {error}")
     if not page_errors:
         ok(f"W15 data/tools.json valid; {len(pages)} generated pages audit PASS")
+
+    print("== W16: trust pages (§35-12) ==")
+    import trust_pages
+    trust_errors, trust = trust_pages.check()
+    for error in trust_errors:
+        fail(f"W16 {error}")
+    if not trust_errors:
+        ready = sum(1 for p in trust if p["status"] == "ready")
+        pending = sum(1 for p in trust if p["status"] == "pending")
+        ok(f"W16 data/trust_pages.json valid; {ready} ready (audit PASS), {pending} pending")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")

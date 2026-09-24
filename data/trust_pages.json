@@ -1,0 +1,38 @@
+{
+  "_comment": "Trust pages per docs/requirements.md §35-12. Each page is ready (generated from existing spec, no operator facts needed) or pending (needs real operator-supplied facts not present anywhere in this repo; a pending page carries an honest placeholder and is never sent as a draft).",
+  "pages": [
+    {
+      "slug": "operator",
+      "title": "運営者情報",
+      "status": "pending",
+      "pending_reason": "運営者名・連絡方法が要件定義書に記録されていないため"
+    },
+    {
+      "slug": "editorial-policy",
+      "title": "編集方針",
+      "status": "ready"
+    },
+    {
+      "slug": "ad-policy",
+      "title": "広告・PRポリシー",
+      "status": "ready"
+    },
+    {
+      "slug": "claim-platform",
+      "title": "Claim Platformについて",
+      "status": "ready"
+    },
+    {
+      "slug": "privacy",
+      "title": "プライバシーポリシー",
+      "status": "pending",
+      "pending_reason": "問い合わせ窓口・データ保有方針が要件定義書に記録されていないため"
+    },
+    {
+      "slug": "contact",
+      "title": "お問い合わせ",
+      "status": "pending",
+      "pending_reason": "連絡先チャネルが要件定義書に記録されていないため"
+    }
+  ]
+}
