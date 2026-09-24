@@ -42,7 +42,8 @@ NUMERIC_CLAIM_RE = re.compile(
     r"\d[\d,.]*\s*(?:%|％|倍|億|兆|万人|万件|万ドル|億円|万円|pt|ポイント)")
 
 
-# Revenue rules (requirements §35-6). ASP redirect hosts; extend when a new ASP is adopted.
+# Revenue rules (requirements §35-6). ASP redirect hosts to DETECT, not the ASPs in use:
+# A8.net is the adopted primary ASP (§35-8); the others stay so A1 still catches stray links.
 AFFILIATE_HOSTS = (
     "px.a8.net", "af.moshimo.com", "h.accesstrade.net", "ck.jp.ap.valuecommerce.com",
     "t.afi-b.com", "hb.afl.rakuten.co.jp",

@@ -7,10 +7,12 @@ import hashlib
 import hmac
 import json
 import os
+import re
+import sqlite3
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -26,15 +28,28 @@ except ImportError:  # Direct execution leaves scripts/ as sys.path[0].
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "memory.db"
 
+# §35-9: daily publish slots. The day boundary is the JST calendar day (fixed UTC+9, no DST).
+JST = timezone(timedelta(hours=9))
+DEFAULT_NEWS_DAILY_LIMIT = 3
+SILOS = ("news", "tools", "compare")
+CONTENT_HASH_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def jst_today(now: datetime | None = None) -> str:
+    """§35-9: the JST calendar day (YYYY-MM-DD) that a publish slot is counted against."""
+    return (now or datetime.now(timezone.utc)).astimezone(JST).date().isoformat()
+
 
 class AuditorHTTPServer(ThreadingHTTPServer):
     """Threaded server with optional, lock-protected memory storage."""
 
     def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler],
-                 db_path: Path, token: str = ""):
+                 db_path: Path, token: str = "",
+                 news_daily_limit: int = DEFAULT_NEWS_DAILY_LIMIT):
         super().__init__(address, handler)
         self.db_path = db_path
         self.token = token
+        self.news_daily_limit = news_daily_limit
         self.db_lock = threading.Lock()
         self.memory_db = False
         if not self.token:
@@ -107,6 +122,45 @@ class AuditorHTTPServer(ThreadingHTTPServer):
             # A lookup failure must never block the gate: treat as "not found".
             print(f"auditor memory database read failed: {exc}", file=sys.stderr,
                   flush=True)
+            return None
+
+    def claim_publish_slot(self, day: str, silo: str, content_hash: str,
+                           limit: int) -> tuple[bool, int] | None:
+        """§35-9: grant a slot if under the limit; a repeat hash is granted again for free.
+
+        Returns (granted, used) or None when the store is unavailable (caller fails closed).
+        """
+        if not self.memory_db:
+            return None
+        try:
+            with self.db_lock:
+                conn = memory_init.connect(self.db_path)
+                try:
+                    def used() -> int:
+                        return conn.execute(
+                            "SELECT COUNT(*) FROM publish_slots WHERE day = ? AND silo = ?",
+                            (day, silo)).fetchone()[0]
+
+                    held = conn.execute(
+                        "SELECT 1 FROM publish_slots WHERE day = ? AND silo = ? "
+                        "AND content_hash = ?", (day, silo, content_hash)).fetchone()
+                    if held:
+                        return True, used()
+                    if used() >= limit:
+                        return False, used()
+                    try:
+                        conn.execute(
+                            "INSERT INTO publish_slots (day, silo, content_hash, created_at)"
+                            " VALUES (?,?,?,?)",
+                            (day, silo, content_hash, memory_init.now_iso()))
+                        conn.commit()
+                    except sqlite3.IntegrityError:
+                        pass  # another writer recorded the same hash first
+                    return True, used()
+                finally:
+                    conn.close()
+        except Exception as exc:
+            print(f"auditor publish-slot store failed: {exc}", file=sys.stderr, flush=True)
             return None
 
     def server_close(self) -> None:
@@ -281,6 +335,40 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
     return 200, verdict, skill_ref
 
 
+def publish_slot_route(handler: AuditorRequestHandler) -> tuple[int, None, None]:
+    """§35-9: POST /publish-slot — the news silo publishes at most N posts per JST day."""
+    payload = handler._read_json()
+    if payload is None:
+        handler._send_json(400, {"error": "invalid JSON body"})
+        return 400, None, None
+    silo = payload.get("silo")
+    content_hash = payload.get("content_hash")
+    if silo not in SILOS:
+        handler._send_json(400, {"error": f"silo must be one of {', '.join(SILOS)}"})
+        return 400, None, None
+    if not isinstance(content_hash, str) or not CONTENT_HASH_RE.fullmatch(content_hash):
+        handler._send_json(400, {"error": "content_hash must be 64 lowercase hex chars"})
+        return 400, None, None
+
+    day = jst_today()
+    limit = handler.server.news_daily_limit if silo == "news" else None
+    body: dict[str, Any] = {"silo": silo, "day": day, "used": None, "limit": limit}
+    if silo == "tools":
+        body.update(granted=True, reason="no_limit")
+    elif silo == "compare":
+        body.update(granted=False, reason="human_signature_required")
+    else:
+        claimed = handler.server.claim_publish_slot(day, silo, content_hash, limit)
+        if claimed is None:
+            body.update(granted=False, reason="slot_store_unavailable")
+        else:
+            granted, used = claimed
+            body.update(granted=granted, used=used,
+                        reason="granted" if granted else "daily_limit_reached")
+    handler._send_json(200, body)
+    return 200, None, None
+
+
 def embed_diagrams_route(handler: AuditorRequestHandler) -> tuple[int, None, None]:
     payload = handler._read_json()
     if payload is None:
@@ -300,15 +388,24 @@ ROUTES: dict[tuple[str, str], Callable[[AuditorRequestHandler], tuple[Any, Any, 
     ("GET", "/health"): health,
     ("POST", "/audit"): audit,
     ("POST", "/embed-diagrams"): embed_diagrams_route,
+    ("POST", "/publish-slot"): publish_slot_route,
 }
 
 # §28-2 (v2.4): write paths require auth when AINAVI_GATE_TOKEN is set; /health never does.
-AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams")}
+AUTH_REQUIRED_ROUTES = {("POST", "/audit"), ("POST", "/embed-diagrams"), ("POST", "/publish-slot")}
 
 
-def make_server(bind: str, port: int, db_path: str | Path, token: str = "") -> ThreadingHTTPServer:
+def make_server(bind: str, port: int, db_path: str | Path, token: str = "",
+                news_daily_limit: int = DEFAULT_NEWS_DAILY_LIMIT) -> ThreadingHTTPServer:
     """Create the gate server; an unavailable DB leaves auditing available."""
-    return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token)
+    return AuditorHTTPServer((bind, port), AuditorRequestHandler, Path(db_path), token,
+                             news_daily_limit)
+
+
+def resolve_news_daily_limit(env: Mapping[str, str]) -> int:
+    """§35-9: AINAVI_NEWS_DAILY_LIMIT (>= 0) -> 3."""
+    value = env.get("AINAVI_NEWS_DAILY_LIMIT") or ""
+    return max(0, int(value)) if value else DEFAULT_NEWS_DAILY_LIMIT
 
 
 def resolve_port(env: Mapping[str, str]) -> int:
@@ -322,7 +419,7 @@ def main() -> None:
     token = os.environ.get("AINAVI_GATE_TOKEN", "")
     configured_db = Path(os.environ.get("AINAVI_GATE_MEMORY_DB", "data/memory.db"))
     db_path = configured_db if configured_db.is_absolute() else DEFAULT_DB.parent.parent / configured_db
-    server = make_server(bind, port, db_path, token)
+    server = make_server(bind, port, db_path, token, resolve_news_daily_limit(os.environ))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
