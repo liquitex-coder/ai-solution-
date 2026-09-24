@@ -1624,6 +1624,50 @@ aiguide.blog/
 - 登録済みのルートが後で配線された場合も FAIL とする（登録を外し忘れないため）。
 - `GET /health` はワークフローではなく Docker / Fly のヘルスチェックが使うので、W14 の対象外とする。
 
+### 35-11. ツールDBとツール詳細ページ（T-46）
+
+プラグインに依存しない方式（§35-2）で、`data/tools.json` を唯一の正とし、WordPress の固定ページを生成する。
+
+**データ（`data/tools.json`）**
+
+| フィールド | 必須 | 制約 |
+|---|---|---|
+| `slug` | ✓ | `data/wp-taxonomy.json` の tags に存在する slug（R1/R2 のタグ連携のため） |
+| `name` / `vendor` / `summary` | ✓ | 空でない文字列。`summary` は日本語で、誇大表現（HYPE）を使わない |
+| `official_url` | ✓ | `https://` で始まる |
+| `pricing` | ✓（空配列可） | 各行は `plan` / `price` / `source_url`（https）/ `retrieved_at`（`YYYY-MM-DD`）がすべて必須（A4 と §35-4 R3 の根拠） |
+| `affiliate` | 任意 | `{"url": https, "program": 文字列}`。ASP の管理画面で発行した実リンクだけを入れる |
+
+- **初期データの方針（Auditor 自己適用）**
+  - タグに存在する製品7件（ChatGPT / Claude / Gemini / Midjourney / Stable Diffusion / n8n / Perplexity）を、名前・提供元・公式 URL・中立的な概要だけで登録する。
+  - `pricing` と `affiliate` は**空で始める**。取得日と出典を確認できない料金や、発行されていないアフィリエイト ID を書かないため。
+  - 操作者（または出典つきの調査）が後から追加する。
+
+**生成（`scripts/tool_pages.py`）**
+
+- 各ツールページの構成
+  - 概要
+  - 料金：出典リンクと「YYYY-MM-DD 時点」を併記する。空の場合は「未登録」と表示する
+  - 公式サイト
+  - 関連ニュース：R2。タグアーカイブ `/tag/{slug}/` へのリンク。静的 HTML なので、プラグインなしで実現できる
+  - `affiliate` がある場合は、最初の `<h2>` より前に PR 表記を置き、CTA リンクに `rel="sponsored nofollow"` を付ける（A1 / A2）
+- 一覧ページ（`/tools/`）を生成する。各ツールページはその子ページにする。
+
+**公開（`scripts/tool_pages.py publish`・操作者が実行）**
+
+- 認証と接続先は `wp-init.sh` と同じ判定にする。`WP_BEARER_TOKEN` + `WP_SITE` があればそれを使い、なければ `WP_URL` + `WP_USERNAME` + `WP_APP_PASSWORD` を使う（§24）。
+- **公開前に全ページを `content_audit` にかける。FAIL / UNVERIFIABLE のページは送信しない**（CLAUDE.md §A-5）。
+- 常に `status: draft` で送る。人間が確認してから公開する（INV-R1）。
+- slug で既存ページを探し、あれば更新、なければ作成する（冪等）。
+  - ただし既存ページが公開済みで内容が変わる場合は、**更新せず `[HOLD]` を出す**。署名済みのページを無審査で書き換えないためである。
+
+**ゲート**
+
+- `check_wired` W15 で次を検査する。
+  - `data/tools.json` がスキーマを満たす
+  - 全ツールの slug がタグに存在する
+  - 生成した全ページ（一覧を含む）が `content_audit` で PASS になる
+
 ### 35-7. 範囲外（別タスク）
 
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
