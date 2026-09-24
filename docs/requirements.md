@@ -1585,6 +1585,36 @@ aiguide.blog/
 - PR 表記の要否は景品表示法のステマ規制に基づく。適用範囲の法的な確認は、公開前に専門家が行う（本節は法務助言ではない）。
 - 評価セット（§22-2）に、A1〜A4 の各規則について PASS と FAIL の両側のケースを追加し、FP=0 / FN=0 を保つ。
 
+### 35-8. ASP 方針（操作者決定・2026-09-24）
+
+- **主軸は A8.net** とする。書籍などは楽天アフィリエイトで補う。各 AI ツールが自社の公式パートナープログラムを持っている場合は、そちらに直接登録してもよい。
+- `AFFILIATE_HOSTS`（§35-6）は**利用するASPの一覧ではなく、検出対象の一覧**である。
+  - 採用していない国内主要ASPのホストも検出対象に残す。未採用のASPリンクが紛れ込んだときに、PR表記の欠落（A1）を見逃さないためである。
+- 公式パートナープログラムのリンクは、ホスト名が一定でない。そのため `rel="sponsored"` の付与で検出する（§35-6 のアフィリエイトリンク定義の後半）。
+
+### 35-9. 1日の公開枠サービス（T-44）
+
+ニュースサイロの自動公開を1日3本までに抑える仕組み（§35-5）を、Auditor Gate サービス（§28）に `POST /publish-slot` として実装する。枠の判定は決定論的に行い、LLM は使わない。
+
+| 項目 | 仕様 |
+|---|---|
+| リクエスト | `{"silo": "news" / "tools" / "compare", "content_hash": "<sha256 hex>"}` |
+| レスポンス | `200 {"granted": bool, "silo", "day", "used", "limit", "reason"}` |
+| 日付の区切り | **JST（UTC+9 固定）**の暦日。`day` は `YYYY-MM-DD` |
+| `news` | その日の付与済み件数が上限未満なら付与し、記録する。上限に達したら `granted:false, reason:"daily_limit_reached"` |
+| 同じ記事の再要求 | 同じ日・同じ `content_hash` で再要求された場合は、枠を追加消費せずに `granted:true` を返す（再実行しても冪等） |
+| `tools` | 上限なし。`granted:true` を返し、記録はしない |
+| `compare` | 常に `granted:false, reason:"human_signature_required"`（INV-R1。人間の署名なしに自動公開しない） |
+| 上限値 | 既定は 3。環境変数 `AINAVI_NEWS_DAILY_LIMIT` で上書きできる（0 なら全件下書き） |
+| DB が使えない場合 | **閉じた側に倒す**。`granted:false, reason:"slot_store_unavailable"`（公開は外部に出る操作であり、下書きに留めれば安全なため） |
+| 入力が不正な場合 | 400（未知の silo、`content_hash` が64桁の16進でない、JSON が不正） |
+| 認証 | `AINAVI_GATE_TOKEN` を設定している場合は Bearer 認証を必須にする（§28-2 と同じ） |
+| 記録先 | 記憶層 DB の `publish_slots(day, silo, content_hash, created_at)`。`(day, silo, content_hash)` に一意制約を付ける |
+| 並行実行 | サーバのロックと DB の一意制約で、同時要求でも上限を超えないようにする |
+
+- この段階ではサービス側の実装だけで、ワークフローはまだ呼ばない。
+  - `decide()` が PASS かつ `requires_human_signature=false` かつ枠を得られた場合にだけ `publish` にする配線は、T-45（操作者の手動実行後）で行う。
+
 ### 35-7. 範囲外（別タスク）
 
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
