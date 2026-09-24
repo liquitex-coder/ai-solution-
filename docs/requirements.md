@@ -1615,6 +1615,15 @@ aiguide.blog/
 - この段階ではサービス側の実装だけで、ワークフローはまだ呼ばない。
   - `decide()` が PASS かつ `requires_human_signature=false` かつ枠を得られた場合にだけ `publish` にする配線は、T-45（操作者の手動実行後）で行う。
 
+### 35-10. 配線ゲート W14（サービスの POST ルートの配線）
+
+- **検出した事実（2026-09-24）**: `POST /embed-diagrams`（§31）を呼ぶワークフロー JSON は1つもない。§31 では T-11 まで未消費と明記されているが、`check_wired` は機械的に検出していなかった。`POST /publish-slot`（§35-9）も T-45 までは同じ状態になる。
+- **W14**: `scripts/auditor_server.py` の `ROUTES` にある POST ルートは、次のどちらかを満たすこと。満たさなければ FAIL とする。
+  - 1つ以上のワークフロー JSON が、そのパスを参照している
+  - `check_wired.py` の `LIBRARY_ONLY_ROUTES` に、理由と配線予定タスクを添えて登録されている
+- 登録済みのルートが後で配線された場合も FAIL とする（登録を外し忘れないため）。
+- `GET /health` はワークフローではなく Docker / Fly のヘルスチェックが使うので、W14 の対象外とする。
+
 ### 35-7. 範囲外（別タスク）
 
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
