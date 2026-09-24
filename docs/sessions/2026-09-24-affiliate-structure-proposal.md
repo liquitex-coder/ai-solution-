@@ -1,7 +1,7 @@
 ---
 date: 2026-09-24
 tags: [ai-solution, affiliate, structure, proposal, auditor-self-apply]
-status: proposal (not yet in requirements.md)
+status: decided (requirements §35, 2026-09-24)
 source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 ---
 
@@ -42,3 +42,17 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 - 比較・ハンズオンのカテゴリを復活させるか（§27 で削除済み）
 - 利用するASPと商材
 - 公開上限の値
+
+## 6. 決定と実装（2026-09-24）
+- 操作者の決定は4点
+  - WordPress.com のプラン: 不明のため、プラグインに依存しない方式にする
+  - ③ 選び方サイロ: 作る（人間の署名が必須）
+  - ニュースの自動公開上限: 3本/日
+  - カテゴリ: 親子の階層に再編する
+- 仕様は §35（`2f51628`）、ロードマップは Phase G T-40〜T-50
+- 実装済み
+  - T-41: カテゴリ階層、W13、wp-init（`2819338`）
+  - T-42: A1〜A4（`dc165cc`）
+  - T-43: A5（`5318abe`）
+- ゲート: check_wired 90 PASS / eval 79/79 GREEN / unittest 143 OK
+- 残り: T-44〜T-50（T-45 / T-48 / T-49 は操作者の作業が前提）
