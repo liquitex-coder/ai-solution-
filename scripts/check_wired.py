@@ -16,6 +16,7 @@ Checks:
   W10 workflow/category taxonomy map and source_workflow values agree
   W11 workflow category_id values match taxonomy wp_id values
   W12 Evidence Pack wiring for workflows in EVIDENCE_REQUIRED_WORKFLOWS (§34-8)
+  W13 taxonomy silo hierarchy: every parent exists, depth <= 2, every WF category has a silo (§35-3)
 """
 
 from __future__ import annotations
@@ -102,6 +103,26 @@ def evidence_wiring_errors(wf: dict) -> list[str]:
     if not gate_texts or not any(
             "source_text" in t and "evidence" in t for t in gate_texts):
         errors.append("gate node jsCode missing source_text/evidence")
+    return errors
+
+
+def taxonomy_hierarchy_errors(categories: list[dict]) -> list[str]:
+    """§35-3 W13: categories form silos of depth <= 2 and every WF category belongs to one."""
+    errors: list[str] = []
+    by_slug = {category.get("slug"): category for category in categories}
+    for category in categories:
+        slug = category.get("slug")
+        parent = category.get("parent")
+        if parent is None:
+            if category.get("source_workflow") is not None:
+                errors.append(f"{slug}: WF category has no silo parent")
+            continue
+        if parent == slug:
+            errors.append(f"{slug}: parent is itself")
+        elif parent not in by_slug:
+            errors.append(f"{slug}: unknown parent {parent}")
+        elif by_slug[parent].get("parent") is not None:
+            errors.append(f"{slug}: parent {parent} is not a silo root (depth > 2)")
     return errors
 
 
@@ -288,6 +309,13 @@ def main() -> int:
             fail(f"W12 {name}: {'; '.join(errors)}")
         else:
             ok(f"W12 {name}: evidence wiring present")
+
+    print("== W13: taxonomy silo hierarchy (§35-3) ==")
+    hierarchy_errors = taxonomy_hierarchy_errors(categories)
+    if hierarchy_errors:
+        fail(f"W13 taxonomy hierarchy: {'; '.join(hierarchy_errors)}")
+    else:
+        ok("W13 taxonomy silo hierarchy is valid")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")
