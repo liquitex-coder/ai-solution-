@@ -20,6 +20,7 @@ Checks:
   W14 every POST route of the auditor service is called by a workflow (or LIBRARY_ONLY_ROUTES) (§35-10)
   W15 data/tools.json is valid, tag-linked, and every generated tool page passes content_audit (§35-11)
   W16 data/trust_pages.json covers the six §35-3 pages and every 'ready' page passes content_audit (§35-12)
+  W17 data/wp-site.json design manifest is valid: slugs, purposes, no forbidden plugin, plain CSS, AA contrast (§35-14)
 """
 
 from __future__ import annotations
@@ -378,6 +379,14 @@ def main() -> int:
         ready = sum(1 for p in trust if p["status"] == "ready")
         pending = sum(1 for p in trust if p["status"] == "pending")
         ok(f"W16 data/trust_pages.json valid; {ready} ready (audit PASS), {pending} pending")
+
+    print("== W17: site design manifest (§35-14) ==")
+    import wp_site_setup
+    site_errors = wp_site_setup.validate(wp_site_setup.load_manifest())
+    for error in site_errors:
+        fail(f"W17 {error}")
+    if not site_errors:
+        ok("W17 data/wp-site.json valid (theme, plugins, CSS, contrast)")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")
