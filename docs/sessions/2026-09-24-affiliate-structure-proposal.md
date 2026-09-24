@@ -90,3 +90,12 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 - 残り3件（運営者情報・プライバシー・お問い合わせ）は実データが要件定義書のどこにもないため pending
   - 捏造を避け、正直な保留文のみを出す。公開対象からも除外する
 - W16 と18件のテストで検証。ゲート: check_wired 95 PASS / eval 79/79 GREEN / unittest 204 OK
+
+## 11. T-50 内部リンク（2026-09-24 追記）
+- 事実確認: プロンプトは実行時に main から取得され、共通プロンプトは WF07 しか読まない
+  - そのため R1 は LLM への指示ではなく、コードで決定論的にリンクを挿入する方式にした（§35-13）
+- `scripts/tool_links.py`・`POST /link-tools`（T-45 まで LIBRARY_ONLY）・`WARN:MISSING_TOOL_LINK`（Report-Only）
+- 自己監査で検出したバグ: `.dockerignore` が `scripts/` 以外を除外していたため、カタログの COPY が
+  `fly deploy` で失敗するところだった。ビルドコンテキストを検査するテストと CLAUDE.md §C-8 を追加
+- §28 の契約表が T-44 以降の実装とずれていたので修正（`/health` のフィールド、認証対象のルート）
+- ゲート: check_wired 96 PASS / eval 79/79 GREEN / unittest 225 OK

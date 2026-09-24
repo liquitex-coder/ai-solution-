@@ -162,7 +162,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-47 ✅ | Claude → operator | Trust pages (operator, editorial policy, ad/PR policy, Claim Platform intro, privacy, contact) | done 2026-09-24 (`2898bfb`): W16 PASS (3 ready audit PASS, 3 pending honest-placeholder); 18 tests. Operator supplies real facts for operator/privacy/contact, then republish |
 | T-48 | Claude + operator | Compare-silo workflow (draft-only, human signature) | manual n8n run log |
 | T-49 | operator | `wp-init.ps1` parent parity + production run of parent assignment | wp-init log |
-| T-50 | Claude + operator | Internal link rules R1–R3 in prompts + audit check | eval + manual run |
+| T-50 ✅ | Claude + operator | Internal link rules R1–R3 in prompts + audit check | done 2026-09-24 (`e81bbb6`, `d995a0b`): R1 as a deterministic linker + Report-Only WARN; `/link-tools` LIBRARY_ONLY until T-45; R2 done in T-46; R3 moves to T-48. 19 + 2 tests |
 
 ---
 
@@ -188,10 +188,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D | 1 | 6 | 17% |
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Phase G | 7 | 11 | 64% |
-| Whole roadmap (A–G, D2) | 23 | 46 | 50% |
+| Phase G | 8 | 11 | 73% |
+| Whole roadmap (A–G, D2) | 24 | 46 | 52% |
 
-Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47 done). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50 done). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
