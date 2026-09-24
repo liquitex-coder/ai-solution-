@@ -58,6 +58,9 @@ AI content automation platform: n8n → Claude API → WordPress.
 6. `.githooks/*` は実行ビット付き（git mode `100755`）でコミットする — `commit-msg` が `100644` のまま
    だったため git が無言で無視し、§C-1 のセンサー（T-39）が clone 先で一度も動いていなかった（2026-09-24 実例）。
    `tests/test_git_hooks.py` が検出する。
+7. コミット本文の数値（テスト件数・PASS 数など）は、その場のゲート出力から転記する — T-46 で未確認の「25 tests」
+   を書き、実数は24だった（2026-09-24、push 前に検出）。未 push の修正は `commit --amend` ではなく
+   `reset --soft HEAD~1` → 再コミットで行う（amend 時は commit-msg フックが空の差分を見て誤検知する）。
 
 ---
 

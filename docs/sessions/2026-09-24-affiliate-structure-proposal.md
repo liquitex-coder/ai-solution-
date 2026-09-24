@@ -65,3 +65,13 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 - W14（`8c288d5`）: サービスの POST ルートが未配線のまま放置されるのを検出する
   - 既存の `/embed-diagrams` がまさにその状態で、未登録だった。T-11 待ちとして登録した
 - ゲート: check_wired 93 PASS / eval 79/79 GREEN / unittest 161 OK
+
+## 8. フック修正と T-46（2026-09-24 追記）
+- `.githooks/commit-msg` を実行可能（100755）にした（`5fcd1b6`）
+  - 実在ファイル名を使った誤メッセージが exit=1 で拒否されることを確認
+  - ラチェットとして CLAUDE.md §C-6 を追加
+- T-46: ツールDB `data/tools.json`（7件。料金とアフィリエイトは空）と `scripts/tool_pages.py` を追加（`36d7b09`）
+  - 公開は下書きのみ。公開済みページの内容が変わる場合は上書きせず HOLD にする
+- 自己監査で検出: コミット本文に未確認の「25 tests」と書いた（実数は24）
+  - push 前に修正し、ラチェットとして CLAUDE.md §C-7 を追加
+- ゲート: check_wired 94 PASS / eval 79/79 GREEN / unittest 186 OK
