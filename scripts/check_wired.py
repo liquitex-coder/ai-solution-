@@ -17,6 +17,7 @@ Checks:
   W11 workflow category_id values match taxonomy wp_id values
   W12 Evidence Pack wiring for workflows in EVIDENCE_REQUIRED_WORKFLOWS (§34-8)
   W13 taxonomy silo hierarchy: every parent exists, depth <= 2, every WF category has a silo (§35-3)
+  W14 every POST route of the auditor service is called by a workflow (or LIBRARY_ONLY_ROUTES) (§35-10)
 """
 
 from __future__ import annotations
@@ -51,6 +52,12 @@ LIBRARY_ONLY_PROMPTS = {
     # superseded by 05-note-monitor.md
     "05-note-summary.md": "legacy variant, superseded by 05-note-monitor.md",
     "50-fact-check.md": "Evidence Pack verifier prompt (requirements §34); wired in T-35 after the WF01 manual run",
+}
+
+# Auditor service POST routes intentionally not called by any workflow yet (§35-10 W14).
+LIBRARY_ONLY_ROUTES = {
+    "/embed-diagrams": "Kroki diagram embedding (§31); wired in T-11 after an operator manual run",
+    "/publish-slot": "news daily publish cap (§35-9); wired into decide() in T-45 after an operator manual run",
 }
 
 SECRET_PATTERNS = [
@@ -124,6 +131,30 @@ def taxonomy_hierarchy_errors(categories: list[dict]) -> list[str]:
         elif by_slug[parent].get("parent") is not None:
             errors.append(f"{slug}: parent {parent} is not a silo root (depth > 2)")
     return errors
+
+
+def route_wiring_errors(post_routes: set[str], workflow_blobs: dict[str, str],
+                        library_only: dict[str, str]) -> tuple[list[str], list[str]]:
+    """§35-10 W14: (errors, notes) for POST routes vs. workflow callers and LIBRARY_ONLY."""
+    errors: list[str] = []
+    notes: list[str] = []
+    for route in sorted(post_routes):
+        # the route must end where the path ends: "/audit" must not match "/auditor"
+        pattern = re.compile(re.escape(route) + r"(?![\w/-])")
+        callers = sorted(name for name, blob in workflow_blobs.items() if pattern.search(blob))
+        if route in library_only:
+            if callers:
+                errors.append(f"{route}: registered LIBRARY_ONLY but called by {callers[0]}"
+                              " (remove it from LIBRARY_ONLY_ROUTES)")
+            else:
+                notes.append(f"{route}: LIBRARY_ONLY ({library_only[route]})")
+        elif callers:
+            notes.append(f"{route}: called by {len(callers)} workflow(s)")
+        else:
+            errors.append(f"{route}: no workflow calls it (wire it or register LIBRARY_ONLY_ROUTES)")
+    for route in sorted(set(library_only) - post_routes):
+        errors.append(f"{route}: LIBRARY_ONLY_ROUTES entry for a route that does not exist")
+    return errors, notes
 
 
 def main() -> int:
@@ -316,6 +347,16 @@ def main() -> int:
         fail(f"W13 taxonomy hierarchy: {'; '.join(hierarchy_errors)}")
     else:
         ok("W13 taxonomy silo hierarchy is valid")
+
+    print("== W14: auditor POST routes are wired (§35-10) ==")
+    import auditor_server
+    post_routes = {path for method, path in auditor_server.ROUTES if method == "POST"}
+    workflow_blobs = {name: json.dumps(wf, ensure_ascii=False) for name, wf in workflows.items()}
+    route_errors, route_notes = route_wiring_errors(post_routes, workflow_blobs, LIBRARY_ONLY_ROUTES)
+    for note in route_notes:
+        ok(f"W14 {note}")
+    for error in route_errors:
+        fail(f"W14 {error}")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")
