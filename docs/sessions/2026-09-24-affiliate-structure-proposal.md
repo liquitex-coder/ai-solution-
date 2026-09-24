@@ -56,3 +56,12 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
   - T-43: A5（`5318abe`）
 - ゲート: check_wired 90 PASS / eval 79/79 GREEN / unittest 143 OK
 - 残り: T-44〜T-50（T-45 / T-48 / T-49 は操作者の作業が前提）
+
+## 7. ASP方針と T-44（2026-09-24 追記）
+- ASP: A8.net を主軸に決定（§35-8）
+  - `AFFILIATE_HOSTS` は検出用の一覧なので、未採用のASPも残す（紛れ込んだリンクの見逃しを防ぐため）
+- T-44: `POST /publish-slot` を実装（`86126a7`）
+  - ニュースは JST の暦日で1日3本まで。compare は常に不可、DB が使えないときは閉じた側に倒す
+- W14（`8c288d5`）: サービスの POST ルートが未配線のまま放置されるのを検出する
+  - 既存の `/embed-diagrams` がまさにその状態で、未登録だった。T-11 待ちとして登録した
+- ゲート: check_wired 93 PASS / eval 79/79 GREEN / unittest 161 OK

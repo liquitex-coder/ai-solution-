@@ -156,7 +156,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-41 ✅ | Claude | Taxonomy hierarchy: `news` / `tools` / `compare` parents, `check_wired` W13, two-pass parent assignment in `wp-init.sh` | done 2026-09-24 (`2819338`): 90 PASS; 8 tests incl. fake WP server; disabling the parent pass turns 2 tests red |
 | T-42 ✅ | Claude | `content_audit` rules A1–A4 + eval cases on both sides of each rule | done 2026-09-24 (`dc165cc`): eval 79/79 GREEN; disabling A1 → 3 FN (RED) |
 | T-43 ✅ | Claude | A5: `requires_human_signature` in the audit result and the `/audit` response | done 2026-09-24 (`5318abe`): unittest 143 OK incl. HTTP end-to-end |
-| T-44 | Claude | Daily publish-slot service for the news silo (3/day) in `auditor_server` | unittest green |
+| T-44 ✅ | Claude | Daily publish-slot service for the news silo (3/day) in `auditor_server` | done 2026-09-24 (`86126a7`): 13 tests incl. 12 concurrent requests; removing the cap turns 4 red. Registered LIBRARY_ONLY in W14 (`8c288d5`) until T-45 wires it |
 | T-45 | Claude + operator | WF `decide()` honors `requires_human_signature` and the publish slot | manual n8n run log (CLAUDE.md §F) |
 | T-46 | Claude | Tool DB `data/tools.json` + tool-detail page generator (plugin-free) | generator test + A4 PASS on generated pages |
 | T-47 | Claude → operator | Trust pages (operator, editorial policy, ad/PR policy, privacy, contact) | pages drafted in WP |
@@ -178,10 +178,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D | 1 | 6 | 17% |
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Phase G | 4 | 11 | 36% |
-| Whole roadmap (A–G, D2) | 20 | 46 | 43% |
+| Phase G | 5 | 11 | 45% |
+| Whole roadmap (A–G, D2) | 21 | 46 | 46% |
 
-Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-43 done). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44 done). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
