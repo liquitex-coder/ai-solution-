@@ -1082,7 +1082,7 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 | Method / Path | Request | Response |
 |---|---|---|
 | `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false}` |
-| `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
+| `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null, "requires_human_signature": bool}`（最後のフィールドは §35-6 A5） |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
 | 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
@@ -1548,6 +1548,7 @@ aiguide.blog/
 ```
 
 - `data/wp-taxonomy.json` の各カテゴリに、任意の `parent`（親の slug）を持たせる。親カテゴリは `source_workflow` を持たない。
+  - 階層の妥当性は `scripts/check_wired.py` の W13 で検証する（親が存在する／2階層まで／WF カテゴリは必ずいずれかのサイロに属する）。
 - `scripts/wp-init.sh` は2段階で処理する。まず全カテゴリを作成し、次に `parent` に従って親を割り当てる（既存カテゴリも親を付け直す・冪等）。
 - ツールDBは `data/tools.json` を唯一の正とし、固定ページの HTML を生成する（プラグイン非依存）。
   - 料金の各行には `source_url` と `retrieved_at` を必須にする。
