@@ -1,7 +1,7 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.6  
-**最終更新**: 2026-09-17  
+**バージョン**: 2.7  
+**最終更新**: 2026-09-24  
 **ステータス**: 実装中（Phase 0 → Phase 1 移行、ロードマップ: `docs/ROADMAP.md`）
 
 ---
@@ -1505,3 +1505,87 @@ Fly 再デプロイ: **完了 2026-09-17** — `GET https://ainavi-auditor-gate.
 5. 逐語 evidence はソース言語（EN/ZH）のまま。`source_lang` による D2/D7 のスキップ条件は本節の照合には適用しない。
 6. WF06 のソースは Perplexity の生成文であり一次情報ではない。同 WF の照合は「Perplexity 出力との整合」にとどまる。
 
+---
+
+## 35. サイトアーキテクチャ（3サイロ + 信頼ページ）と収益層
+
+> 背景: 外部記事「AIアフィリエイトで稼ぐ完全ガイド」（blogai.jp, 2026-03-16）を参照し、本サイトの構成を確定する。
+> 同記事の数値（成功率・市場規模など）は出典がなく UNVERIFIABLE なので採用しない。採用するのは構造と失敗パターンのみ。
+> 設計判断: 2026-09-24（操作者承認）。セッションメモ: `docs/sessions/2026-09-24-affiliate-structure-proposal.md`。
+
+### 35-1. 検出した事実（コードで確認・2026-09-24）
+
+| 事実 | 根拠 |
+|---|---|
+| カテゴリ9件はすべて親なしのフラット構造で、トレンド系だけで構成されている | `data/wp-taxonomy.json` |
+| 起動間隔は WF02=30分、WF03/05=1時間、WF04=3時間、WF08=6時間。公開本数の上限はない | 各 WF の `scheduleTrigger` |
+| Auditor Gate の既定は `report_only` で、全件下書き | 各 WF の Auditor Gate jsCode `decide()` |
+| 収益リンク・PR表記を検査する規則がない | `scripts/content_audit.py`（HYPE / 引用 / 構造 / 統計のみ） |
+| 収益化の旧設計は削除済み | 旧 §16（commit `5caa493`）と disclosure gate（commit `4be8c51`）。§27 のマージで削除 |
+| 本番の WordPress.com プランは記録がない | §24。プラグイン（§12 の ACF / Rank Math）を使えるか不明 |
+
+### 35-2. 操作者の決定（2026-09-24）
+
+| 項目 | 決定 |
+|---|---|
+| サイト構造 | ① ニュース（フロー）／② ツール（ストック）／③ 選び方（収益）の3サイロ＋信頼ページ |
+| ③ 選び方サイロ | **作る**。公開には人間の署名が必須（INV-R1）。§27 で削除した比較カテゴリを、この条件付きで復活させる |
+| ① ニュースの自動公開上限 | **1日3本**。超えた分は下書きに残す |
+| カテゴリ | 親子の2階層に再編する（親: `news` / `tools` / `compare`）。既存の wp_id は変えない |
+| WordPress.com プラン | 不明。**プラグインに依存しない方式**で設計し、プランが確定したら ACF 方式への切替を別タスクで判断する |
+
+### 35-3. サイト構造
+
+```
+aiguide.blog/
+├─ トップ …… 初心者導線（§2-2）＋3サイロへの入口
+├─ ① news（AIニュース）     子: ai-official-news(WF02) github-trending(WF01) youtube-summary(WF03)
+│                            sns-pickup(WF04) note-creator(WF05) overseas-ai(WF08) weekly-trend-report(WF06)
+├─ ② tools（AIツール）      子: howto-guide(WF07) deep-dive(WF09) ＋ ツール詳細の固定ページ /tools/{tool}/
+├─ ③ compare（選び方・比較） 比較・ランキング記事（人間の署名のみで公開）
+└─ 信頼ページ（固定ページ）  運営者情報 / 編集方針（Auditor Gate の説明）/ 広告・PRポリシー /
+                             Claim Platform 紹介 / プライバシー / お問い合わせ
+```
+
+- `data/wp-taxonomy.json` の各カテゴリに、任意の `parent`（親の slug）を持たせる。親カテゴリは `source_workflow` を持たない。
+- `scripts/wp-init.sh` は2段階で処理する。まず全カテゴリを作成し、次に `parent` に従って親を割り当てる（既存カテゴリも親を付け直す・冪等）。
+- ツールDBは `data/tools.json` を唯一の正とし、固定ページの HTML を生成する（プラグイン非依存）。
+  - 料金の各行には `source_url` と `retrieved_at` を必須にする。
+
+### 35-4. 内部リンク規則
+
+| # | 規則 |
+|---|---|
+| R1 | ニュース記事は、タグ経由で1つ以上のツール詳細ページへリンクする（例: タグ `claude` → `/tools/claude/`） |
+| R2 | ツール詳細ページは、同じタグの最新ニュースを列挙する |
+| R3 | ③ 選び方の記事が料金・機能の根拠にするのは、ツール詳細ページ（`data/tools.json`）だけ |
+
+### 35-5. 公開ポリシー（サイロ別）
+
+| サイロ | 生成 | 追加の Auditor 規則 | 公開 |
+|---|---|---|---|
+| ① news | 全自動 | — | PASS なら段階的に自動公開。**1日3本まで**（T-44 / T-45） |
+| ② tools | 自動＋鮮度チェック | A4 | PASS なら段階的に自動公開 |
+| ③ compare | 自動では下書きのみ | A1〜A5 | **人間の署名のみ**（INV-R1） |
+
+### 35-6. 収益系の Auditor 規則（決定論・LLM 不使用 / INV-R2）
+
+**アフィリエイトリンクの定義**: `<a>` のうち、href のホストが `AFFILIATE_HOSTS`（ASP のリダイレクトホスト一覧。`scripts/content_audit.py` で定義）に含まれるもの、または `rel` に `sponsored` を含むもの。
+
+| # | 条件 | 結果 | 段階 |
+|---|---|---|---|
+| A1 | アフィリエイトリンクがあるのに、最初の `<h2>` より前の本文に PR 表記（`広告` / `PR` / `プロモーション` / `アフィリエイト`）がない | `FAIL:NO_PR_LABEL` | 即時（法令対応）。対象はアフィリエイトリンクを含む記事だけ |
+| A2 | ASP ホストへのリンクの `rel` に `sponsored` がない | `FAIL:AFFILIATE_NOT_SPONSORED` | 即時 |
+| A3 | 体験の主張（`使ってみた` / `試してみた` / `実際に使` / `実際に試`）があるのに、`data-ainavi-evidence="hands-on"` の要素がない | `WARN:UNSUPPORTED_EXPERIENCE` | Report-Only。§34-5 の手順で昇格を判断する |
+| A4a | 料金表現（`N円` / `¥N` / `$N` / `月額N`）があるのに、リンクも `source_urls` もない | `UNVERIFIABLE:UNSOURCED_PRICE` | 即時 |
+| A4b | 料金表現があるのに、取得時点（`YYYY年M月` / `YYYY-MM-DD` / `時点`）がない | `WARN:PRICE_UNDATED` | Report-Only |
+| A5 | アフィリエイトリンクを含む | 結果に `requires_human_signature: true` を付ける（verdict は変えない） | 判定はサーバ側で実装。`decide()` がこの値を尊重する配線は T-45（操作者の手動実行後） |
+
+- PR 表記の要否は景品表示法のステマ規制に基づく。適用範囲の法的な確認は、公開前に専門家が行う（本節は法務助言ではない）。
+- 評価セット（§22-2）に、A1〜A4 の各規則について PASS と FAIL の両側のケースを追加し、FP=0 / FN=0 を保つ。
+
+### 35-7. 範囲外（別タスク）
+
+- n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
+- `scripts/wp-init.ps1` の親割当対応は、Windows 実機での検証が必要（T-49）。
+- ③ compare 用のワークフロー（T-48）と信頼ページの本文（T-47）。
