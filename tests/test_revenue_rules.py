@@ -1,7 +1,13 @@
-"""Tests for the revenue audit rules A1-A4 (requirements §35-6)."""
+"""Tests for the revenue audit rules A1-A5 (requirements §35-6)."""
 
+import json
+import tempfile
+import threading
 import unittest
+from pathlib import Path
+from urllib.request import Request, urlopen
 
+from scripts.auditor_server import make_server
 from scripts.content_audit import audit
 
 BODY = ("AIツールの活用は業務の効率化に役立つ場面が増えています。"
@@ -86,6 +92,41 @@ class PriceTests(unittest.TestCase):
         result = audit(article(extra="有料版は¥980です。"))
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["reasons"], ["WARN:PRICE_UNDATED"])
+
+
+class HumanSignatureFlagTests(unittest.TestCase):
+    """§35-6 A5: affiliate content carries requires_human_signature; verdict is unchanged."""
+
+    LEAD = "<p>【PR】</p>"
+    CTA = f'<a href="{ASP}" rel="sponsored">公式</a>'
+
+    def test_affiliate_article_requires_signature_but_still_passes(self):
+        result = audit(article(self.LEAD, cta=self.CTA))
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertTrue(result["requires_human_signature"])
+
+    def test_plain_article_does_not_require_signature(self):
+        self.assertFalse(audit(article())["requires_human_signature"])
+
+    def test_audit_endpoint_returns_the_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            server = make_server("127.0.0.1", 0, Path(tmp) / "memory.db")
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_address[1]}/audit"
+                flags = []
+                for content in (article(self.LEAD, cta=self.CTA), article()):
+                    body = json.dumps({"content": content, "skill_ref": "01-github-trending"})
+                    request = Request(url, data=body.encode("utf-8"), method="POST",
+                                      headers={"Content-Type": "application/json"})
+                    with urlopen(request) as response:
+                        flags.append(json.loads(response.read())["requires_human_signature"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join()
+        self.assertEqual(flags, [True, False])
 
 
 if __name__ == "__main__":

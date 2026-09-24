@@ -273,6 +273,7 @@ def audit(handler: AuditorRequestHandler) -> tuple[int, str | None, str | None]:
         "skill_ref": skill_ref,
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "fact_id": fact_id,
+        "requires_human_signature": result["requires_human_signature"],
     }
     if evidence_summary is not None:
         response["evidence_summary"] = evidence_summary

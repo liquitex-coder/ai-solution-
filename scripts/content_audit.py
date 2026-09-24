@@ -8,7 +8,7 @@ Usage:
                                     [--source-text-file source.txt] [--source-lang ja|en|zh]
   echo '<h2>..</h2>' | python3 scripts/content_audit.py --stdin
 As a library: audit(content, source_urls=None, source_text=None, source_lang=None)
-              -> {"verdict": ..., "reasons": [...]}
+              -> {"verdict": ..., "reasons": [...], "requires_human_signature": bool}
               (WARN: entries are appended to reasons after any FAIL/UNVERIFIABLE
               ones and never change verdict — requirements §32-2)
 """
@@ -406,7 +406,10 @@ def audit(content: str, source_urls: list[str] | None = None,
         reasons = unverifiable
     else:
         verdict = "PASS"
-    result = {"verdict": verdict, "reasons": reasons + warnings}
+    # §35-6 A5: revenue content is published only on a human signature (INV-R1);
+    # the flag never changes the verdict.
+    result = {"verdict": verdict, "reasons": reasons + warnings,
+              "requires_human_signature": bool(affiliate)}
     if ev_summary is not None:
         result["evidence_summary"] = ev_summary
     return result
