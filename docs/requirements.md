@@ -420,14 +420,21 @@ docker-compose up -d
 
 ## 12. WordPressプラグイン構成
 
-| プラグイン | 用途 | コスト |
-|---|---|---|
-| Rank Math SEO | SEO最適化・Sitemap生成 | 無料 |
-| WP REST API | n8nからの自動投稿 | WordPress標準 |
-| Classic Editor | n8nからの投稿に対応 | 無料 |
-| WP Super Cache | 表示高速化 | 無料 |
-| Akismet | スパム対策 | 無料（個人） |
-| Advanced Custom Fields | カスタムフィールド（ツール詳細用） | 無料 |
+> 2026-09-24 更新: デザイン層はプラグインを使う方針に変更（§35-14）。正は `data/wp-site.json`。
+
+| プラグイン | 用途 | コスト | 状態（§35-14） |
+|---|---|---|---|
+| Rank Math SEO（`seo-by-rank-math`） | SEO最適化・Sitemap生成 | 無料 | 採用 |
+| WP REST API | n8nからの自動投稿 | WordPress標準 | 採用（コア機能） |
+| Kadence Blocks（`kadence-blocks`） | カード・グリッド・ステップ図解 | 無料 | 採用 |
+| WP Dark Mode（`wp-dark-mode`） | ダークモード | 無料 | 採用 |
+| Easy Table of Contents（`easy-table-of-contents`） | 記事の目次 | 無料 | 採用 |
+| WP Super Cache（`wp-super-cache`） | 表示高速化 | 無料 | 自己ホストのサンドボックスのみ（WordPress.com はサーバ側キャッシュ） |
+| Akismet | スパム対策 | 無料（個人） | 未定（コメント機能を使うかで判断） |
+| ~~Classic Editor~~ | ~~n8nからの投稿に対応~~ | — | **不採用**。ブロックエディタを無効化し、ブロック系デザインと両立しない。REST 投稿には不要 |
+| ~~Advanced Custom Fields~~ | ~~ツール詳細用~~ | — | **現時点で不要**。ツール情報は `data/tools.json`（§35-11） |
+
+テーマは Twenty Twenty-Five（ブロックテーマ）。プラグインの導入は WordPress.com の**有料プラン**が前提（§35-14）。
 
 ---
 
