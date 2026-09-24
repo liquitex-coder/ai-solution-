@@ -1125,11 +1125,11 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 
 | Method / Path | Request | Response |
 |---|---|---|
-| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false}` |
+| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false,"auth":true|false,"tools_catalog":true|false}`（`tools_catalog` は §35-13） |
 | `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null, "requires_human_signature": bool}`（最後のフィールドは §35-6 A5） |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
-| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
+| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、すべての POST ルート（`/audit`・`/embed-diagrams`・`/publish-slot`（§35-9）・`/link-tools`（§35-13））は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
 | ポート | `AINAVI_GATE_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `AINAVI_GATE_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `AINAVI_GATE_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
