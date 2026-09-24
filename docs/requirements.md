@@ -1761,6 +1761,46 @@ aiguide.blog/
 - カタログの配置: Fly では `/app/data` がボリュームに置き換わり `data/tools.json` が見えないため、
   Docker イメージに `/app/catalog/tools.json` として同梱する。読み込み順は `AINAVI_TOOLS_FILE` → `data/tools.json` → `catalog/tools.json`。
 
+### 35-14. プラグインによるサイトデザイン（T-51・操作者指示 2026-09-24）
+
+操作者の指示「サイトデザインはプラグインを使ってみて」を受け、§35-2 の「プラグイン非依存」を**デザイン層に限って**改める。
+コンテンツ（ツールページ・信頼ページ）の生成はプラグイン非依存のまま（§35-11/§35-12）とし、デザインの有無で壊れないようにする。
+
+**確認した事実（2026-09-24、Exa 経由で一次情報を取得）**
+- WordPress.com は**有料プラン（Personal・Premium・Business・Commerce）で**プラグインを導入できる。無料プランでは導入できない（wordpress.com/support/plugins/install-a-plugin/）。本番のプランは未記録なので、**無料プランならプラグイン部分はすべて操作者判断に回る**。
+- コア REST API: `POST /wp/v2/plugins {slug, status}` は wordpress.org のプラグインをインストールする。`/wp/v2/themes` は**取得のみ**で、テーマの有効化は REST ではできない。
+- `POST /wp/v2/global-styles/{id}` で `styles`（`styles.css` のカスタム CSS を含む。コアが CSS を検証する）と `settings` を更新できる（WP 5.9 以降、CSS 検証は 6.2 以降）。
+- 以下の slug が wordpress.org に実在することを確認した: テーマ `twentytwentyfive`、プラグイン `seo-by-rank-math`・`kadence-blocks`・`easy-table-of-contents`・`wp-dark-mode`・`wp-super-cache`。
+
+**構成（`data/wp-site.json` を唯一の正とする）**
+
+| 要素 | 選定 | 目的（§2-2 との対応） |
+|---|---|---|
+| テーマ | Twenty Twenty-Five（ブロックテーマ） | グローバルスタイルで配色・文字・余白を API から適用できる |
+| `kadence-blocks` | カード・グリッド・ステップ図解のブロック | カード型レイアウト・ステップ図解 |
+| `wp-dark-mode` | 閲覧者の OS 設定に応じたダークモード | ダークモード対応 |
+| `easy-table-of-contents` | 長文記事の目次 | 読みやすさ（800〜2000字の記事） |
+| `seo-by-rank-math` | SEO メタ・サイトマップ（§12 の既定） | SEO |
+| `wp-super-cache` | ページキャッシュ | **自己ホストのサンドボックスのみ**。WordPress.com はサーバ側のキャッシュを提供するため導入しない |
+
+- **§12 の見直し**: Classic Editor は**導入しない**。ブロックエディタを無効化するため、ブロック系のデザイン（Kadence Blocks・ブロックテーマ）と両立しない。n8n からの REST 投稿は HTML 本文なので、Classic Editor が無くても影響しない。ACF はツールDB（§35-11）を JSON で持つため、現時点では不要。
+- **デザイントークン**（配色・フォント・余白・角丸・カードの影）は `wp-site.json` の `global_styles` に置き、グローバルスタイルとして適用する。フォントは外部読み込みをせず、OS 標準の日本語フォントを使う（表示速度とプライバシーのため）。
+
+**適用スクリプト（`scripts/wp_site_setup.py`・操作者が実行）**
+- 既定は `plan`（変更内容の表示のみ）。`apply` で実行する。認証の判定は `wp-init.sh` / `tool_pages.py` と同じ（§24）。
+- **追加だけで、削除はしない**: 未導入のプラグインは導入して有効化し、導入済みで無効なものは有効化する。既存プラグインの無効化・削除は一切しない。
+- テーマが Twenty Twenty-Five でなければ `[TODO]` を出して止める（REST では有効化できないため、操作者が管理画面で切り替える）。
+  グローバルスタイルは、有効なテーマが一致するときだけ更新する。
+- WordPress.com の REST 経路でプラグイン API が使えるかは未検証。失敗したプラグインは `[WARN]` を出して次へ進み、操作者は管理画面から導入する。
+- 各プラグインの詳細設定（Rank Math の初期設定、ダークモードの切替ボタンの位置など）は、プラグインごとに API が違うため対象外とし、操作者の手順とする。
+
+**ゲート（W17）**: `data/wp-site.json` がスキーマを満たすこと。具体的には次を検査する。
+- slug の形式が正しい
+- 目的の記載がある
+- 導入禁止のプラグイン（`classic-editor`）が含まれていない
+- カスタム CSS に HTML タグを含まない（コアの CSS 検証と同じ条件）
+- カラーパレットに前景・背景があり、その2色のコントラスト比が 4.5:1 以上（WCAG AA）
+
 ### 35-7. 範囲外（別タスク）
 
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
