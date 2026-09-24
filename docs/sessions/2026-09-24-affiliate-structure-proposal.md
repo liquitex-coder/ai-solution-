@@ -99,3 +99,17 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
   `fly deploy` で失敗するところだった。ビルドコンテキストを検査するテストと CLAUDE.md §C-8 を追加
 - §28 の契約表が T-44 以降の実装とずれていたので修正（`/health` のフィールド、認証対象のルート）
 - ゲート: check_wired 96 PASS / eval 79/79 GREEN / unittest 225 OK
+
+## 12. T-51 プラグインによるサイトデザイン（2026-09-24 追記）
+- 操作者の指示「サイトデザインはプラグインを使ってみて」を受けて、デザイン層だけプラグインを使う方針に変更（§35-14）
+  - コンテンツ生成はプラグインに依存しないまま
+- 一次情報で確認した事実（Exa 経由）
+  - WordPress.com は有料プランでプラグインを導入できる（無料プランでは不可）
+  - REST API でプラグインは導入できるが、テーマの有効化はできない
+  - グローバルスタイルは API で更新できる
+  - 選んだプラグインとテーマの slug は wordpress.org に実在する。TT5 の配色 slug は theme.json で確認
+- 構成: Twenty Twenty-Five ＋ Kadence Blocks・WP Dark Mode・Easy TOC・Rank Math（WP Super Cache は自己ホストのみ）
+  - Classic Editor はブロックエディタと両立しないため不採用。§12 の表も更新
+- `data/wp-site.json` と `scripts/wp_site_setup.py`（既定は plan。追加のみで、削除・無効化・テーマ切替はしない）と W17
+- 未検証（操作者の本番実行で確認する）: WordPress.com の REST 経路でプラグイン API が使えるか。実際の見た目
+- ゲート: check_wired 97 PASS / eval 79/79 GREEN / unittest 241 OK

@@ -163,6 +163,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-48 | Claude + operator | Compare-silo workflow (draft-only, human signature) | manual n8n run log |
 | T-49 | operator | `wp-init.ps1` parent parity + production run of parent assignment | wp-init log |
 | T-50 ✅ | Claude + operator | Internal link rules R1–R3 in prompts + audit check | done 2026-09-24 (`e81bbb6`, `d995a0b`): R1 as a deterministic linker + Report-Only WARN; `/link-tools` LIBRARY_ONLY until T-45; R2 done in T-46; R3 moves to T-48. 19 + 2 tests |
+| T-51 ✅ | Claude → operator | Plugin-based site design: TT5 theme + Kadence Blocks / WP Dark Mode / Easy TOC / Rank Math, global styles (§35-14) | done 2026-09-24 (`260d974`): W17 PASS, 16 tests incl. HTTP round trip. Operator: confirm paid WordPress.com plan, activate TT5 in admin, run `wp_site_setup.py plan` then `apply` |
 
 ---
 
@@ -188,10 +189,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D | 1 | 6 | 17% |
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Phase G | 8 | 11 | 73% |
-| Whole roadmap (A–G, D2) | 24 | 46 | 52% |
+| Phase G | 9 | 12 | 75% |
+| Whole roadmap (A–G, D2) | 25 | 47 | 53% |
 
-Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50 done). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
