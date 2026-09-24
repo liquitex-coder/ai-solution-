@@ -381,6 +381,59 @@ add("E16", "evidence", "PASS", ARTICLE_E, source_urls=[SRC],
     forbidden_warnings=["WARN:EVIDENCE_NOT_IN_SOURCE"],
     note="英語ソースでの逐語照合")
 
+# ---------------------------------------------------------------- revenue (11, requirements §35-6)
+ASP = "https://px.a8.net/svt/ejp?a8mat=EVALTEST"
+PR_LEAD = p("本記事はアフィリエイト広告を含みます。")
+
+
+def aff(rel="sponsored nofollow", url=ASP):
+    return f'<a href="{url}" rel="{rel}">公式サイト</a>'
+
+
+def revenue_article(lead, cta, extra=""):
+    return (lead + h2("ツールの概要") + p(BODY + extra) +
+            h2("導入のポイント") + p(BODY + f"詳細は{link()}を参照してください。") +
+            h2("まとめ") + p(BODY + cta))
+
+
+add("R01", "revenue", "PASS", revenue_article(PR_LEAD, aff()),
+    note="A1/A2: PR表記あり・ASPリンクに rel=sponsored")
+add("R02", "revenue", "FAIL", revenue_article("", aff()),
+    note="A1: PR表記なし")
+add("R03", "revenue", "FAIL", revenue_article(PR_LEAD, aff(rel="nofollow")),
+    note="A2: ASPリンクに sponsored なし")
+add("R04", "revenue", "PASS",
+    revenue_article(PR_LEAD, aff(url="https://vendor.example.com/partner")),
+    note="A1: ASP以外でも rel=sponsored ならPR表記で PASS")
+add("R05", "revenue", "FAIL",
+    h2("ツールの概要") + p("本記事はアフィリエイト広告を含みます。" + BODY) +
+    h2("導入のポイント") + p(BODY + f"詳細は{link()}を参照してください。") +
+    h2("まとめ") + p(BODY + aff()),
+    note="A1境界: PR表記が最初のh2より後")
+add("R06", "revenue", "FAIL", revenue_article(p("PROプランの紹介です。"), aff()),
+    note="A1境界: PRO は PR 表記ではない")
+add("R07", "revenue", "PASS",
+    revenue_article("", "", extra="実際に使ってみたところ、設定は数分で終わりました。"),
+    expected_warnings=["WARN:UNSUPPORTED_EXPERIENCE"],
+    note="A3 Report-Only: 体験主張に実行証拠なし → WARNのみ")
+add("R08", "revenue", "PASS",
+    revenue_article("", "", extra="実際に使ってみたところ、設定は数分で終わりました。"
+                    '<pre data-ainavi-evidence="hands-on">$ tool --version</pre>'),
+    forbidden_warnings=["WARN:UNSUPPORTED_EXPERIENCE"],
+    note="A3: hands-on 証拠ブロックあり")
+add("R09", "revenue", "UNVERIFIABLE",
+    h2("料金") + p(BODY + "有料プランは月額3,000円です。") + h2("機能") + p(BODY) +
+    h2("まとめ") + p(BODY),
+    note="A4a: 料金に出典なし")
+add("R10", "revenue", "PASS",
+    revenue_article("", "", extra="有料プランは月額3,000円です（2026年9月時点）。"),
+    forbidden_warnings=["WARN:PRICE_UNDATED"],
+    note="A4: 出典あり・取得時点あり")
+add("R11", "revenue", "PASS",
+    revenue_article("", "", extra="有料プランは月額3,000円です。"),
+    expected_warnings=["WARN:PRICE_UNDATED"],
+    note="A4b Report-Only: 取得時点なし → WARNのみ")
+
 OUT.parent.mkdir(exist_ok=True)
 OUT.write_text(json.dumps(cases, ensure_ascii=False, indent=1), encoding="utf-8")
 by_cat = {}

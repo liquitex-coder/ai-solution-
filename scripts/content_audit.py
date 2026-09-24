@@ -21,6 +21,7 @@ import json
 import re
 import sys
 import unicodedata
+from urllib.parse import urlparse
 
 HYPE_PHRASES = [
     "革命的", "業界を震撼", "圧倒的No.1", "圧倒的ナンバーワン",
@@ -41,8 +42,37 @@ NUMERIC_CLAIM_RE = re.compile(
     r"\d[\d,.]*\s*(?:%|％|倍|億|兆|万人|万件|万ドル|億円|万円|pt|ポイント)")
 
 
+# Revenue rules (requirements §35-6). ASP redirect hosts; extend when a new ASP is adopted.
+AFFILIATE_HOSTS = (
+    "px.a8.net", "af.moshimo.com", "h.accesstrade.net", "ck.jp.ap.valuecommerce.com",
+    "t.afi-b.com", "hb.afl.rakuten.co.jp",
+)
+ANCHOR_RE = re.compile(r"<a\s[^>]*>", re.IGNORECASE)
+HREF_RE = re.compile(r"href=[\"']([^\"']+)[\"']", re.IGNORECASE)
+REL_RE = re.compile(r"rel=[\"']([^\"']*)[\"']", re.IGNORECASE)
+PR_LABEL_RE = re.compile(r"広告|プロモーション|アフィリエイト|(?<![A-Za-z])PR(?![A-Za-z])")
+EXPERIENCE_PHRASES = ("使ってみた", "試してみた", "実際に使", "実際に試")
+HANDS_ON_MARKER_RE = re.compile(r"data-ainavi-evidence=[\"']hands-on[\"']", re.IGNORECASE)
+PRICE_RE = re.compile(r"\d[\d,]*\s*円|[¥￥]\s*\d|\$\s*\d|月額\s*\d")
+PRICE_DATE_RE = re.compile(r"\d{4}年\d{1,2}月|\d{4}-\d{2}-\d{2}|時点")
+
+
 def _text(html: str) -> str:
     return TAG_RE.sub("", html)
+
+
+def _affiliate_links(content: str) -> list[tuple[bool, bool]]:
+    """§35-6: (points at an ASP host, rel carries sponsored) per affiliate anchor."""
+    links = []
+    for tag in ANCHOR_RE.findall(content):
+        href = HREF_RE.search(tag)
+        rel = REL_RE.search(tag)
+        host = (urlparse(href.group(1)).hostname or "") if href else ""
+        is_asp = any(host == h or host.endswith("." + h) for h in AFFILIATE_HOSTS)
+        sponsored = bool(rel) and "sponsored" in rel.group(1).lower().split()
+        if is_asp or sponsored:
+            links.append((is_asp, sponsored))
+    return links
 
 
 SIMILARITY_THRESHOLD = 0.85  # §17-1 (5): difflib ratio threshold shared by D7 and D2
@@ -292,6 +322,29 @@ def audit(content: str, source_urls: list[str] | None = None,
 
     if NUMERIC_CLAIM_RE.search(_text(content)) and not (has_link or source_urls):
         unverifiable.append("UNVERIFIABLE:UNSOURCED_STATS")
+
+    # §35-6 A1/A2: affiliate links need a PR label before the first <h2> and rel=sponsored.
+    affiliate = _affiliate_links(content)
+    if affiliate:
+        first_h2 = H2_RE.search(content)
+        lead = _text(content[:first_h2.start()] if first_h2 else content)
+        if not PR_LABEL_RE.search(lead):
+            reasons.append("FAIL:NO_PR_LABEL:affiliate link without a PR label before the first h2")
+        if any(is_asp and not sponsored for is_asp, sponsored in affiliate):
+            reasons.append("FAIL:AFFILIATE_NOT_SPONSORED:ASP link without rel=sponsored")
+
+    # §35-6 A3 (Report-Only): first-hand experience claims need a hands-on evidence block.
+    text_all = _text(content)
+    if (any(phrase in text_all for phrase in EXPERIENCE_PHRASES)
+            and not HANDS_ON_MARKER_RE.search(content)):
+        warnings.append("WARN:UNSUPPORTED_EXPERIENCE")
+
+    # §35-6 A4: prices need a source (A4a) and a retrieval date (A4b, Report-Only).
+    if PRICE_RE.search(text_all):
+        if not (has_link or source_urls):
+            unverifiable.append("UNVERIFIABLE:UNSOURCED_PRICE")
+        if not PRICE_DATE_RE.search(text_all):
+            warnings.append("WARN:PRICE_UNDATED")
 
     # D7 (§17-1 ⑤改変禁止, §32-1): blockquote text should be found verbatim in the source.
     # WARN-only until the 30-day observation (§32-2) — never affects verdict.
