@@ -384,7 +384,7 @@ n8n → Claude API（Mermaidコード生成）→ Kroki.io API（無料レンダ
 
 ### 8-7. 未決事項（操作者の判断が必要）
 
-1. ~~WordPress.com のプランが有料かどうか~~ → **決定済み（2026-09-25）**: 有料プラン（操作者の報告で月額換算 約3,500円）。公式の料金ページでは、すべての有料プランでプラグインを導入できる。プラン名の記録は操作者の確認待ち（§35-14）
+1. ~~WordPress.com のプランが有料かどうか~~ → **決定済み（2026-09-25）**: **ビジネスプラン**（管理画面の表記は「仕事」、年払い 42,000円 = 月額換算 3,500円、2026-09-25 操作者のスクリーンショットで確認）。プラグインの導入とカスタムコード（JavaScript など）が使える（§35-14）
 2. Polylang の「ブラウザ言語の検出」を ON にするか（既定 OFF、8-2）
 3. 公開上限（§35-9 のニュース 3本/日）を、言語ごとに数えるか全言語の合計で数えるか
 4. 引用の「原文 + 参考訳」方式が、対象国の著作権法で足りるかの確認
@@ -1841,7 +1841,7 @@ aiguide.blog/
 コンテンツ（ツールページ・信頼ページ）の生成はプラグイン非依存のまま（§35-11/§35-12）とし、デザインの有無で壊れないようにする。
 
 **確認した事実（2026-09-24、Exa 経由で一次情報を取得）**
-- WordPress.com は**有料プラン（Personal・Premium・Business・Commerce）で**プラグインを導入できる。無料プランでは導入できない（wordpress.com/support/plugins/install-a-plugin/）。本番のプランは**有料**（2026-09-25 操作者の報告、月額換算 約3,500円）なので、プラグインの導入は可能。プラン名は操作者の確認待ち。
+- WordPress.com は**有料プラン（Personal・Premium・Business・Commerce）で**プラグインを導入できる。無料プランでは導入できない（wordpress.com/support/plugins/install-a-plugin/）。本番のプランは**ビジネスプラン**（2026-09-25 操作者のスクリーンショットで確認。管理画面の表記は「仕事」、年払い）なので、プラグインの導入とカスタムコードの追加が可能。
 - コア REST API: `POST /wp/v2/plugins {slug, status}` は wordpress.org のプラグインをインストールする。`/wp/v2/themes` は**取得のみ**で、テーマの有効化は REST ではできない。
 - `POST /wp/v2/global-styles/{id}` で `styles`（`styles.css` のカスタム CSS を含む。コアが CSS を検証する）と `settings` を更新できる（WP 5.9 以降、CSS 検証は 6.2 以降）。
 - 以下の slug が wordpress.org に実在することを確認した: テーマ `twentytwentyfive`、プラグイン `seo-by-rank-math`・`kadence-blocks`・`easy-table-of-contents`・`wp-dark-mode`・`wp-super-cache`。
