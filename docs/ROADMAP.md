@@ -173,7 +173,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-53 | Claude | Per-language audit vocabulary: A1 PR labels and HYPE dictionaries for EN first, eval cases on both sides | eval FP=0/FN=0 incl. EN cases |
 | T-54 | Claude | Deterministic translation-fidelity check (numbers, URLs, headings, blockquotes) wired into the audit path | `check_wired` PASS + tests |
 | T-55 | Claude → operator | Multilingual plugin (Polylang candidate) in `data/wp-site.json`, browser detection ON (operator decision 2026-09-25, homepage first visit only), `/en/` URLs, hreflang with `x-default` = JA | W17 PASS; operator `plan`/`apply` log |
-| T-56 | Claude + operator | EN translation workflow (drafts only, from Auditor-PASS JA) | manual n8n run log (CLAUDE.md §F) |
+| T-56 | Claude + operator | EN translation workflow (drafts only, from Auditor-PASS JA); `/publish-slot` gains `lang` so the daily cap counts per language | manual n8n run log (CLAUDE.md §F) |
 | T-57 | operator | Decisions in §8-7 (plan, detection, per-language cap, quote translation, ad disclosure, model/cost) | recorded in §8-7 and signed |
 
 ---
