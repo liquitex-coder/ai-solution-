@@ -374,7 +374,7 @@ n8n → Claude API（Mermaidコード生成）→ Kroki.io API（無料レンダ
   - リンク先 URL の集合（アフィリエイトリンクの `rel="sponsored"` を含む）
   - 見出しの数、引用ブロック（`<blockquote>`）の数
 - **引用**（著作権5要件の「改変禁止」）: 引用ブロックの原文は翻訳せずにそのまま残し、訳は「参考訳」と明示して引用ブロックの外に置く。日本法では条件を満たす（8-7 の 4）。海外法は L1 の前に専門家へ確認する。
-- **広告表示**: A1 の PR 表記は言語ごとに認識語を持つ（例: 英語 `Sponsored` / `Ad` / `Affiliate`、スペイン語 `Publicidad`、フランス語 `Publicité`）。現行の `content_audit.py` の `PR_LABEL_RE` は日本語と `PR` だけで、英語の表記は FAIL になる（2026-09-25 にコードで確認）。対象国の表示規制（日本の景品表示法ステマ規制、米国 FTC など）への適合は操作者が確認する。
+- **広告表示**: A1 の PR 表記は言語ごとに認識語を持つ（例: 英語 `Sponsored` / `Ad` / `Paid link`、スペイン語 `Publicidad`、フランス語 `Publicité`）。**英語の `Affiliate` / `affiliate link` 単独は PR 表記として認めない**: FTC のスタッフ向け Q&A（「FTC's Endorsement Guides: What People Are Asking」、2026-09-25 確認）が、`affiliate link` だけでは報酬を得ていることが伝わらないとしているため。同じ Q&A は、リンクのすぐ隣の `paid link` は十分とし、例文として "I get commissions for purchases made through links in this post." を挙げている。現行の `content_audit.py` の `PR_LABEL_RE` は日本語と `PR` だけで、英語の表記は FAIL になる（2026-09-25 にコードで確認）。対象国の表示規制（日本の景品表示法ステマ規制、米国 FTC など）への適合は操作者が確認する。
 - 翻訳記事にも §22 の監査規則（誇大表現・出典・構造）を各言語で適用する。現行の誇大表現リスト（`content_audit.py` の `HYPE_PHRASES`）は日本語なので、言語ごとの辞書を用意する（T-53）。
 
 ### 8-6. 旧版から引き継ぐ項目
