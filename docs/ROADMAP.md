@@ -165,6 +165,17 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-50 ✅ | Claude + operator | Internal link rules R1–R3 in prompts + audit check | done 2026-09-24 (`e81bbb6`, `d995a0b`): R1 as a deterministic linker + Report-Only WARN; `/link-tools` LIBRARY_ONLY until T-45; R2 done in T-46; R3 moves to T-48. 19 + 2 tests |
 | T-51 ✅ | Claude → operator | Plugin-based site design: TT5 theme + Kadence Blocks / WP Dark Mode / Easy TOC / Rank Math, global styles (§35-14) | done 2026-09-24 (`260d974`): W17 PASS, 16 tests incl. HTTP round trip. Operator: confirm paid WordPress.com plan, activate TT5 in admin, run `wp_site_setup.py plan` then `apply` |
 
+## Phase I — Multilingual display (requirements §8 v2.8, decided 2026-09-25)
+
+| ID | Owner | Task | Done when |
+|---|---|---|---|
+| T-52 ✅ | Claude | Spec §8: reader's browser language, switcher, no forced redirect, hreflang, staged JA → EN → ES/FR | done 2026-09-25 (`2184ca1`) |
+| T-53 | Claude | Per-language audit vocabulary: A1 PR labels and HYPE dictionaries for EN first, eval cases on both sides | eval FP=0/FN=0 incl. EN cases |
+| T-54 | Claude | Deterministic translation-fidelity check (numbers, URLs, headings, blockquotes) wired into the audit path | `check_wired` PASS + tests |
+| T-55 | Claude → operator | Multilingual plugin (Polylang candidate) in `data/wp-site.json`, browser detection OFF, `/en/` URLs, hreflang with `x-default` = JA | W17 PASS; operator `plan`/`apply` log |
+| T-56 | Claude + operator | EN translation workflow (drafts only, from Auditor-PASS JA) | manual n8n run log (CLAUDE.md §F) |
+| T-57 | operator | Decisions in §8-7 (plan, detection, per-language cap, quote translation, ad disclosure, model/cost) | recorded in §8-7 and signed |
+
 ---
 
 ## Phase H — Future expansion (not scheduled, requirements §36)
@@ -190,9 +201,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
 | Phase G | 9 | 12 | 75% |
-| Whole roadmap (A–G, D2) | 25 | 47 | 53% |
+| Phase I | 1 | 6 | 17% |
+| Whole roadmap (A–G, D2, I) | 26 | 53 | 49% |
 
-Last recomputed 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
