@@ -1,7 +1,7 @@
 # AI情報専門サイト 要件定義書
 
-**バージョン**: 2.6  
-**最終更新**: 2026-09-17  
+**バージョン**: 2.8  
+**最終更新**: 2026-09-25  
 **ステータス**: 実装中（Phase 0 → Phase 1 移行、ロードマップ: `docs/ROADMAP.md`）
 
 ---
@@ -13,7 +13,7 @@
 | サイト名 | AIナビ（仮） |
 | 目的 | AI初心者〜中級者が「使える・試せる」情報を得られる日本語ハブ |
 | ターゲット | 日本語圈（メイン）・英語圈（技術SNS・動画経由でリーチ拡大） |
-| 言語 | 日本語メイン / 英語SEOメタ・将来英語記事化 |
+| 言語 | 日本語原本 / 閲覧者のブラウザ言語で表示・段階展開（§8、JA → EN → ES/FR） |
 | CMS | WordPress |
 | コンセプト | **人間の介入を最小化した全自動AI情報メディア** |
 | 戦略軽層 | **このパイプライン自体がClaim Platformの実動デモ・宣伝媦体** |
@@ -319,15 +319,89 @@ n8n → Claude API（Mermaidコード生成）→ Kroki.io API（無料レンダ
 
 ---
 
-## 8. 言語戦略（JAメイン + EN圈ターゲット）
+## 8. 言語戦略（閲覧者の言語で表示・段階展開）
 
-| 層 | 言語 | 内容 | 実装タイミング |
+> 2026-09-25 改訂（v2.8）。操作者の方針:「アクセスした人の言語で自動表示し、任意の言語も選べるようにする」。
+> 旧版（日本語本文 + 英語SEOメタ、英語記事は Phase 2）は 8-6 に引き継ぐ。**この節は仕様であり、実装はまだない**（Phase I・T-53〜T-57）。
+
+### 8-1. 基本方針
+
+- 記事の**原本は日本語**のまま。他の言語版は、Auditor Gate を PASS した日本語原本から作る翻訳とする。
+- 表示言語は**閲覧者のブラウザの言語設定**で決める。IP アドレスによる位置判定では決めない。
+  - 理由: 位置と言語は一致しない。例えばフロリダの閲覧者の多くは英語話者で、スペイン語話者はブラウザ設定の方で拾える。VPN・旅行者・多言語国（スイス・カナダなど）でも位置判定は外れる。
+- 閲覧者はいつでも**言語切替スイッチ**で任意の言語を選べる。選んだ言語は記憶し、次回以降はそれを優先する。
+- 言語は**段階的に**増やす（8-4）。Auditor が検査できない言語は公開しない。
+
+### 8-2. 表示言語の決め方（優先順）
+
+| 順位 | 根拠 | 備考 |
+|---|---|---|
+| 1 | 閲覧者が切替スイッチで選んだ言語（Cookie で記憶） | 常に最優先 |
+| 2 | ブラウザの言語設定（`Accept-Language`）| 公開済みの言語に一致するときだけ使う |
+| 3 | 既定言語 = 日本語 | 一致しない場合・Googlebot を含む |
+
+- **強制リダイレクトはしない**のを原則とする。一致する言語版があれば「English version available」のような**案内バナー**を出し、切り替えは閲覧者が選ぶ。
+  - 根拠（Google Search Central「Managing Multi-Regional and Multilingual Sites」、2026-09-25 確認）: 言語ごとに別の URL を使うことを推奨し、推測した言語への自動リダイレクトは避けるよう求めている。Googlebot は通常米国から、`Accept-Language` なしで巡回するため、言語で出し分けると他の言語版が検索に載らない可能性がある。
+- 多言語プラグイン Polylang の「ブラウザ言語の検出」は、**初回訪問時にトップページだけ**を自動リダイレクトする（polylang.pro の公式ガイドで確認）。上の原則とは緊張関係にあるが、**操作者の判断で ON とする（2026-09-25 決定）**。影響を抑えるため次を守る。
+  - 自動で切り替えるのは Polylang の仕様どおり**トップページの初回訪問だけ**。記事ページは自動で切り替えない。
+  - Googlebot は `Accept-Language` を送らないので既定言語（日本語）を受け取る。他の言語版は `/en/` などの URL と hreflang で見つけてもらう。
+  - 切替スイッチは全ページのヘッダーに常に表示する（切り替えた先の言語は Cookie で記憶される）。
+  - L1 公開後、Search Console で言語版ごとのインデックス数を確認し、問題があれば OFF に戻す（8-4 の 30 日運用の記録に含める）。
+
+### 8-3. URL と検索エンジン向けの表示
+
+- 日本語は**今の URL のまま**（ルート）。他の言語はサブディレクトリにする: `/en/` `/es/` `/fr/`。
+- 各言語版のページに `hreflang` で全言語版（自分自身を含む）を列挙し、`x-default` は日本語版を指す。
+- 1ページ1言語とする（本文と見出しを混在させない）。
+- 実装手段の第一候補は Polylang（WordPress.com のプラグイン一覧に掲載を確認。有料プランが前提、§35-14）。**slug と WordPress.com での動作は、導入前に `wp_site_setup.py plan` と操作者の管理画面で確認する**。
+
+### 8-4. 段階展開
+
+| 段階 | 言語 | 昇格の条件（すべて満たすこと） |
+|---|---|---|
+| L0（現在） | 日本語 | — |
+| L1 | ＋英語 | ① 英語の PR 表記を A1 が認識し、評価ケースで FP=0/FN=0（T-53）② 翻訳の忠実性チェック（8-5）が本番パスに配線済み（T-54）③ 翻訳 WF の手動実行ログ（CLAUDE.md §F）④ 引用の翻訳について海外法の専門家確認（8-7 の 4）⑤ 操作者の署名（INV-R1）|
+| L2 | ＋スペイン語・フランス語 | L1 と同じ条件を各言語で満たす。加えて L1 を 30 日運用し、英語版の Auditor 判定（FAIL/UNVERIFIABLE 率）を §34-9 と同じ形式で記録する |
+
+- 新しい自動化は Report-Only → 人間承認付き → 自動 の順で昇格させる（CLAUDE.md §B-7）。各言語の**初回公開は下書きのみ**とする。
+
+### 8-5. 翻訳と監査のルール
+
+- **翻訳の元は Auditor Gate で PASS した日本語原本だけ**とする。FAIL / UNVERIFIABLE の記事は翻訳しない。
+- 各言語版も**独立した記事として Auditor Gate を通す**。FAIL / UNVERIFIABLE は公開しない（INV-R2）。
+- 翻訳の忠実性チェック（決定論的・LLM を使わない、T-54）: 原本と翻訳の間で、次が一致すること。
+  - 数値（価格・日付・統計）の集合
+  - リンク先 URL の集合（アフィリエイトリンクの `rel="sponsored"` を含む）
+  - 見出しの数、引用ブロック（`<blockquote>`）の数
+- **引用**（著作権5要件の「改変禁止」）: 引用ブロックの原文は翻訳せずにそのまま残し、訳は「参考訳」と明示して引用ブロックの外に置く。日本法では条件を満たす（8-7 の 4）。海外法は L1 の前に専門家へ確認する。
+- **広告表示**: A1 の PR 表記は言語ごとに認識語を持つ（例: 英語 `Sponsored` / `Ad` / `Paid link`、スペイン語 `Publicidad`、フランス語 `Publicité`）。**英語の `Affiliate` / `affiliate link` 単独は PR 表記として認めない**: FTC のスタッフ向け Q&A（「FTC's Endorsement Guides: What People Are Asking」、2026-09-25 確認）が、`affiliate link` だけでは報酬を得ていることが伝わらないとしているため。同じ Q&A は、リンクのすぐ隣の `paid link` は十分とし、例文として "I get commissions for purchases made through links in this post." を挙げている。現行の `content_audit.py` の `PR_LABEL_RE` は日本語と `PR` だけで、英語の表記は FAIL になる（2026-09-25 にコードで確認）。対象国の表示規制（日本の景品表示法ステマ規制、米国 FTC など）への適合は操作者が確認する。
+- 翻訳記事にも §22 の監査規則（誇大表現・出典・構造）を各言語で適用する。現行の誇大表現リスト（`content_audit.py` の `HYPE_PHRASES`）は日本語なので、言語ごとの辞書を用意する（T-53）。
+
+### 8-6. 旧版から引き継ぐ項目
+
+| 層 | 言語 | 内容 | 状態 |
 |---|---|---|---|
-| 記事本文 | 日本語 | 全記事 | Phase 1（現在） |
-| SEOメタ | 英語 | title / description / slug / alt | Phase 1（全記事に並走） |
-| 英語翻訳記事 | 英語 | 高価値記事のみ別投稿 | Phase 2 |
+| 記事本文（原本） | 日本語 | 全記事 | 現行 |
+| SEOメタ | 英語 | title / description / slug / alt | 設計済み・未実装（T-19）。L1 以降は各言語版が自分の言語のメタを持つ |
 | SNS配信 | 英語 | Higgsfield動画 + YouTube / TikTok | Phase 2 |
-| ZH→JA 翻訳記事 | 日本語（翻訳ラベル付き） | Kimi経由 | Phase 2（WF08） |
+| ZH→JA 翻訳記事 | 日本語（翻訳ラベル付き） | Kimi経由 | Phase 2（WF08）。多言語展開とは別の流れ（中国語の情報源を日本語記事にする）|
+
+### 8-7. 未決事項（操作者の判断が必要）
+
+1. ~~WordPress.com のプランが有料かどうか~~ → **決定済み（2026-09-25）**: **ビジネスプラン**（管理画面の表記は「仕事」、年払い 42,000円 = 月額換算 3,500円、2026-09-25 操作者のスクリーンショットで確認）。プラグインの導入とカスタムコード（JavaScript など）が使える（§35-14）
+2. ~~Polylang の「ブラウザ言語の検出」を ON にするか~~ → **決定済み（2026-09-25）**: ON。条件と見直し方法は 8-2
+3. ~~公開上限を言語ごとに数えるか合計で数えるか~~ → **決定済み（2026-09-25）**: **言語ごと**に数える（日本語3本・英語3本…）。現行の `/publish-slot` と `publish_slots` 表は言語を区別しないため、T-56 で `lang`（既定 `ja`）を追加する（§35-9）
+4. ~~引用の「原文 + 参考訳」方式で足りるか~~ → **決定済み（2026-09-25）**: この方式で進める。日本法では、第32条の引用は翻訳して利用できる（翻訳のみで、翻案は不可。出所の明示が必要＝第48条）。根拠条文は旧第43条第2号（IP Force 掲載の条文で確認）。2018年改正後の現行の条番号は未確認で、第47条の6 の可能性がある。海外法（米国・EU など）は **L1 公開前に専門家へ確認**する（L1 の昇格条件に追加）
+5. ~~広告表示規制への適合と PR 表記の文言~~ → **英語は決定済み（2026-09-25）**:
+   - 本文の冒頭（最初の見出しの前、本文の中）に `Disclosure: We earn a commission if you buy through links in this article. This does not affect our reviews.`
+   - 各アフィリエイトリンクのすぐ隣に `(Paid link)`
+   - 日本語版は現行どおり（「広告」「PR」）。スペイン語・フランス語は L2 で決める。文言は L1 前の専門家確認（8-7 の 4）の対象に含める
+6. 翻訳に使うモデルとコスト上限 → **モデルは決定済み（2026-09-25）**: `claude-sonnet-5`（記事生成の WF06/07/09 と同じ）。翻訳は急がないため Batch API（半額）を第一候補とする。1記事あたりの費用は推定値（入力 約5,000・出力 約2,500トークンで 約$0.035）で、T-56 の実装時にトークン計数 API で実測して確定する。**月の上限額は $10（2026-09-25 決定）**。上限に達したら、その月の残りは翻訳を止めて下書きのままにする（閉じた側に倒す）。上限は T-56 で設定値として持たせる
+
+### 8-8. 範囲外
+
+- 各言語版のテーマ文言（メニュー・フッター）の翻訳作業そのもの。プラグイン導入後に操作者が管理画面で行う。
+- 中国語・韓国語など L2 に含まれない言語。L2 の運用結果を見てから検討する。
 
 ---
 
@@ -420,14 +494,21 @@ docker-compose up -d
 
 ## 12. WordPressプラグイン構成
 
-| プラグイン | 用途 | コスト |
-|---|---|---|
-| Rank Math SEO | SEO最適化・Sitemap生成 | 無料 |
-| WP REST API | n8nからの自動投稿 | WordPress標準 |
-| Classic Editor | n8nからの投稿に対応 | 無料 |
-| WP Super Cache | 表示高速化 | 無料 |
-| Akismet | スパム対策 | 無料（個人） |
-| Advanced Custom Fields | カスタムフィールド（ツール詳細用） | 無料 |
+> 2026-09-24 更新: デザイン層はプラグインを使う方針に変更（§35-14）。正は `data/wp-site.json`。
+
+| プラグイン | 用途 | コスト | 状態（§35-14） |
+|---|---|---|---|
+| Rank Math SEO（`seo-by-rank-math`） | SEO最適化・Sitemap生成 | 無料 | 採用 |
+| WP REST API | n8nからの自動投稿 | WordPress標準 | 採用（コア機能） |
+| Kadence Blocks（`kadence-blocks`） | カード・グリッド・ステップ図解 | 無料 | 採用 |
+| WP Dark Mode（`wp-dark-mode`） | ダークモード | 無料 | 採用 |
+| Easy Table of Contents（`easy-table-of-contents`） | 記事の目次 | 無料 | 採用 |
+| WP Super Cache（`wp-super-cache`） | 表示高速化 | 無料 | 自己ホストのサンドボックスのみ（WordPress.com はサーバ側キャッシュ） |
+| Akismet | スパム対策 | 無料（個人） | 未定（コメント機能を使うかで判断） |
+| ~~Classic Editor~~ | ~~n8nからの投稿に対応~~ | — | **不採用**。ブロックエディタを無効化し、ブロック系デザインと両立しない。REST 投稿には不要 |
+| ~~Advanced Custom Fields~~ | ~~ツール詳細用~~ | — | **現時点で不要**。ツール情報は `data/tools.json`（§35-11） |
+
+テーマは Twenty Twenty-Five（ブロックテーマ）。プラグインの導入は WordPress.com の**有料プラン**が前提（§35-14）。
 
 ---
 
@@ -479,6 +560,50 @@ docker-compose up -d
 - [ ] 英語全文翻訳記事（高価値記事）
 
 ---
+
+## 36. 将来拡張構想 — ハブ&スポーク（未着手・実装しない）
+
+> ⚠️ 本章は**将来構想の記録**であり、設計確定でも実装対象でもない。今このリポジトリでは
+> 何も実装しない。操作者の意思決定（2026-09-24）: 「単なるニュース配信で終わらせたくない。
+> アイデアから物理的な商品を作り出し販売まで一気通貫で行うハブ的機能や、i am youのように
+> 人と人をAIが繋ぐサービスを将来的に持ちたい」。
+
+### 36-1. 構想の骨子
+
+ai-solution-（本リポジトリ）は情報ハブ・入口の役割に留め、性質の異なる実処理（決済・製造連携・
+マッチング）は**別スポークとして分離**する方向で検討する。理由:
+
+- §27 で reporters 系との重複を一度解消した経緯があり、性質の違う機能を同一リポジトリに混在
+  させると `scripts/check_wired.py` の誤検知や、Auditor Gate（記事の真偽判定用に最適化された
+  LLM-free 決定論ゲート、INV-R1/INV-R2）の趣旨の希釈を招きやすい。
+- Claim Platform の既存6リポジトリ（Auditor / Builder / Console / Crew / Evolve / Security /
+  LLM）は既に「Auditor＝LLM-free judge」「Builder＝S0〜S8生成パイプライン」という型を持ち、
+  新スポークはこの型の再利用を検討できる。
+
+```
+                         ┌─ ai-solution-（本リポジトリ・入口ハブ）
+                         │   ニュース／ツール比較／Claim Platform紹介
+                         │   各スポークへの導線（記事内CTA・ツールDB経由）
+                         │
+   Claim Platform ───────┤
+   （既存6リポジトリ）    ├─ スポークA（構想）: アイデア→商品化ハブ
+                         │   アイデア投稿→設計→試作先マッチング→販売
+                         │
+                         └─ スポークB（構想）: 人と人をAIが繋ぐサービス
+                             個人情報を扱うため claim-security- の適用を要検討
+```
+
+### 36-2. 現時点での方針
+
+| 項目 | 方針 |
+|---|---|
+| 実装着手 | **しない**。A・Bとも設計・実装ゼロ。リポジトリも未作成 |
+| 現行コードへの影響 | 無し。§35 のツールページ・比較サイロの CTA 設計を、特定スポークの
+  仕様に先回りして縛らない（汎用的な外部リンクとして留める）程度の配慮に留める |
+| 着手判断 | 操作者が着手フェーズを判断した時点で、当該スポークの要件定義書を新規リポジトリ側に
+  起こす（このリポジトリの docs/requirements.md には追記しない） |
+| 未確定事項 | A・Bどちらを先に着手するか / 別リポジトリか同一リポジトリ内の別セクションか /
+  「i am you」的サービスの具体的な参照仕様 — いずれも未確認・未決定 |
 
 ## 14. エラー対応方針
 
@@ -1081,11 +1206,11 @@ reporters フレームワークの重複部分（`reporters/`, WF07-13の report
 
 | Method / Path | Request | Response |
 |---|---|---|
-| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false}` |
-| `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null}` |
+| `GET /health` | — | `200 {"status":"ok","service":"ainavi-auditor-gate","memory_db":true|false,"auth":true|false,"tools_catalog":true|false}`（`tools_catalog` は §35-13） |
+| `POST /audit` | JSON `{content: string, source_urls?: string[], skill_ref?: string, title?: string}` | `200 {"verdict":"PASS|FAIL|UNVERIFIABLE","reasons":[...],"skill_ref":..., "audited_at": ISO8601, "fact_id": int|null, "requires_human_signature": bool}`（最後のフィールドは §35-6 A5） |
 | `POST /embed-diagrams` | JSON `{content: string}` | `200 {"content": string, "diagrams": int}`（§31。verdict には無関係） |
 | その他 | — | `404`。不正 JSON / `content` 欠落は `400 {"error": ...}` |
-| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、`POST /audit` と `POST /embed-diagrams` は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
+| 認証 | `AINAVI_GATE_TOKEN` が設定されている場合、すべての POST ルート（`/audit`・`/embed-diagrams`・`/publish-slot`（§35-9）・`/link-tools`（§35-13））は `Authorization: Bearer <token>` を要求する（不一致・欠落は `401 {"error":"unauthorized"}`、記憶層へは何も書かない）。`GET /health` は常に認証不要で `"auth": true|false` を返す。未設定時は挙動を変えず、起動時に stderr へ「unauthenticated mode (sandbox only)」を1行出す。比較は `hmac.compare_digest` を **bytes** で行う（str 比較は非 ASCII を含む Bearer 値で `TypeError` → `400` になる、2026-09-13 実測）。Bearer 値に非 ASCII が含まれる場合も `401`。トークンはログに出さない（T-27） | — |
 | ポート | `AINAVI_GATE_PORT` → 無ければ `PORT`（Render / Fly.io 慣習）→ 無ければ 8090。**イメージ（`Dockerfile`）は `AINAVI_GATE_PORT` を `ENV` で焼き込まない** — PaaS が注入する `PORT` を無効化するため（2026-09-13 実測: `AINAVI_GATE_PORT=8090` + `PORT=10000` で 8090 に bind、10000 は応答なし）。`HEALTHCHECK` も同じ優先順位で解決する（T-26 第2ラウンド） | — |
 
 - verdict は `content_audit.audit(content, source_urls)` をそのまま返す。判定ロジックの追加・変更は §22 の評価セットを通す。
@@ -1505,3 +1630,261 @@ Fly 再デプロイ: **完了 2026-09-17** — `GET https://ainavi-auditor-gate.
 5. 逐語 evidence はソース言語（EN/ZH）のまま。`source_lang` による D2/D7 のスキップ条件は本節の照合には適用しない。
 6. WF06 のソースは Perplexity の生成文であり一次情報ではない。同 WF の照合は「Perplexity 出力との整合」にとどまる。
 
+---
+
+## 35. サイトアーキテクチャ（3サイロ + 信頼ページ）と収益層
+
+> 背景: 外部記事「AIアフィリエイトで稼ぐ完全ガイド」（blogai.jp, 2026-03-16）を参照し、本サイトの構成を確定する。
+> 同記事の数値（成功率・市場規模など）は出典がなく UNVERIFIABLE なので採用しない。採用するのは構造と失敗パターンのみ。
+> 設計判断: 2026-09-24（操作者承認）。セッションメモ: `docs/sessions/2026-09-24-affiliate-structure-proposal.md`。
+
+### 35-1. 検出した事実（コードで確認・2026-09-24）
+
+| 事実 | 根拠 |
+|---|---|
+| カテゴリ9件はすべて親なしのフラット構造で、トレンド系だけで構成されている | `data/wp-taxonomy.json` |
+| 起動間隔は WF02=30分、WF03/05=1時間、WF04=3時間、WF08=6時間。公開本数の上限はない | 各 WF の `scheduleTrigger` |
+| Auditor Gate の既定は `report_only` で、全件下書き | 各 WF の Auditor Gate jsCode `decide()` |
+| 収益リンク・PR表記を検査する規則がない | `scripts/content_audit.py`（HYPE / 引用 / 構造 / 統計のみ） |
+| 収益化の旧設計は削除済み | 旧 §16（commit `5caa493`）と disclosure gate（commit `4be8c51`）。§27 のマージで削除 |
+| 本番の WordPress.com プランは記録がない | §24。プラグイン（§12 の ACF / Rank Math）を使えるか不明 |
+
+### 35-2. 操作者の決定（2026-09-24）
+
+| 項目 | 決定 |
+|---|---|
+| サイト構造 | ① ニュース（フロー）／② ツール（ストック）／③ 選び方（収益）の3サイロ＋信頼ページ |
+| ③ 選び方サイロ | **作る**。公開には人間の署名が必須（INV-R1）。§27 で削除した比較カテゴリを、この条件付きで復活させる |
+| ① ニュースの自動公開上限 | **1日3本**。超えた分は下書きに残す |
+| カテゴリ | 親子の2階層に再編する（親: `news` / `tools` / `compare`）。既存の wp_id は変えない |
+| WordPress.com プラン | 不明。**プラグインに依存しない方式**で設計し、プランが確定したら ACF 方式への切替を別タスクで判断する |
+
+### 35-3. サイト構造
+
+```
+aiguide.blog/
+├─ トップ …… 初心者導線（§2-2）＋3サイロへの入口
+├─ ① news（AIニュース）     子: ai-official-news(WF02) github-trending(WF01) youtube-summary(WF03)
+│                            sns-pickup(WF04) note-creator(WF05) overseas-ai(WF08) weekly-trend-report(WF06)
+├─ ② tools（AIツール）      子: howto-guide(WF07) deep-dive(WF09) ＋ ツール詳細の固定ページ /tools/{tool}/
+├─ ③ compare（選び方・比較） 比較・ランキング記事（人間の署名のみで公開）
+└─ 信頼ページ（固定ページ）  運営者情報 / 編集方針（Auditor Gate の説明）/ 広告・PRポリシー /
+                             Claim Platform 紹介 / プライバシー / お問い合わせ
+```
+
+- `data/wp-taxonomy.json` の各カテゴリに、任意の `parent`（親の slug）を持たせる。親カテゴリは `source_workflow` を持たない。
+  - 階層の妥当性は `scripts/check_wired.py` の W13 で検証する（親が存在する／2階層まで／WF カテゴリは必ずいずれかのサイロに属する）。
+- `scripts/wp-init.sh` は2段階で処理する。まず全カテゴリを作成し、次に `parent` に従って親を割り当てる（既存カテゴリも親を付け直す・冪等）。
+- ツールDBは `data/tools.json` を唯一の正とし、固定ページの HTML を生成する（プラグイン非依存）。
+  - 料金の各行には `source_url` と `retrieved_at` を必須にする。
+
+### 35-4. 内部リンク規則
+
+| # | 規則 |
+|---|---|
+| R1 | ニュース記事は、タグ経由で1つ以上のツール詳細ページへリンクする（例: タグ `claude` → `/tools/claude/`） |
+| R2 | ツール詳細ページは、同じタグの最新ニュースを列挙する |
+| R3 | ③ 選び方の記事が料金・機能の根拠にするのは、ツール詳細ページ（`data/tools.json`）だけ |
+
+### 35-5. 公開ポリシー（サイロ別）
+
+| サイロ | 生成 | 追加の Auditor 規則 | 公開 |
+|---|---|---|---|
+| ① news | 全自動 | — | PASS なら段階的に自動公開。**1日3本まで**（T-44 / T-45） |
+| ② tools | 自動＋鮮度チェック | A4 | PASS なら段階的に自動公開 |
+| ③ compare | 自動では下書きのみ | A1〜A5 | **人間の署名のみ**（INV-R1） |
+
+### 35-6. 収益系の Auditor 規則（決定論・LLM 不使用 / INV-R2）
+
+**アフィリエイトリンクの定義**: `<a>` のうち、href のホストが `AFFILIATE_HOSTS`（ASP のリダイレクトホスト一覧。`scripts/content_audit.py` で定義）に含まれるもの、または `rel` に `sponsored` を含むもの。
+
+| # | 条件 | 結果 | 段階 |
+|---|---|---|---|
+| A1 | アフィリエイトリンクがあるのに、最初の `<h2>` より前の本文に PR 表記（`広告` / `PR` / `プロモーション` / `アフィリエイト`）がない | `FAIL:NO_PR_LABEL` | 即時（法令対応）。対象はアフィリエイトリンクを含む記事だけ |
+| A2 | ASP ホストへのリンクの `rel` に `sponsored` がない | `FAIL:AFFILIATE_NOT_SPONSORED` | 即時 |
+| A3 | 体験の主張（`使ってみた` / `試してみた` / `実際に使` / `実際に試`）があるのに、`data-ainavi-evidence="hands-on"` の要素がない | `WARN:UNSUPPORTED_EXPERIENCE` | Report-Only。§34-5 の手順で昇格を判断する |
+| A4a | 料金表現（`N円` / `¥N` / `$N` / `月額N`）があるのに、リンクも `source_urls` もない | `UNVERIFIABLE:UNSOURCED_PRICE` | 即時 |
+| A4b | 料金表現があるのに、取得時点（`YYYY年M月` / `YYYY-MM-DD` / `時点`）がない | `WARN:PRICE_UNDATED` | Report-Only |
+| A5 | アフィリエイトリンクを含む | 結果に `requires_human_signature: true` を付ける（verdict は変えない） | 判定はサーバ側で実装。`decide()` がこの値を尊重する配線は T-45（操作者の手動実行後） |
+
+- PR 表記の要否は景品表示法のステマ規制に基づく。適用範囲の法的な確認は、公開前に専門家が行う（本節は法務助言ではない）。
+- 評価セット（§22-2）に、A1〜A4 の各規則について PASS と FAIL の両側のケースを追加し、FP=0 / FN=0 を保つ。
+
+### 35-8. ASP 方針（操作者決定・2026-09-24）
+
+- **主軸は A8.net** とする。書籍などは楽天アフィリエイトで補う。各 AI ツールが自社の公式パートナープログラムを持っている場合は、そちらに直接登録してもよい。
+- `AFFILIATE_HOSTS`（§35-6）は**利用するASPの一覧ではなく、検出対象の一覧**である。
+  - 採用していない国内主要ASPのホストも検出対象に残す。未採用のASPリンクが紛れ込んだときに、PR表記の欠落（A1）を見逃さないためである。
+- 公式パートナープログラムのリンクは、ホスト名が一定でない。そのため `rel="sponsored"` の付与で検出する（§35-6 のアフィリエイトリンク定義の後半）。
+
+### 35-9. 1日の公開枠サービス（T-44）
+
+ニュースサイロの自動公開を1日3本までに抑える仕組み（§35-5）を、Auditor Gate サービス（§28）に `POST /publish-slot` として実装する。枠の判定は決定論的に行い、LLM は使わない。
+
+| 項目 | 仕様 |
+|---|---|
+| リクエスト | `{"silo": "news" / "tools" / "compare", "content_hash": "<sha256 hex>"}` |
+| レスポンス | `200 {"granted": bool, "silo", "day", "used", "limit", "reason"}` |
+| 日付の区切り | **JST（UTC+9 固定）**の暦日。`day` は `YYYY-MM-DD` |
+| `news` | その日の付与済み件数が上限未満なら付与し、記録する。上限に達したら `granted:false, reason:"daily_limit_reached"` |
+| 同じ記事の再要求 | 同じ日・同じ `content_hash` で再要求された場合は、枠を追加消費せずに `granted:true` を返す（再実行しても冪等） |
+| `tools` | 上限なし。`granted:true` を返し、記録はしない |
+| `compare` | 常に `granted:false, reason:"human_signature_required"`（INV-R1。人間の署名なしに自動公開しない） |
+| 上限値 | 既定は 3。環境変数 `AINAVI_NEWS_DAILY_LIMIT` で上書きできる（0 なら全件下書き） |
+| DB が使えない場合 | **閉じた側に倒す**。`granted:false, reason:"slot_store_unavailable"`（公開は外部に出る操作であり、下書きに留めれば安全なため） |
+| 入力が不正な場合 | 400（未知の silo、`content_hash` が64桁の16進でない、JSON が不正） |
+| 認証 | `AINAVI_GATE_TOKEN` を設定している場合は Bearer 認証を必須にする（§28-2 と同じ） |
+| 記録先 | 記憶層 DB の `publish_slots(day, silo, content_hash, created_at)`。`(day, silo, content_hash)` に一意制約を付ける |
+| 並行実行 | サーバのロックと DB の一意制約で、同時要求でも上限を超えないようにする |
+
+- **多言語化後の数え方（2026-09-25 操作者決定、§8-7）**: 上限は**言語ごと**に数える。現行の実装はリクエストにも `publish_slots` の一意制約にも言語を持たないため、T-56 で `lang`（既定 `ja`、省略時は現行と同じ動作）を追加する。
+- この段階ではサービス側の実装だけで、ワークフローはまだ呼ばない。
+  - `decide()` が PASS かつ `requires_human_signature=false` かつ枠を得られた場合にだけ `publish` にする配線は、T-45（操作者の手動実行後）で行う。
+
+### 35-10. 配線ゲート W14（サービスの POST ルートの配線）
+
+- **検出した事実（2026-09-24）**: `POST /embed-diagrams`（§31）を呼ぶワークフロー JSON は1つもない。§31 では T-11 まで未消費と明記されているが、`check_wired` は機械的に検出していなかった。`POST /publish-slot`（§35-9）も T-45 までは同じ状態になる。
+- **W14**: `scripts/auditor_server.py` の `ROUTES` にある POST ルートは、次のどちらかを満たすこと。満たさなければ FAIL とする。
+  - 1つ以上のワークフロー JSON が、そのパスを参照している
+  - `check_wired.py` の `LIBRARY_ONLY_ROUTES` に、理由と配線予定タスクを添えて登録されている
+- 登録済みのルートが後で配線された場合も FAIL とする（登録を外し忘れないため）。
+- `GET /health` はワークフローではなく Docker / Fly のヘルスチェックが使うので、W14 の対象外とする。
+
+### 35-11. ツールDBとツール詳細ページ（T-46）
+
+プラグインに依存しない方式（§35-2）で、`data/tools.json` を唯一の正とし、WordPress の固定ページを生成する。
+
+**データ（`data/tools.json`）**
+
+| フィールド | 必須 | 制約 |
+|---|---|---|
+| `slug` | ✓ | `data/wp-taxonomy.json` の tags に存在する slug（R1/R2 のタグ連携のため） |
+| `name` / `vendor` / `summary` | ✓ | 空でない文字列。`summary` は日本語で、誇大表現（HYPE）を使わない |
+| `official_url` | ✓ | `https://` で始まる |
+| `pricing` | ✓（空配列可） | 各行は `plan` / `price` / `source_url`（https）/ `retrieved_at`（`YYYY-MM-DD`）がすべて必須（A4 と §35-4 R3 の根拠） |
+| `affiliate` | 任意 | `{"url": https, "program": 文字列}`。ASP の管理画面で発行した実リンクだけを入れる |
+
+- **初期データの方針（Auditor 自己適用）**
+  - タグに存在する製品7件（ChatGPT / Claude / Gemini / Midjourney / Stable Diffusion / n8n / Perplexity）を、名前・提供元・公式 URL・中立的な概要だけで登録する。
+  - `pricing` と `affiliate` は**空で始める**。取得日と出典を確認できない料金や、発行されていないアフィリエイト ID を書かないため。
+  - 操作者（または出典つきの調査）が後から追加する。
+
+**生成（`scripts/tool_pages.py`）**
+
+- 各ツールページの構成
+  - 概要
+  - 料金：出典リンクと「YYYY-MM-DD 時点」を併記する。空の場合は「未登録」と表示する
+  - 公式サイト
+  - 関連ニュース：R2。タグアーカイブ `/tag/{slug}/` へのリンク。静的 HTML なので、プラグインなしで実現できる
+  - `affiliate` がある場合は、最初の `<h2>` より前に PR 表記を置き、CTA リンクに `rel="sponsored nofollow"` を付ける（A1 / A2）
+- 一覧ページ（`/tools/`）を生成する。各ツールページはその子ページにする。
+
+**公開（`scripts/tool_pages.py publish`・操作者が実行）**
+
+- 認証と接続先は `wp-init.sh` と同じ判定にする。`WP_BEARER_TOKEN` + `WP_SITE` があればそれを使い、なければ `WP_URL` + `WP_USERNAME` + `WP_APP_PASSWORD` を使う（§24）。
+- **公開前に全ページを `content_audit` にかける。FAIL / UNVERIFIABLE のページは送信しない**（CLAUDE.md §A-5）。
+- 常に `status: draft` で送る。人間が確認してから公開する（INV-R1）。
+- slug で既存ページを探し、あれば更新、なければ作成する（冪等）。
+  - ただし既存ページが公開済みで内容が変わる場合は、**更新せず `[HOLD]` を出す**。署名済みのページを無審査で書き換えないためである。
+
+**ゲート**
+
+- `check_wired` W15 で次を検査する。
+  - `data/tools.json` がスキーマを満たす
+  - 全ツールの slug がタグに存在する
+  - 生成した全ページ（一覧を含む）が `content_audit` で PASS になる
+
+### 35-12. 信頼ページ（T-47）
+
+§35-3 に列挙した6ページを、ツールページ（§35-11）と同じ方式（プラグイン非依存・監査後に下書きのみ送信）で生成する。
+
+**データ（`data/trust_pages.json`）** — ページごとに `status: "ready" | "pending"` を持つ。
+
+| ページ slug | 内容 | 運営者の実データが要るか |
+|---|---|---|
+| `operator` | 運営者情報 | 要る（名称・連絡方法）。未確定なら `pending` |
+| `editorial-policy` | 編集方針（Auditor Gate の説明） | 不要。§21/§22/§28 の仕様から生成できる |
+| `ad-policy` | 広告・PRポリシー | 不要。§35-6 A1/A2/A5 の規則から生成できる |
+| `claim-platform` | Claim Platform 紹介 | 不要。§5 の一次記述から生成できる |
+| `privacy` | プライバシーポリシー | 要る（問い合わせ窓口・保有期間の方針）。未確定なら `pending` |
+| `contact` | お問い合わせ | 要る（連絡先チャネル）。未確定なら `pending` |
+
+- **`pending` の扱い（Auditor 自己適用）**: 運営者名・住所・連絡先は要件定義書のどこにも記録がなく、
+  ここで作文すると捏造になる。`pending` のページは「運営者情報は確定次第掲載します」という正直な
+  保留文だけを出し、**Auditor には掛けるが、公開判定は必ず保留のまま**（`status: "ready"` になるまで
+  `tool_pages.py` の `publish` と同様、下書き送信の対象に含めない）。
+- **`ready` のページ**は既存仕様（§5/§21/§22/§28/§35-6）から機械的に生成するため、事実の作文は発生しない。
+- 生成・監査・公開のコード構造は `scripts/tool_pages.py` を参照実装とし、`scripts/trust_pages.py` として
+  新規作成する（ツールDBとはデータ構造が異なるため別スクリプトとするが、`audit_pages()` 相当のロジックは
+  共通化を検討してよい）。
+- **ゲート（W16）**: `data/trust_pages.json` が §35-3 の6ページ全てを含み、`ready` の各ページが
+  `content_audit` で PASS になることを検査する。`pending` のページは監査だけ行い（結果は記録するが）
+  FAIL にはしない（未確定という事実そのものは誤りではないため）。
+
+### 35-13. 内部リンク規則の実装（T-50）
+
+**検出した事実（2026-09-24）**
+- プロンプトは実行時に GitHub API で既定ブランチから取得される（各 WF の「プロンプト読込み」ノード）。
+- `n8n/prompts/article-base.md` を読むのは WF07 のみで、ニュース系（WF01〜06・08）は読まない。
+  したがって R1 を LLM への指示だけで実現すると、ニュース記事には効かず、効いても確実ではない。
+
+**方針**: R1 は **LLM に頼らずコードで決定論的に挿入**し、漏れは Auditor が WARN で検出する（INV-R2 と同じ考え方）。
+
+| 規則 | 実装 |
+|---|---|
+| R1 | `scripts/tool_links.py` の `link_tools()` が、記事中で `data/tools.json` のツール名が**最初に出現した箇所**に `/tools/{slug}/` へのリンクを挿入する。挿入しない場所: 既存の `<a>` の中、見出し（`h1`〜`h6`）、`<blockquote>`（引用の改変禁止、§17 ⑤）、`<code>`/`<pre>`。英字のツール名は前後が英数字でないときだけ一致させる（「n8n」が別語の一部に誤一致しないため） |
+| R1 の監査 | `content_audit` に任意引数 `tools` を追加。ツール名が本文にあるのに `/tools/{slug}/` へのリンクがなければ `WARN:MISSING_TOOL_LINK:{slug}`（Report-Only。verdict は変えない） |
+| R2 | 実装済み（§35-11、ツールページからタグアーカイブへのリンク） |
+| R3 | 比較サイロのワークフロー（T-48）で実装する。本タスクでは扱わない |
+
+- サービスには `POST /link-tools {content}` → `{content, links: [slug...]}` を追加する。
+  ワークフローからの呼び出しは T-45 でまとめて配線するため、それまでは W14 の `LIBRARY_ONLY_ROUTES` に登録する。
+- `/audit` はツールカタログを読み込めた場合だけ R1 を検査する。読み込めたかどうかは `/health` の `tools_catalog` で確認できるようにし、黙って無効にならないようにする。
+- カタログの配置: Fly では `/app/data` がボリュームに置き換わり `data/tools.json` が見えないため、
+  Docker イメージに `/app/catalog/tools.json` として同梱する。読み込み順は `AINAVI_TOOLS_FILE` → `data/tools.json` → `catalog/tools.json`。
+
+### 35-14. プラグインによるサイトデザイン（T-51・操作者指示 2026-09-24）
+
+操作者の指示「サイトデザインはプラグインを使ってみて」を受け、§35-2 の「プラグイン非依存」を**デザイン層に限って**改める。
+コンテンツ（ツールページ・信頼ページ）の生成はプラグイン非依存のまま（§35-11/§35-12）とし、デザインの有無で壊れないようにする。
+
+**確認した事実（2026-09-24、Exa 経由で一次情報を取得）**
+- WordPress.com は**有料プラン（Personal・Premium・Business・Commerce）で**プラグインを導入できる。無料プランでは導入できない（wordpress.com/support/plugins/install-a-plugin/）。本番のプランは**ビジネスプラン**（2026-09-25 操作者のスクリーンショットで確認。管理画面の表記は「仕事」、年払い）なので、プラグインの導入とカスタムコードの追加が可能。
+- コア REST API: `POST /wp/v2/plugins {slug, status}` は wordpress.org のプラグインをインストールする。`/wp/v2/themes` は**取得のみ**で、テーマの有効化は REST ではできない。
+- `POST /wp/v2/global-styles/{id}` で `styles`（`styles.css` のカスタム CSS を含む。コアが CSS を検証する）と `settings` を更新できる（WP 5.9 以降、CSS 検証は 6.2 以降）。
+- 以下の slug が wordpress.org に実在することを確認した: テーマ `twentytwentyfive`、プラグイン `seo-by-rank-math`・`kadence-blocks`・`easy-table-of-contents`・`wp-dark-mode`・`wp-super-cache`。
+
+**構成（`data/wp-site.json` を唯一の正とする）**
+
+| 要素 | 選定 | 目的（§2-2 との対応） |
+|---|---|---|
+| テーマ | Twenty Twenty-Five（ブロックテーマ） | グローバルスタイルで配色・文字・余白を API から適用できる |
+| `kadence-blocks` | カード・グリッド・ステップ図解のブロック | カード型レイアウト・ステップ図解 |
+| `wp-dark-mode` | 閲覧者の OS 設定に応じたダークモード | ダークモード対応 |
+| `easy-table-of-contents` | 長文記事の目次 | 読みやすさ（800〜2000字の記事） |
+| `seo-by-rank-math` | SEO メタ・サイトマップ（§12 の既定） | SEO |
+| `wp-super-cache` | ページキャッシュ | **自己ホストのサンドボックスのみ**。WordPress.com はサーバ側のキャッシュを提供するため導入しない |
+
+- **§12 の見直し**: Classic Editor は**導入しない**。ブロックエディタを無効化するため、ブロック系のデザイン（Kadence Blocks・ブロックテーマ）と両立しない。n8n からの REST 投稿は HTML 本文なので、Classic Editor が無くても影響しない。ACF はツールDB（§35-11）を JSON で持つため、現時点では不要。
+- **デザイントークン**（配色・フォント・余白・角丸・カードの影）は `wp-site.json` の `global_styles` に置き、グローバルスタイルとして適用する。フォントは外部読み込みをせず、OS 標準の日本語フォントを使う（表示速度とプライバシーのため）。
+
+**適用スクリプト（`scripts/wp_site_setup.py`・操作者が実行）**
+- 既定は `plan`（変更内容の表示のみ）。`apply` で実行する。認証の判定は `wp-init.sh` / `tool_pages.py` と同じ（§24）。
+- **追加だけで、削除はしない**: 未導入のプラグインは導入して有効化し、導入済みで無効なものは有効化する。既存プラグインの無効化・削除は一切しない。
+- テーマが Twenty Twenty-Five でなければ `[TODO]` を出して止める（REST では有効化できないため、操作者が管理画面で切り替える）。
+  グローバルスタイルは、有効なテーマが一致するときだけ更新する。
+- WordPress.com の REST 経路でプラグイン API が使えるかは未検証。失敗したプラグインは `[WARN]` を出して次へ進み、操作者は管理画面から導入する。
+- 各プラグインの詳細設定（Rank Math の初期設定、ダークモードの切替ボタンの位置など）は、プラグインごとに API が違うため対象外とし、操作者の手順とする。
+
+**ゲート（W17）**: `data/wp-site.json` がスキーマを満たすこと。具体的には次を検査する。
+- slug の形式が正しい
+- 目的の記載がある
+- 導入禁止のプラグイン（`classic-editor`）が含まれていない
+- カスタム CSS に HTML タグを含まない（コアの CSS 検証と同じ条件）
+- カラーパレットに前景・背景があり、その2色のコントラスト比が 4.5:1 以上（WCAG AA）
+
+### 35-7. 範囲外（別タスク）
+
+- n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
+- `scripts/wp-init.ps1` の親割当対応は、Windows 実機での検証が必要（T-49）。
+- ③ compare 用のワークフロー（T-48）と信頼ページの本文（T-47）。

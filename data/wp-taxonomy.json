@@ -1,10 +1,26 @@
 {
-  "_comment": "WordPress taxonomy canonical mapping per docs/requirements.md §30-2. wp_id is the single source of truth, checked by check_wired W11.",
+  "_comment": "WordPress taxonomy canonical mapping per docs/requirements.md §30-2. wp_id is the single source of truth, checked by check_wired W11. parent (optional) is the silo root slug per §35-3, checked by check_wired W13.",
   "categories": [
+    {
+      "name": "AIニュース",
+      "slug": "news",
+      "description": "AI関連の最新ニュース・トレンド（フロー型コンテンツのサイロ、要件§35）"
+    },
+    {
+      "name": "AIツール",
+      "slug": "tools",
+      "description": "AIツールの詳細・使い方・深掘り解説（ストック型コンテンツのサイロ、要件§35）"
+    },
+    {
+      "name": "選び方・比較",
+      "slug": "compare",
+      "description": "AIツールの比較・選び方（人間の署名後にのみ公開、要件§35）"
+    },
     {
       "name": "GitHubトレンド",
       "slug": "github-trending",
       "description": "GitHub上でトレンド入りしたAI・機械学習リポジトリの紹介と解説",
+      "parent": "news",
       "source_workflow": "WF-01",
       "wp_id": 790464620
     },
@@ -12,6 +28,7 @@
       "name": "AI公式ニュース",
       "slug": "ai-official-news",
       "description": "OpenAI・Anthropic・Google・Metaなど主要AI企業の公式ブログ・発表情報",
+      "parent": "news",
       "source_workflow": "WF-02",
       "wp_id": 790464621
     },
@@ -19,6 +36,7 @@
       "name": "YouTube動画まとめ",
       "slug": "youtube-summary",
       "description": "AI系YouTubeチャンネルの新着動画を日本語で要約・紹介",
+      "parent": "news",
       "source_workflow": "WF-03",
       "wp_id": 1564589
     },
@@ -26,6 +44,7 @@
       "name": "SNSピックアップ",
       "slug": "sns-pickup",
       "description": "ThreadsなどSNSのAIインフルエンサー投稿からノウハウ・知見をまとめ",
+      "parent": "news",
       "source_workflow": "WF-04",
       "wp_id": 790464623
     },
@@ -33,6 +52,7 @@
       "name": "noteクリエイター",
       "slug": "note-creator",
       "description": "noteに投稿されたAI活用・生成AI関連の注目記事を紹介",
+      "parent": "news",
       "source_workflow": "WF-05",
       "wp_id": 13765228
     },
@@ -40,6 +60,7 @@
       "name": "週次トレンドレポート",
       "slug": "weekly-trend-report",
       "description": "毎週月曜日発行：1週間のAIトレンド・ニュースを包括的にまとめたレポート",
+      "parent": "news",
       "source_workflow": "WF-06",
       "wp_id": 130534926
     },
@@ -47,18 +68,21 @@
       "name": "使い方ガイド",
       "slug": "howto-guide",
       "description": "AIツール・自動化のステップバイステップ解説（手動トリガーの任意テーマ記事）",
+      "parent": "tools",
       "source_workflow": "WF-07"
     },
     {
       "name": "海外AI動向",
       "slug": "overseas-ai",
       "description": "中国語圏などのAI情報源をKimi経由で翻訳・要約（翻訳ラベル付き）",
+      "parent": "news",
       "source_workflow": "WF-08"
     },
     {
       "name": "深掘り解説",
       "slug": "deep-dive",
       "description": "9媒体横断取材に基づく確度スコア付きの深掘り記事",
+      "parent": "tools",
       "source_workflow": "WF-09"
     }
   ],

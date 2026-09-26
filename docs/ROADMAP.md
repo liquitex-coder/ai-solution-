@@ -148,7 +148,45 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 |---|---|
 | T-23 | Build-process article series, Claim Platform badges, paid sources (X API), UGC prompts, EN full translations |
 
+## Phase G — Site architecture + revenue layer (requirements §35, decided 2026-09-24)
+
+| ID | Owner | Task | Done when |
+|---|---|---|---|
+| T-40 ✅ | Claude | Spec §35: 3 silos + trust pages, link rules R1–R3, publish policy, audit rules A1–A5 | done 2026-09-24 (`2f51628`, `82083c6`) |
+| T-41 ✅ | Claude | Taxonomy hierarchy: `news` / `tools` / `compare` parents, `check_wired` W13, two-pass parent assignment in `wp-init.sh` | done 2026-09-24 (`2819338`): 90 PASS; 8 tests incl. fake WP server; disabling the parent pass turns 2 tests red |
+| T-42 ✅ | Claude | `content_audit` rules A1–A4 + eval cases on both sides of each rule | done 2026-09-24 (`dc165cc`): eval 79/79 GREEN; disabling A1 → 3 FN (RED) |
+| T-43 ✅ | Claude | A5: `requires_human_signature` in the audit result and the `/audit` response | done 2026-09-24 (`5318abe`): unittest 143 OK incl. HTTP end-to-end |
+| T-44 ✅ | Claude | Daily publish-slot service for the news silo (3/day) in `auditor_server` | done 2026-09-24 (`86126a7`): 13 tests incl. 12 concurrent requests; removing the cap turns 4 red. Registered LIBRARY_ONLY in W14 (`8c288d5`) until T-45 wires it |
+| T-45 | Claude + operator | WF `decide()` honors `requires_human_signature` and the publish slot | manual n8n run log (CLAUDE.md §F) |
+| T-46 ✅ | Claude | Tool DB `data/tools.json` + tool-detail page generator (plugin-free) | done 2026-09-24 (`36d7b09`): W15 PASS (8 pages audit PASS); 24 tests incl. HTTP round trip. Production publish is operator-run (`tool_pages.py publish`, drafts only) |
+| T-47 ✅ | Claude → operator | Trust pages (operator, editorial policy, ad/PR policy, Claim Platform intro, privacy, contact) | done 2026-09-24 (`2898bfb`): W16 PASS (3 ready audit PASS, 3 pending honest-placeholder); 18 tests. Operator supplies real facts for operator/privacy/contact, then republish |
+| T-48 | Claude + operator | Compare-silo workflow (draft-only, human signature) | manual n8n run log |
+| T-49 | operator | `wp-init.ps1` parent parity + production run of parent assignment | wp-init log |
+| T-50 ✅ | Claude + operator | Internal link rules R1–R3 in prompts + audit check | done 2026-09-24 (`e81bbb6`, `d995a0b`): R1 as a deterministic linker + Report-Only WARN; `/link-tools` LIBRARY_ONLY until T-45; R2 done in T-46; R3 moves to T-48. 19 + 2 tests |
+| T-51 ✅ | Claude → operator | Plugin-based site design: TT5 theme + Kadence Blocks / WP Dark Mode / Easy TOC / Rank Math, global styles (§35-14) | done 2026-09-24 (`260d974`): W17 PASS, 16 tests incl. HTTP round trip. Operator: confirm paid WordPress.com plan, activate TT5 in admin, run `wp_site_setup.py plan` then `apply` |
+
+## Phase I — Multilingual display (requirements §8 v2.8, decided 2026-09-25)
+
+| ID | Owner | Task | Done when |
+|---|---|---|---|
+| T-52 ✅ | Claude | Spec §8: reader's browser language, switcher, no forced redirect, hreflang, staged JA → EN → ES/FR | done 2026-09-25 (`2184ca1`) |
+| T-53 | Claude | Per-language audit vocabulary: A1 PR labels and HYPE dictionaries for EN first, eval cases on both sides | eval FP=0/FN=0 incl. EN cases |
+| T-54 | Claude | Deterministic translation-fidelity check (numbers, URLs, headings, blockquotes) wired into the audit path | `check_wired` PASS + tests |
+| T-55 | Claude → operator | Multilingual plugin (Polylang candidate) in `data/wp-site.json`, browser detection ON (operator decision 2026-09-25, homepage first visit only), `/en/` URLs, hreflang with `x-default` = JA | W17 PASS; operator `plan`/`apply` log |
+| T-56 | Claude + operator | EN translation workflow (drafts only, from Auditor-PASS JA); `/publish-slot` gains `lang` so the daily cap counts per language | manual n8n run log (CLAUDE.md §F) |
+| T-57 ✅ | operator | Decisions in §8-7 (plan, detection, per-language cap, quote translation, ad disclosure, model/cost) | done 2026-09-25: all six recorded in §8-7 (Business plan; detection ON; per-language cap; original + reference translation; EN disclosure wording; Sonnet 5, 10 USD/month). The overseas legal review stays an L1 condition |
+
 ---
+
+## Phase H — Future expansion (not scheduled, requirements §36)
+
+> Recorded for visibility only. No task here is registered via TaskCreate and none is started.
+> The operator decides when (or whether) a spoke moves into an active phase.
+
+| Idea | Note |
+|---|---|
+| Spoke A: idea-to-product hub | Idea submission -> design -> prototyping match -> sale. New repository, not this one |
+| Spoke B: AI-driven people matching | "i am you"-style. Needs claim-security- for PII handling. New repository, not this one |
 
 ## Progress
 
@@ -162,9 +200,11 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D | 1 | 6 | 17% |
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
-| Whole roadmap (A–F, D2) | 16 | 35 | 46% |
+| Phase G | 9 | 12 | 75% |
+| Phase I | 2 | 6 | 33% |
+| Whole roadmap (A–G, D2, I) | 27 | 53 | 51% |
 
-Last recomputed 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
@@ -176,5 +216,10 @@ Last recomputed 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split 
 - **未検証事項**: n8n cloud で Code ノードの `$env` が使えるか（docs.n8n.io が本セッションでは取得不可）。T-13 で確認し、不可なら T-11 の `$vars` フォールバックが必須になる。
 - **Phase D2（§34 Evidence Pack）**: ファクトチェック層。検証モデルは操作者決定で `claude-haiku-4-5`（コスト理由）。T-33/T-34/T-35a/T-36a は今すぐ着手可（ワークフローJSONを変更しないツール整備のみ）、T-35b/T-36b 以降は T-13 と手動実行が前提。
 - **T-39**: 3件のPRで「commit本文が対象コミットに含まれないファイル名を挙げる」ミスが再発したため、`.githooks/commit-msg` に機械チェックを追加する（CLAUDE.md §C-1のラチェット）。
+
+- **Phase G（§35・2026-09-24 決定）**: サイトを3つのサイロ（ニュース／ツール／選び方）と信頼ページで構成する。
+  - ニュースの自動公開は1日3本まで。比較記事の公開には人間の署名を必須にする。
+  - WordPress.com のプランが不明なので、プラグインに依存しない方式で作る。
+  - ワークフロー JSON を変える T-45 / T-48 / T-50 は、操作者の手動実行を経てから push する。
 
 </details>

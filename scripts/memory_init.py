@@ -76,6 +76,15 @@ CREATE TABLE IF NOT EXISTS warnings (
 );
 CREATE INDEX IF NOT EXISTS idx_warnings_skill ON warnings (skill_ref, code, created_at);
 
+CREATE TABLE IF NOT EXISTS publish_slots (
+    id INTEGER PRIMARY KEY,
+    day TEXT NOT NULL,
+    silo TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (day, silo, content_hash)
+);
+
 CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -357,7 +366,7 @@ def cmd_prune(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 def cmd_stats(conn: sqlite3.Connection, args: argparse.Namespace) -> None:
     out = {}
-    for table in ("conversation", "facts", "scenes", "persona", "warnings"):
+    for table in ("conversation", "facts", "scenes", "persona", "warnings", "publish_slots"):
         out[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
     out["facts_by_confidence"] = {
         r["confidence"]: r["n"] for r in conn.execute(
