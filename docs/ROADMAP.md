@@ -174,7 +174,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | T-54 | Claude | Deterministic translation-fidelity check (numbers, URLs, headings, blockquotes) wired into the audit path | `check_wired` PASS + tests |
 | T-55 | Claude → operator | Multilingual plugin (Polylang candidate) in `data/wp-site.json`, browser detection ON (operator decision 2026-09-25, homepage first visit only), `/en/` URLs, hreflang with `x-default` = JA | W17 PASS; operator `plan`/`apply` log |
 | T-56 | Claude + operator | EN translation workflow (drafts only, from Auditor-PASS JA); `/publish-slot` gains `lang` so the daily cap counts per language | manual n8n run log (CLAUDE.md §F) |
-| T-57 | operator | Decisions in §8-7 (plan, detection, per-language cap, quote translation, ad disclosure, model/cost) | recorded in §8-7 and signed |
+| T-57 ✅ | operator | Decisions in §8-7 (plan, detection, per-language cap, quote translation, ad disclosure, model/cost) | done 2026-09-25: all six recorded in §8-7 (Business plan; detection ON; per-language cap; original + reference translation; EN disclosure wording; Sonnet 5, 10 USD/month). The overseas legal review stays an L1 condition |
 
 ---
 
@@ -201,10 +201,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase D2 | 1 | 6 | 17% |
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
 | Phase G | 9 | 12 | 75% |
-| Phase I | 1 | 6 | 17% |
-| Whole roadmap (A–G, D2, I) | 26 | 53 | 49% |
+| Phase I | 2 | 6 | 33% |
+| Whole roadmap (A–G, D2, I) | 27 | 53 | 51% |
 
-Last recomputed 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>
