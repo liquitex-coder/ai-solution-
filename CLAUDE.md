@@ -55,6 +55,14 @@ AI content automation platform: n8n → Claude API → WordPress.
    無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
 5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
    突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。
+6. `n8n-nodes-base.httpRequest` ノードの JSON は n8n の実スキーマ（`HttpRequestV3.node.ts`）に合わせる —
+   `sendQuery`/`sendHeaders`/`sendBody` の真偽値、`specify*` のモード、`queryParameters`/`headerParameters`
+   の `{parameters:[{name,value}]}`、`jsonBody` は `=` 始まりの**文字列テンプレート**（式は `{{ JSON.stringify((式)) }}`）。
+   入れ子の `"headers": {...}` / `"body": {"jsonBody": {...}}` は存在しないスキーマで無視される
+   （2026-09-21 実例、WF01 手動実行で Claude ノードが空ボディ・GitHub ノードが空クエリになり判明。
+   最初の修正で真偽値だけ足しても直らず、要件§32-1 D11 で全9ワークフロー + patcher を一括変換。
+   `tests/test_workflow_http_schema.py` がセンサー）。手書きせず、n8n UI で作ったノードを Ctrl+C した JSON か
+   `scripts/patch_evidence_pack.py` の `convert_http_node()` を正とする。
 
 ---
 
