@@ -69,11 +69,11 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 ## 8. フック修正と T-46（2026-09-24 追記）
 - `.githooks/commit-msg` を実行可能（100755）にした（`5fcd1b6`）
   - 実在ファイル名を使った誤メッセージが exit=1 で拒否されることを確認
-  - ラチェットとして CLAUDE.md §C-6 を追加
+  - ラチェットとして CLAUDE.md §C-7 を追加
 - T-46: ツールDB `data/tools.json`（7件。料金とアフィリエイトは空）と `scripts/tool_pages.py` を追加（`36d7b09`）
   - 公開は下書きのみ。公開済みページの内容が変わる場合は上書きせず HOLD にする
 - 自己監査で検出: コミット本文に未確認の「25 tests」と書いた（実数は24）
-  - push 前に修正し、ラチェットとして CLAUDE.md §C-7 を追加
+  - push 前に修正し、ラチェットとして CLAUDE.md §C-8 を追加
 - ゲート: check_wired 94 PASS / eval 79/79 GREEN / unittest 186 OK
 
 ## 9. 将来拡張構想（2026-09-24 追記・実装なし）
@@ -96,7 +96,7 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
   - そのため R1 は LLM への指示ではなく、コードで決定論的にリンクを挿入する方式にした（§35-13）
 - `scripts/tool_links.py`・`POST /link-tools`（T-45 まで LIBRARY_ONLY）・`WARN:MISSING_TOOL_LINK`（Report-Only）
 - 自己監査で検出したバグ: `.dockerignore` が `scripts/` 以外を除外していたため、カタログの COPY が
-  `fly deploy` で失敗するところだった。ビルドコンテキストを検査するテストと CLAUDE.md §C-8 を追加
+  `fly deploy` で失敗するところだった。ビルドコンテキストを検査するテストと CLAUDE.md §C-9 を追加
 - §28 の契約表が T-44 以降の実装とずれていたので修正（`/health` のフィールド、認証対象のルート）
 - ゲート: check_wired 96 PASS / eval 79/79 GREEN / unittest 225 OK
 

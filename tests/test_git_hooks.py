@@ -1,4 +1,4 @@
-"""CLAUDE.md §C-6: every tracked git hook must be committed executable (mode 100755)."""
+"""CLAUDE.md §C-7: every tracked git hook must be committed executable (mode 100755)."""
 
 import shutil
 import subprocess

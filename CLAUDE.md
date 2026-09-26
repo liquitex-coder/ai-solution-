@@ -55,13 +55,21 @@ AI content automation platform: n8n → Claude API → WordPress.
    無効化する（2026-09-13 実例、T-26 プロンプト側の指示ミス、要件§28-2 ポート行）。
 5. ドリフト表の行を「実装済み」にする前に、検出対象（blockquote 内/外）と不等号の向きをテストで
    突き合わせる — T-24 第1ラウンドは D2 を D7 の意味で実装し、テストも逆の意味で緑だった（2026-09-13 実例、要件§32-1）。
-6. `.githooks/*` は実行ビット付き（git mode `100755`）でコミットする — `commit-msg` が `100644` のまま
+6. `n8n-nodes-base.httpRequest` ノードの JSON は n8n の実スキーマ（`HttpRequestV3.node.ts`）に合わせる —
+   `sendQuery`/`sendHeaders`/`sendBody` の真偽値、`specify*` のモード、`queryParameters`/`headerParameters`
+   の `{parameters:[{name,value}]}`、`jsonBody` は `=` 始まりの**文字列テンプレート**（式は `{{ JSON.stringify((式)) }}`）。
+   入れ子の `"headers": {...}` / `"body": {"jsonBody": {...}}` は存在しないスキーマで無視される
+   （2026-09-21 実例、WF01 手動実行で Claude ノードが空ボディ・GitHub ノードが空クエリになり判明。
+   最初の修正で真偽値だけ足しても直らず、要件§32-1 D11 で全9ワークフロー + patcher を一括変換。
+   `tests/test_workflow_http_schema.py` がセンサー）。手書きせず、n8n UI で作ったノードを Ctrl+C した JSON か
+   `scripts/patch_evidence_pack.py` の `convert_http_node()` を正とする。
+7. `.githooks/*` は実行ビット付き（git mode `100755`）でコミットする — `commit-msg` が `100644` のまま
    だったため git が無言で無視し、§C-1 のセンサー（T-39）が clone 先で一度も動いていなかった（2026-09-24 実例）。
    `tests/test_git_hooks.py` が検出する。
-7. コミット本文の数値（テスト件数・PASS 数など）は、その場のゲート出力から転記する — T-46 で未確認の「25 tests」
+8. コミット本文の数値（テスト件数・PASS 数など）は、その場のゲート出力から転記する — T-46 で未確認の「25 tests」
    を書き、実数は24だった（2026-09-24、push 前に検出）。未 push の修正は `commit --amend` ではなく
    `reset --soft HEAD~1` → 再コミットで行う（amend 時は commit-msg フックが空の差分を見て誤検知する）。
-8. Dockerfile に `COPY` を足したら `.dockerignore` の再包含（`!path`）も足す — `*` で全除外しているため、
+9. Dockerfile に `COPY` を足したら `.dockerignore` の再包含（`!path`）も足す — `*` で全除外しているため、
    T-50 の `COPY data/tools.json` はそのままでは `fly deploy` で失敗していた（2026-09-24、自己監査で検出）。
    `tests/test_docker_context.py` が検出する。
 

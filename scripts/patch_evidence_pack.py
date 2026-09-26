@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -28,6 +29,91 @@ CFG_JS = """function cfg(name) {
   try { const v = (typeof $env !== 'undefined' && $env) ? $env[name] : ''; if (v) return String(v); } catch (e) {}
   return '';
 }"""
+
+_WHOLE_EXPR = re.compile(r"^\{\{(.*)\}\}$", re.S)
+_INLINE_EXPR = re.compile(r"\{\{(.*?)\}\}", re.S)
+
+
+def _js_template_literal(text: str) -> str:
+    """Turn an n8n inline template ('a {{ e }} b') into a JS template literal."""
+    out = []
+    pos = 0
+    for m in _INLINE_EXPR.finditer(text):
+        out.append(_escape_tpl_literal(text[pos:m.start()]))
+        out.append("${" + m.group(1).strip() + "}")
+        pos = m.end()
+    out.append(_escape_tpl_literal(text[pos:]))
+    return "`" + "".join(out) + "`"
+
+
+def _escape_tpl_literal(s: str) -> str:
+    return (s.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+             .replace("\r", "\\r").replace("\n", "\\n"))
+
+
+def _json_body_value(v, indent: int) -> str:
+    pad = "  " * indent
+    if isinstance(v, str):
+        tpl = v[1:] if v.startswith("=") else (v if "{{" in v else None)
+        if tpl is None:
+            return json.dumps(v, ensure_ascii=False)
+        m = _WHOLE_EXPR.match(tpl.strip())
+        if m:
+            return "{{ JSON.stringify((" + m.group(1).strip() + ")) }}"
+        return "{{ JSON.stringify(" + _js_template_literal(tpl) + ") }}"
+    if isinstance(v, dict):
+        if not v:
+            return "{}"
+        items = [f'{pad}  {json.dumps(k, ensure_ascii=False)}: {_json_body_value(x, indent + 1)}'
+                 for k, x in v.items()]
+        return "{\n" + ",\n".join(items) + "\n" + pad + "}"
+    if isinstance(v, list):
+        if not v:
+            return "[]"
+        items = [f"{pad}  {_json_body_value(x, indent + 1)}" for x in v]
+        return "[\n" + ",\n".join(items) + "\n" + pad + "]"
+    return json.dumps(v)
+
+
+def json_body_template(obj) -> str:
+    """Render a body object as n8n's `jsonBody` parameter (requirements §32-1 D11).
+
+    n8n's HTTP Request node v4.x takes `jsonBody` as a string template: text is
+    literal JSON and `{{ }}` sections are evaluated. Values that were written
+    as expressions (`={{ ... }}`, or inline `a {{ b }} c`) are emitted as
+    `{{ JSON.stringify(...) }}` so quotes/newlines in the evaluated value
+    cannot break the JSON.
+    """
+    return "=" + _json_body_value(obj, 0)
+
+
+def convert_http_node(node: dict) -> bool:
+    """Rewrite the nested pseudo-schema (`headers`, `body.jsonBody` object) into
+    the real HTTP Request v4.x parameters. Returns True if anything changed."""
+    if node.get("type") != "n8n-nodes-base.httpRequest":
+        return False
+    p = node["parameters"]
+    changed = False
+    if "queryParameters" in p and not p.get("sendQuery"):
+        p["sendQuery"] = True
+        p["specifyQuery"] = "keypair"
+        changed = True
+    headers = p.pop("headers", None)
+    if isinstance(headers, dict):
+        p["sendHeaders"] = True
+        p["specifyHeaders"] = "keypair"
+        p["headerParameters"] = headers
+        changed = True
+    body = p.get("body")
+    if isinstance(body, dict):
+        del p["body"]
+        p["sendBody"] = True
+        p["contentType"] = body.get("contentType", "json")
+        p["specifyBody"] = "json"
+        p["jsonBody"] = json_body_template(body.get("jsonBody", {}))
+        changed = True
+    return changed
+
 
 VERIFIER_SCHEMA = {
     "type": "object",
@@ -46,8 +132,12 @@ VERIFIER_SCHEMA = {
                     "source_index": {"type": ["integer", "null"]},
                     "value": {"type": ["number", "null"]},
                     "gt_ref": {"type": ["string", "null"]},
-                    "feasibility": {"type": ["string", "null"],
-                                    "enum": ["PLAUSIBLE", "IMPLAUSIBLE", "UNKNOWN", None]},
+                    # anyOf, not `type: [..., "null"]` + enum: the structured-outputs
+                    # validator rejects enum on a type array (requirements §32-1 D12)
+                    "feasibility": {"anyOf": [
+                        {"type": "string", "enum": ["PLAUSIBLE", "IMPLAUSIBLE", "UNKNOWN"]},
+                        {"type": "null"},
+                    ]},
                     "note": {"type": "string"},
                 },
                 "required": ["id", "text", "type", "status", "evidence", "source_index",
@@ -289,17 +379,27 @@ const ground_truth = @@GROUND_TRUTH_JS@@;
 const source_lang = @@SOURCE_LANG_JS@@;
 const GITHUB_TOKEN = cfg('GITHUB_TOKEN');
 const UA = { 'User-Agent': 'n8n-ai-navi/1.0' };
-const allUrls = [...new Set(content.match(/https?:\\/\\/[^\\s"'<>)]+/g) || [])];
+// strip trailing (full-width) punctuation: 「（https://…）」 must not probe the paren (§32-1 D13)
+const allUrls = [...new Set((content.match(/https?:\\/\\/[^\\s"'<>)]+/g) || []).map(u => u.replace(/[）」』】〉》、。，．！？!?:;,.]+$/, '')))];
 const urls = allUrls.slice(0, 10);
 const probes = [];
-async function probeUrl(u) {
+const __httpRequest = this.helpers.httpRequest.bind(this.helpers);
+// this.helpers.httpRequest resolves on 2xx and throws on non-2xx, with the
+// HTTP status on the thrown error's `status` property (n8n cloud, confirmed
+// 2026-09-20, requirements §32-1 D10) -- unlike fetch(), there is no `res.ok`
+// to branch on, so each request is normalized to { ok, status, message }.
+async function req(method, u, headers) {
   try {
-    let r = await fetch(u, { method: 'HEAD', redirect: 'follow', headers: UA, signal: AbortSignal.timeout(8000) });
-    if (r.status === 405) r = await fetch(u, { method: 'GET', redirect: 'follow', headers: UA, signal: AbortSignal.timeout(8000) });
-    if (r.status === 404 || r.status === 410) return { kind: 'URL', target: u, result: 'DEAD', detail: String(r.status) };
-    if (r.ok) return { kind: 'URL', target: u, result: 'OK', detail: String(r.status) };
-    return { kind: 'URL', target: u, result: 'TIMEOUT', detail: String(r.status) };
-  } catch (e) { return { kind: 'URL', target: u, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) }; }
+    await __httpRequest({ method, url: u, headers, timeout: 8000 });
+    return { ok: true, status: 200 };
+  } catch (e) { return { ok: false, status: e && e.status, message: e && e.message }; }
+}
+async function probeUrl(u) {
+  let r = await req('HEAD', u, UA);
+  if (r.status === 405) r = await req('GET', u, UA);
+  if (r.status === 404 || r.status === 410) return { kind: 'URL', target: u, result: 'DEAD', detail: String(r.status) };
+  if (r.ok) return { kind: 'URL', target: u, result: 'OK', detail: String(r.status || 200) };
+  return { kind: 'URL', target: u, result: 'TIMEOUT', detail: r.status ? String(r.status) : String(r.message || '').slice(0, 80) };
 }
 for (const u of urls) probes.push(await probeUrl(u));
 for (const u of allUrls.slice(10)) probes.push({ kind: 'URL', target: u, result: 'SKIPPED', detail: 'cap' });
@@ -308,11 +408,14 @@ for (const repo of repos) {
   try {
     const h = { ...UA, 'Accept': 'application/vnd.github.v3+json' };
     if (GITHUB_TOKEN) h['Authorization'] = `token ${GITHUB_TOKEN}`;
-    const r = await fetch(`https://api.github.com/repos/${repo}`, { headers: h, signal: AbortSignal.timeout(8000) });
-    if (r.status === 404) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'NOT_FOUND', detail: '404' });
-    else if (r.ok) { const d = await r.json(); probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'OK', detail: { stars: d.stargazers_count } }); }
-    else probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(r.status) });
-  } catch (e) { probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) }); }
+    const d = await __httpRequest({ method: 'GET', url: `https://api.github.com/repos/${repo}`, headers: h, json: true, timeout: 8000 });
+    probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'OK', detail: { stars: d.stargazers_count } });
+  } catch (e) {
+    const status = e && e.status;
+    if (status === 404) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'NOT_FOUND', detail: '404' });
+    else if (status) probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(status) });
+    else probes.push({ kind: 'GITHUB_REPO', target: repo, result: 'TIMEOUT', detail: String(e && e.message || e).slice(0, 80) });
+  }
 }
 return [{ json: { ...$json, source_text, source_lang, ground_truth, probes } }];"""
     return (template
@@ -388,16 +491,13 @@ try {{
   if ($json.source_text) body.source_text = $json.source_text;
   if ($json.source_lang) body.source_lang = $json.source_lang;
   if ($json.evidence && typeof $json.evidence === 'object') body.evidence = $json.evidence;
-  const res = await fetch(`${{auditorUrl}}/audit`, {{
+  const result = await this.helpers.httpRequest({{
     method: 'POST',
+    url: `${{auditorUrl}}/audit`,
     headers: {{ 'Content-Type': 'application/json', ...(token ? {{ 'Authorization': `Bearer ${{token}}` }} : {{}}) }},
-    body: JSON.stringify(body)
+    body,
+    json: true
   }});
-  if (!res.ok) {{
-    return [{{ json: {{ ...$json, verdict: 'UNVERIFIABLE', audit_mode: mode, wp_status: 'draft',
-      audit_note: `Auditor HTTP ${{res.status}}` }} }}];
-  }}
-  const result = await res.json();
   return [{{ json: {{ ...$json, ...result, audit_mode: mode,
     wp_status: decide(result.verdict) }} }}];
 }} catch(e) {{
@@ -463,26 +563,27 @@ def patch_workflow(num: str, wf_dir: pathlib.Path = DEFAULT_WF_DIR) -> str:
             "authentication": "genericCredentialType",
             "genericAuthType": "httpHeaderAuth",
             "sendHeaders": True,
+            "specifyHeaders": "keypair",
             "headerParameters": {"parameters": [
                 {"name": "anthropic-version", "value": "2023-06-01"},
             ]},
             "options": {"timeout": 120000},
-            "body": {
-                "contentType": "json",
-                "jsonBody": {
-                    "model": "claude-haiku-4-5",
-                    "max_tokens": 4096,
-                    "system": f"={{{{ $('{cfg['prompt_node']}').item.json.factcheckPrompt }}}}",
-                    "messages": [{
-                        "role": "user",
-                        "content": ("={{ '<ARTICLE>\\n' + ($json.content || '') + '\\n</ARTICLE>\\n\\n"
-                                     "<SOURCES>\\n' + ($json.source_text || '') + '\\n</SOURCES>\\n\\n"
-                                     "<GROUND_TRUTH>\\n' + JSON.stringify($json.ground_truth || {}) "
-                                     "+ '\\n</GROUND_TRUTH>' }}"),
-                    }],
-                    "output_config": {"format": {"type": "json_schema", "schema": VERIFIER_SCHEMA}},
-                },
-            },
+            "sendBody": True,
+            "contentType": "json",
+            "specifyBody": "json",
+            "jsonBody": json_body_template({
+                "model": "claude-haiku-4-5",
+                "max_tokens": 4096,
+                "system": f"={{{{ $('{cfg['prompt_node']}').item.json.factcheckPrompt }}}}",
+                "messages": [{
+                    "role": "user",
+                    "content": ("={{ '<ARTICLE>\\n' + ($json.content || '') + '\\n</ARTICLE>\\n\\n"
+                                 "<SOURCES>\\n' + ($json.source_text || '') + '\\n</SOURCES>\\n\\n"
+                                 "<GROUND_TRUTH>\\n' + JSON.stringify($json.ground_truth || {}) "
+                                 "+ '\\n</GROUND_TRUTH>' }}"),
+                }],
+                "output_config": {"format": {"type": "json_schema", "schema": VERIFIER_SCHEMA}},
+            }),
             "onError": "continueRegularOutput",
         },
         "id": cfg["ids"]["verifier"], "name": cfg["verifier_name"],

@@ -1,4 +1,4 @@
-"""Every Dockerfile COPY source must survive .dockerignore (CLAUDE.md §C-8).
+"""Every Dockerfile COPY source must survive .dockerignore (CLAUDE.md §C-9).
 
 `.dockerignore` starts from `*` and re-includes paths with `!`; a COPY source it
 does not re-include fails `docker build` / `fly deploy`, which no local gate runs.
