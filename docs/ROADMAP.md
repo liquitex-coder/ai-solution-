@@ -178,6 +178,15 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 
 ---
 
+## Phase K — Secret handling with keykeeper (requirements §37, decided 2026-10-04)
+
+| ID | Owner | Task | Done when |
+|---|---|---|---|
+| T-58 ✅ | Claude | Stage 1: value-free `keys.manifest.yaml` (WordPress keys only, `WP_BEARER_TOKEN` pinned to `public-api.wordpress.com`), `.keykeeper/` in `.gitignore`, regression test | done 2026-10-04: `keyctl scan` shows "Manifest exists"; policy probe 1 allow / 5 deny; 5 tests, 2/2 mutants killed |
+| T-59 | operator | K-3: run `keyctl install-claude` on the operator PC (human-only), then `keyctl set WP_BEARER_TOKEN` | operator's `install-claude` output |
+
+---
+
 ## Phase H — Future expansion (not scheduled, requirements §36)
 
 > Recorded for visibility only. No task here is registered via TaskCreate and none is started.
@@ -202,9 +211,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
 | Phase G | 9 | 12 | 75% |
 | Phase I | 2 | 6 | 33% |
-| Whole roadmap (A–G, D2, I) | 27 | 53 | 51% |
+| Phase K | 1 | 2 | 50% |
+| Whole roadmap (A–G, D2, I, K) | 28 | 55 | 51% |
 
-Last recomputed 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-10-04 (Phase K T-58–T-59 added, requirements §37; T-58 done). Previous: 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

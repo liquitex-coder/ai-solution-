@@ -1,0 +1,18 @@
+# keys.manifest.yaml: a ledger of the keys this project needs. NEVER put values here.
+# Managed by keykeeper (requirements §37). Values live in the operator's OS keychain only.
+# Out of scope (requirements §37-2): n8n credentials (GITHUB_TOKEN, YOUTUBE_API_KEY, ANTHROPIC_API_KEY,
+# FAL_API_KEY, KIMI_API_KEY, ...) and the Fly.io gate token (AINAVI_GATE_TOKEN).
+project: ai-solution
+keys:
+- name: WP_BEARER_TOKEN
+  env_var: WP_BEARER_TOKEN
+  issuer: WordPress.com
+  rotation: manual
+  allowed_hosts:
+  - public-api.wordpress.com
+  notes: Production publish (requirements §24). Sent only as a Bearer header to public-api.wordpress.com.
+- name: WP_APP_PASSWORD
+  env_var: WP_APP_PASSWORD
+  issuer: local WordPress sandbox
+  rotation: manual
+  notes: Local sandbox only (http://localhost:8080). No allowed_hosts, so keykeeper never sends it.
