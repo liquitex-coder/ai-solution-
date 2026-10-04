@@ -4,6 +4,8 @@ RUN useradd --create-home --shell /usr/sbin/nologin auditor
 
 WORKDIR /app
 COPY scripts/ ./scripts/
+# §35-13: the Fly volume replaces /app/data, so the tool catalog ships in the image too
+COPY data/tools.json ./catalog/tools.json
 RUN mkdir -p /app/data && chown -R auditor /app
 
 USER auditor

@@ -1,0 +1,61 @@
+{
+  "_comment": "Tool DB, single source of truth for tool detail pages (requirements §35-11). pricing and affiliate start empty: add rows only with a source_url and retrieved_at date.",
+  "tools": [
+    {
+      "slug": "chatgpt",
+      "name": "ChatGPT",
+      "vendor": "OpenAI",
+      "official_url": "https://chatgpt.com/",
+      "summary": "OpenAIが提供する対話型のAIアシスタントです。文章の作成・要約・翻訳やコードの相談などに使われています。",
+      "pricing": []
+    },
+    {
+      "slug": "claude",
+      "name": "Claude",
+      "vendor": "Anthropic",
+      "official_url": "https://claude.ai/",
+      "summary": "Anthropicが提供する対話型のAIアシスタントです。長い文書の読解や文章作成、コーディング支援などに使われています。",
+      "pricing": []
+    },
+    {
+      "slug": "gemini",
+      "name": "Gemini",
+      "vendor": "Google",
+      "official_url": "https://gemini.google.com/",
+      "summary": "Googleが提供する対話型のAIアシスタントです。Googleの各種サービスと組み合わせた使い方ができます。",
+      "pricing": []
+    },
+    {
+      "slug": "midjourney",
+      "name": "Midjourney",
+      "vendor": "Midjourney",
+      "official_url": "https://www.midjourney.com/",
+      "summary": "テキストの指示から画像を生成するサービスです。イラストやコンセプトアートの作成に使われています。",
+      "pricing": []
+    },
+    {
+      "slug": "stable-diffusion",
+      "name": "Stable Diffusion",
+      "vendor": "Stability AI",
+      "official_url": "https://stability.ai/",
+      "summary": "テキストから画像を生成するモデルです。公開されたモデルを手元の環境で動かす使い方もあります。",
+      "pricing": []
+    },
+    {
+      "slug": "n8n",
+      "name": "n8n",
+      "vendor": "n8n",
+      "official_url": "https://n8n.io/",
+      "summary": "ノードをつないで業務フローを自動化するワークフローツールです。AIモデルの呼び出しを組み込んだ自動化にも使われています。",
+      "pricing": []
+    },
+    {
+      "slug": "perplexity",
+      "name": "Perplexity",
+      "vendor": "Perplexity AI",
+      "official_url": "https://www.perplexity.ai/",
+      "summary": "質問に対して出典を示しながら回答するAI検索サービスです。調べものの下調べに使われています。",
+      "pricing": []
+    }
+  ]
+}

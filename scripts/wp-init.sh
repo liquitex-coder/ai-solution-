@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WordPress auto-initialization: creates categories, tags, and verifies auth.
+# WordPress auto-initialization: creates categories, assigns silo parents, creates tags, verifies auth.
 # Reads taxonomy from data/wp-taxonomy.json.
 # Usage: bash scripts/wp-init.sh
 #
@@ -86,6 +86,42 @@ create_category() {
   fi
 }
 
+category_id() {
+  local slug="$1"
+  curl -s -H "$AUTH_HEADER" "${API_BASE}/categories?slug=${slug}" | jq -r '.[0].id // empty'
+}
+
+# Second pass (requirements §35-3): attach a category to its silo root.
+# Idempotent — existing categories are re-parented, already-correct ones skipped.
+assign_parent() {
+  local slug="$1" parent_slug="$2"
+  local child parent_id current
+  child=$(curl -s -H "$AUTH_HEADER" "${API_BASE}/categories?slug=${slug}")
+  parent_id=$(category_id "$parent_slug")
+  if [[ -z "$parent_id" || $(echo "$child" | jq 'length') -eq 0 ]]; then
+    echo "[WARN] Cannot assign parent: $slug -> $parent_slug (category missing)" >&2
+    return
+  fi
+  current=$(echo "$child" | jq -r '.[0].parent // 0')
+  if [[ "$current" == "$parent_id" ]]; then
+    echo "[SKIP] Parent already set: $slug -> $parent_slug"
+    return
+  fi
+  local id result
+  id=$(echo "$child" | jq -r '.[0].id')
+  result=$(curl -s -X POST \
+    -H "$AUTH_HEADER" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --argjson parent "$parent_id" '{parent: $parent}')" \
+    "${API_BASE}/categories/${id}")
+  if [[ $(echo "$result" | jq -r '.parent // empty') == "$parent_id" ]]; then
+    echo "[UPDATED] Parent: $slug -> $parent_slug (id=$parent_id)"
+  else
+    echo "[WARN] Failed to assign parent: $slug -> $parent_slug" >&2
+    echo "$result" | jq -r '.message // .' >&2
+  fi
+}
+
 create_tag() {
   local name="$1" slug="$2"
   local existing
@@ -127,6 +163,15 @@ for i in $(seq 0 $((cat_count - 1))); do
   slug=$(jq -r ".categories[$i].slug" "$TAXONOMY_FILE")
   desc=$(jq -r ".categories[$i].description" "$TAXONOMY_FILE")
   create_category "$name" "$slug" "$desc"
+done
+
+echo ""
+echo "--- Assigning category parents ---"
+for i in $(seq 0 $((cat_count - 1))); do
+  parent=$(jq -r ".categories[$i].parent // empty" "$TAXONOMY_FILE")
+  [[ -z "$parent" ]] && continue
+  slug=$(jq -r ".categories[$i].slug" "$TAXONOMY_FILE")
+  assign_parent "$slug" "$parent"
 done
 
 echo ""

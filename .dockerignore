@@ -1,3 +1,7 @@
 *
 !scripts/
 !scripts/**
+# §35-13: ship only the tool catalog from data/ (never memory.db)
+!data/
+data/*
+!data/tools.json

@@ -72,7 +72,7 @@ class AuditorServerTests(unittest.TestCase):
         status, body = self.request("/health")
         self.assertEqual(status, 200)
         self.assertEqual(body, {"status": "ok", "service": "ainavi-auditor-gate",
-                                 "memory_db": True, "auth": False})
+                                 "memory_db": True, "auth": False, "tools_catalog": True})
 
     def test_pass_does_not_add_fact(self):
         content = '<h2>One</h2><h2>Two</h2><h2>Three</h2><a href="https://example.test">source</a>'

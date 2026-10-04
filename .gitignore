@@ -5,6 +5,9 @@ __pycache__/
 # Local environment / secrets
 .env
 
+# keykeeper plan files (requirements §37 K-2)
+.keykeeper/
+
 # Agent memory database (local state, never committed)
 data/memory.db
 data/memory.db-*

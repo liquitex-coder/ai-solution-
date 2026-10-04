@@ -1,0 +1,80 @@
+{
+  "_comment": "Plugin-based site design per docs/requirements.md §35-14. Theme/palette slugs verified against twentytwentyfive theme.json (wordpress-develop trunk, 2026-09-24); plugin slugs verified on wordpress.org the same day. Applied by scripts/wp_site_setup.py (additive only, plan by default).",
+  "theme": {
+    "stylesheet": "twentytwentyfive"
+  },
+  "plugins": [
+    {
+      "slug": "kadence-blocks",
+      "purpose": "カード型レイアウト・グリッド・ステップ図解のブロック（§2-2）",
+      "targets": ["wpcom", "self-hosted"]
+    },
+    {
+      "slug": "wp-dark-mode",
+      "purpose": "閲覧者のOS設定に合わせたダークモード（§2-2）",
+      "targets": ["wpcom", "self-hosted"]
+    },
+    {
+      "slug": "easy-table-of-contents",
+      "purpose": "長文記事の目次",
+      "targets": ["wpcom", "self-hosted"]
+    },
+    {
+      "slug": "seo-by-rank-math",
+      "purpose": "SEOメタ・サイトマップ（§12）",
+      "targets": ["wpcom", "self-hosted"]
+    },
+    {
+      "slug": "wp-super-cache",
+      "purpose": "ページキャッシュ（WordPress.comはサーバ側キャッシュがあるため自己ホストのみ）",
+      "targets": ["self-hosted"]
+    }
+  ],
+  "forbidden_plugins": ["classic-editor"],
+  "contrast_pairs": [["contrast", "base"], ["accent-1", "base"], ["accent-3", "base"], ["accent-4", "base"], ["contrast", "accent-5"]],
+  "global_styles": {
+    "settings": {
+      "color": {
+        "palette": {
+          "theme": [
+            {"slug": "base", "name": "Base", "color": "#FFFFFF"},
+            {"slug": "contrast", "name": "Contrast", "color": "#111827"},
+            {"slug": "accent-1", "name": "Primary", "color": "#2563EB"},
+            {"slug": "accent-2", "name": "Primary soft", "color": "#DBEAFE"},
+            {"slug": "accent-3", "name": "Link", "color": "#1D4ED8"},
+            {"slug": "accent-4", "name": "Muted text", "color": "#4B5563"},
+            {"slug": "accent-5", "name": "Card surface", "color": "#F8FAFC"},
+            {"slug": "accent-6", "name": "Border", "color": "color-mix(in srgb, currentColor 20%, transparent)"}
+          ]
+        }
+      },
+      "typography": {
+        "fontFamilies": {
+          "custom": [
+            {
+              "slug": "ja-system",
+              "name": "Japanese system",
+              "fontFamily": "-apple-system, BlinkMacSystemFont, \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Noto Sans JP\", Meiryo, sans-serif"
+            }
+          ]
+        }
+      }
+    },
+    "styles": {
+      "color": {
+        "background": "var(--wp--preset--color--base)",
+        "text": "var(--wp--preset--color--contrast)"
+      },
+      "typography": {
+        "fontFamily": "var(--wp--preset--font-family--ja-system)",
+        "lineHeight": "1.8"
+      },
+      "elements": {
+        "link": {
+          "color": {"text": "var(--wp--preset--color--accent-3)"}
+        }
+      },
+      "css": ".wp-block-post-template > li{background:var(--wp--preset--color--accent-5);border:1px solid var(--wp--preset--color--accent-6);border-radius:12px;padding:1.25rem;box-shadow:0 1px 3px rgba(17,24,39,.08)}.wp-block-post-template.is-layout-grid{gap:1.25rem}.wp-block-image img,.wp-block-post-featured-image img{border-radius:8px}@media (max-width:600px){.wp-block-post-template > li{padding:1rem}}"
+    }
+  }
+}

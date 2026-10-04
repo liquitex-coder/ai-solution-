@@ -16,6 +16,11 @@ Checks:
   W10 workflow/category taxonomy map and source_workflow values agree
   W11 workflow category_id values match taxonomy wp_id values
   W12 Evidence Pack wiring for workflows in EVIDENCE_REQUIRED_WORKFLOWS (§34-8)
+  W13 taxonomy silo hierarchy: every parent exists, depth <= 2, every WF category has a silo (§35-3)
+  W14 every POST route of the auditor service is called by a workflow (or LIBRARY_ONLY_ROUTES) (§35-10)
+  W15 data/tools.json is valid, tag-linked, and every generated tool page passes content_audit (§35-11)
+  W16 data/trust_pages.json covers the six §35-3 pages and every 'ready' page passes content_audit (§35-12)
+  W17 data/wp-site.json design manifest is valid: slugs, purposes, no forbidden plugin, plain CSS, AA contrast (§35-14)
 """
 
 from __future__ import annotations
@@ -50,6 +55,13 @@ LIBRARY_ONLY_PROMPTS = {
     # superseded by 05-note-monitor.md
     "05-note-summary.md": "legacy variant, superseded by 05-note-monitor.md",
     "50-fact-check.md": "Evidence Pack verifier prompt (requirements §34); wired in T-35 after the WF01 manual run",
+}
+
+# Auditor service POST routes intentionally not called by any workflow yet (§35-10 W14).
+LIBRARY_ONLY_ROUTES = {
+    "/embed-diagrams": "Kroki diagram embedding (§31); wired in T-11 after an operator manual run",
+    "/publish-slot": "news daily publish cap (§35-9); wired into decide() in T-45 after an operator manual run",
+    "/link-tools": "R1 tool-page links (§35-13); wired before the Auditor Gate in T-45 after an operator manual run",
 }
 
 SECRET_PATTERNS = [
@@ -103,6 +115,50 @@ def evidence_wiring_errors(wf: dict) -> list[str]:
             "source_text" in t and "evidence" in t for t in gate_texts):
         errors.append("gate node jsCode missing source_text/evidence")
     return errors
+
+
+def taxonomy_hierarchy_errors(categories: list[dict]) -> list[str]:
+    """§35-3 W13: categories form silos of depth <= 2 and every WF category belongs to one."""
+    errors: list[str] = []
+    by_slug = {category.get("slug"): category for category in categories}
+    for category in categories:
+        slug = category.get("slug")
+        parent = category.get("parent")
+        if parent is None:
+            if category.get("source_workflow") is not None:
+                errors.append(f"{slug}: WF category has no silo parent")
+            continue
+        if parent == slug:
+            errors.append(f"{slug}: parent is itself")
+        elif parent not in by_slug:
+            errors.append(f"{slug}: unknown parent {parent}")
+        elif by_slug[parent].get("parent") is not None:
+            errors.append(f"{slug}: parent {parent} is not a silo root (depth > 2)")
+    return errors
+
+
+def route_wiring_errors(post_routes: set[str], workflow_blobs: dict[str, str],
+                        library_only: dict[str, str]) -> tuple[list[str], list[str]]:
+    """§35-10 W14: (errors, notes) for POST routes vs. workflow callers and LIBRARY_ONLY."""
+    errors: list[str] = []
+    notes: list[str] = []
+    for route in sorted(post_routes):
+        # the route must end where the path ends: "/audit" must not match "/auditor"
+        pattern = re.compile(re.escape(route) + r"(?![\w/-])")
+        callers = sorted(name for name, blob in workflow_blobs.items() if pattern.search(blob))
+        if route in library_only:
+            if callers:
+                errors.append(f"{route}: registered LIBRARY_ONLY but called by {callers[0]}"
+                              " (remove it from LIBRARY_ONLY_ROUTES)")
+            else:
+                notes.append(f"{route}: LIBRARY_ONLY ({library_only[route]})")
+        elif callers:
+            notes.append(f"{route}: called by {len(callers)} workflow(s)")
+        else:
+            errors.append(f"{route}: no workflow calls it (wire it or register LIBRARY_ONLY_ROUTES)")
+    for route in sorted(set(library_only) - post_routes):
+        errors.append(f"{route}: LIBRARY_ONLY_ROUTES entry for a route that does not exist")
+    return errors, notes
 
 
 def main() -> int:
@@ -288,6 +344,49 @@ def main() -> int:
             fail(f"W12 {name}: {'; '.join(errors)}")
         else:
             ok(f"W12 {name}: evidence wiring present")
+
+    print("== W13: taxonomy silo hierarchy (§35-3) ==")
+    hierarchy_errors = taxonomy_hierarchy_errors(categories)
+    if hierarchy_errors:
+        fail(f"W13 taxonomy hierarchy: {'; '.join(hierarchy_errors)}")
+    else:
+        ok("W13 taxonomy silo hierarchy is valid")
+
+    print("== W14: auditor POST routes are wired (§35-10) ==")
+    import auditor_server
+    post_routes = {path for method, path in auditor_server.ROUTES if method == "POST"}
+    workflow_blobs = {name: json.dumps(wf, ensure_ascii=False) for name, wf in workflows.items()}
+    route_errors, route_notes = route_wiring_errors(post_routes, workflow_blobs, LIBRARY_ONLY_ROUTES)
+    for note in route_notes:
+        ok(f"W14 {note}")
+    for error in route_errors:
+        fail(f"W14 {error}")
+
+    print("== W15: tool DB and tool pages (§35-11) ==")
+    import tool_pages
+    page_errors, pages = tool_pages.check()
+    for error in page_errors:
+        fail(f"W15 {error}")
+    if not page_errors:
+        ok(f"W15 data/tools.json valid; {len(pages)} generated pages audit PASS")
+
+    print("== W16: trust pages (§35-12) ==")
+    import trust_pages
+    trust_errors, trust = trust_pages.check()
+    for error in trust_errors:
+        fail(f"W16 {error}")
+    if not trust_errors:
+        ready = sum(1 for p in trust if p["status"] == "ready")
+        pending = sum(1 for p in trust if p["status"] == "pending")
+        ok(f"W16 data/trust_pages.json valid; {ready} ready (audit PASS), {pending} pending")
+
+    print("== W17: site design manifest (§35-14) ==")
+    import wp_site_setup
+    site_errors = wp_site_setup.validate(wp_site_setup.load_manifest())
+    for error in site_errors:
+        fail(f"W17 {error}")
+    if not site_errors:
+        ok("W17 data/wp-site.json valid (theme, plugins, CSS, contrast)")
 
     print()
     print(f"Summary: {len(passes)} PASS, {len(failures)} FAIL")

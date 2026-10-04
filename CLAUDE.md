@@ -63,6 +63,15 @@ AI content automation platform: n8n → Claude API → WordPress.
    最初の修正で真偽値だけ足しても直らず、要件§32-1 D11 で全9ワークフロー + patcher を一括変換。
    `tests/test_workflow_http_schema.py` がセンサー）。手書きせず、n8n UI で作ったノードを Ctrl+C した JSON か
    `scripts/patch_evidence_pack.py` の `convert_http_node()` を正とする。
+7. `.githooks/*` は実行ビット付き（git mode `100755`）でコミットする — `commit-msg` が `100644` のまま
+   だったため git が無言で無視し、§C-1 のセンサー（T-39）が clone 先で一度も動いていなかった（2026-09-24 実例）。
+   `tests/test_git_hooks.py` が検出する。
+8. コミット本文の数値（テスト件数・PASS 数など）は、その場のゲート出力から転記する — T-46 で未確認の「25 tests」
+   を書き、実数は24だった（2026-09-24、push 前に検出）。未 push の修正は `commit --amend` ではなく
+   `reset --soft HEAD~1` → 再コミットで行う（amend 時は commit-msg フックが空の差分を見て誤検知する）。
+9. Dockerfile に `COPY` を足したら `.dockerignore` の再包含（`!path`）も足す — `*` で全除外しているため、
+   T-50 の `COPY data/tools.json` はそのままでは `fly deploy` で失敗していた（2026-09-24、自己監査で検出）。
+   `tests/test_docker_context.py` が検出する。
 
 ---
 
@@ -99,5 +108,5 @@ docker-compose up && curl -s -o /dev/null -w '%{http_code}' http://localhost:808
 - n8n workflow JSON は手動テスト実行なしで push しない。
 - アーキテクチャ全体図・言語戦略・Claim連携戦略 → `docs/requirements.md` §参照。
 - Key files: `docs/requirements.md`（最初に更新）/ `n8n/workflows/*.json` / `n8n/prompts/*.md` / `n8n/skills/*.md` / `scripts/memory_init.py`。
-- 記事本文は日本語、SEOメタデータは英語（言語戦略）。ZH ソースは Kimi 経由。
+- 記事の原本は日本語。他言語版は閲覧者のブラウザ言語で表示し、JA → EN → ES/FR の順に段階展開する（要件§8 v2.8）。ZH ソースは Kimi 経由。
 - 開発時の Claude Code × Codex 役割分担（操作者ローカル環境向け） → `docs/AGENT_WORKFLOW.md` §9（要件§26）。
