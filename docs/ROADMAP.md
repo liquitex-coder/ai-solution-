@@ -183,7 +183,7 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-58 ✅ | Claude | Stage 1: value-free `keys.manifest.yaml` (WordPress keys only, `WP_BEARER_TOKEN` pinned to `public-api.wordpress.com`), `.keykeeper/` in `.gitignore`, regression test | done 2026-10-04: `keyctl scan` shows "Manifest exists"; policy probe 1 allow / 5 deny; 5 tests, 2/2 mutants killed |
-| T-59 | operator | K-3: run `keyctl install-claude` on the operator PC (human-only), then `keyctl set WP_BEARER_TOKEN` | operator's `install-claude` output |
+| T-59 | operator | K-3: run `keyctl install-claude` on the operator PC (human-only), then `keyctl set WP_BEARER_TOKEN`; on WSL2, apply the sandbox settings in §37-4 and run the keykeeper README verification table | operator's `install-claude` output; `keyctl doctor` all `OK` when the agent runs it |
 
 ---
 

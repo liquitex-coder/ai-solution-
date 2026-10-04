@@ -1936,7 +1936,17 @@ aiguide.blog/
 
 - keykeeper は同じ OS ユーザーで動く悪意あるエージェントを防げない（監査 C2）。防げるのは誤操作と、許可された操作の範囲内のプロンプトインジェクション。
 - Claim-Security（現行版）を併用しても C2 は防げない。危険度判定 `infer_capabilities()` に承認偽造のスクリプトを入力した結果は「検出なし」（`keyring` が検出語にない）。根本対策は keykeeper `docs/BROKER-DESIGN.md`（別 OS ユーザーのブローカー）。
-- guard は Claude Code 全体にかかる。WSL2 とサンドボックスの併用を推奨（ネイティブ Windows はサンドボックス非対応）。
+- guard は Claude Code 全体にかかる。C2 のうち Bash 経由の経路は、Claude Code のサンドボックスで塞げる。ただし条件がある（keykeeper `docs/SANDBOX-RUNTIME-EVAL-2026-10-04.md`、2026-10-04 に Linux と本物の gnome-keyring で実行確認。ダミー値のみ）。
+  - ネイティブ Windows の Claude Code はサンドボックスを使わない。**WSL2 で動かす**。
+  - **seccomp フィルターを入れる**（`npm install -g @anthropic-ai/sandbox-runtime`）。ないと、警告なしでキーチェーンに届く（評価の S1、実行 R5）。
+  - `~/.claude/settings.json` の `sandbox` に次を設定する。
+    - `enabled: true`
+    - `allowUnsandboxedCommands: false`
+    - `failIfUnavailable: true`
+    - `excludedCommands`: `keyctl run *`・`keyctl plan-check *`・`keyctl status *` のみ。この 3 つはキーチェーンを読むため、サンドボックスの中では動かない
+  - **確認**: エージェントに `keyctl doctor` を Bash で実行させ、すべて `OK`。D6 が `OK` なら、エージェントのコマンドにフィルターが効いている。
+  - 実機（WSL2）での確認手順は keykeeper の README「Recommended setup」にある。未実施（操作者の T-59 に含める）。
+  - ファイル系ツール（Read など）とフックはサンドボックスの外で動く。ファイル系ツールは guard が守る。
 
 ### 37-5. 範囲外（第 2 段階以降）
 
