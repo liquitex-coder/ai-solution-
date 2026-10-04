@@ -163,3 +163,16 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
   - Google は言語ごとに別の URL を推奨しており、推測による自動リダイレクトを避けるよう求めている。Googlebot は `Accept-Language` なしで巡回する
   - Polylang の「ブラウザ言語の検出」は初回訪問時にトップページを自動リダイレクトする → 既定は OFF
 - ロードマップに Phase I（T-52〜T-57）を追加。実装はまだない
+
+## 17. keykeeper の監査と第 1 段階の適用（2026-10-04 追記）
+
+- keykeeper（`liquitex-coder/keykeeper`）を独立監査 → 堅牢化 v0.2 を main にマージ（PR #1、CI 全緑）
+  - 残る限界: 同じ OS ユーザーの悪意あるエージェントは防げない（C2）。根本対策は別 OS ユーザーのブローカー（設計のみ）
+  - Claim-Security 併用でも C2 は防げない（`infer_capabilities()` が承認偽造スクリプトを検出しない）
+- 本リポジトリへの適用（要件 §37、T-58）
+  - `keys.manifest.yaml`: WordPress の鍵 2 つだけ。値なし。`WP_BEARER_TOKEN` は `public-api.wordpress.com` のみ
+  - `.gitignore` に `.keykeeper/`、回帰テスト 5 件（変異 2/2 検出）
+  - n8n と Fly.io の鍵は対象外（無人実行のため承認つき実行と合わない）
+- 自己監査で見つけたこと: 要件の章番号 §36 が既存の「ハブ&スポーク」と衝突 → push 前に §37 へ修正
+- 操作者の作業（T-59）: 自分の PC で `keyctl install-claude` → `keyctl set WP_BEARER_TOKEN`
+- 第 2 段階の選択肢: A) `http` 計画で WordPress REST を直接呼ぶ / B) 専用コマンドを `allowed_commands` に登録
