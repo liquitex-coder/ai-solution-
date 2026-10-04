@@ -1900,3 +1900,44 @@ aiguide.blog/
 - n8n ワークフロー JSON の変更（公開上限・A5 の配線・R1 のプロンプト）は、CLAUDE.md §F に従い操作者の手動実行を経てから push する（T-45 / T-50）。
 - `scripts/wp-init.ps1` の親割当対応は、Windows 実機での検証が必要（T-49）。
 - ③ compare 用のワークフロー（T-48）と信頼ページの本文（T-47）。
+
+## 37. 鍵の取り扱い — keykeeper の導入（第 1 段階）
+
+> 背景: 2026-10-04 に keykeeper（`liquitex-coder/keykeeper`、v0.2 を main にマージ済み）を独立監査し、本リポジトリへの適用範囲を決めた。
+> 監査記録: keykeeper `docs/AUDIT-2026-10-04.md`。設計判断: 2026-10-04（操作者承認）。
+
+### 37-1. 検出した事実（コードで確認・2026-10-04）
+
+| 事実 | 根拠 |
+|---|---|
+| 鍵らしい変数は 13 個 | `keyctl --repo . scan` の出力 |
+| 本番 WordPress への書き込みは `WP_BEARER_TOKEN` を `public-api.wordpress.com` へ送る | `scripts/tool_pages.py:190-197`、`scripts/wp-init.sh:33` |
+| `WP_APP_PASSWORD` はローカル検証用（`http://localhost:8080`）でのみ使う | `scripts/wp-init.sh:17,34-37` |
+| n8n ワークフローは `$env.GITHUB_TOKEN`（10 か所）・`$env.YOUTUBE_API_KEY`（1 か所）を参照 | `n8n/workflows/*.json` |
+| 監査サーバーは `AINAVI_GATE_TOKEN` を環境変数から読む | `scripts/auditor_server.py:446` |
+
+### 37-2. 適用範囲
+
+| 用途 | 鍵 | 管理方法 |
+|---|---|---|
+| 操作者が Claude Code から実行する WordPress への公開（作業 #8） | `WP_BEARER_TOKEN` | **keykeeper**（OS のキーチェーン、承認つき実行） |
+| ローカル検証サイト | `WP_APP_PASSWORD` | keykeeper の台帳に記載するのみ（https 以外は keykeeper が送らない） |
+| n8n の本番実行（無人・毎日） | `GITHUB_TOKEN`、`YOUTUBE_API_KEY`、`ANTHROPIC_API_KEY`、`FAL_API_KEY`、`KIMI_API_KEY` など | **対象外**。n8n の資格情報機能のまま |
+| Fly.io の監査サーバー | `AINAVI_GATE_TOKEN` | **対象外**。`fly secrets set` のまま |
+
+### 37-3. 第 1 段階の要件
+
+- **K-1**: リポジトリ直下に `keys.manifest.yaml` を置く。値は書かない。`WP_BEARER_TOKEN` の `allowed_hosts` は `public-api.wordpress.com` のみ。
+- **K-2**: `.gitignore` に `.keykeeper/` を追加する（エージェントが書く実行計画の置き場）。
+- **K-3**: 操作者が自分の PC で `keyctl install-claude` を実行し、Claude Code に guard フックを入れる（人間専用のコマンド。エージェントは実行しない）。
+- **K-4**: 検証。`keyctl --repo . scan` が「Manifest exists」と未宣言の鍵を表示すること。本リポジトリのローカルゲート（§D）が緑のままであること。
+
+### 37-4. 既知の限界
+
+- keykeeper は同じ OS ユーザーで動く悪意あるエージェントを防げない（監査 C2）。防げるのは誤操作と、許可された操作の範囲内のプロンプトインジェクション。
+- Claim-Security（現行版）を併用しても C2 は防げない。危険度判定 `infer_capabilities()` に承認偽造のスクリプトを入力した結果は「検出なし」（`keyring` が検出語にない）。根本対策は keykeeper `docs/BROKER-DESIGN.md`（別 OS ユーザーのブローカー）。
+- guard は Claude Code 全体にかかる。WSL2 とサンドボックスの併用を推奨（ネイティブ Windows はサンドボックス非対応）。
+
+### 37-5. 範囲外（第 2 段階以降）
+
+- 作業 #8 の公開処理を keykeeper 経由にする方法（A: `http` 計画で WordPress REST を直接呼ぶ / B: 専用コマンドを `allowed_commands` に登録）。keykeeper の `exec` は `python`・`bash` を常に拒否するため、既存スクリプトはそのままでは包めない。
