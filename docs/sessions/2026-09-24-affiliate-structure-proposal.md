@@ -176,3 +176,15 @@ source: https://blogai.jp/ai-affiliate-complete-guide/ (2026-03-16)
 - 自己監査で見つけたこと: 要件の章番号 §36 が既存の「ハブ&スポーク」と衝突 → push 前に §37 へ修正
 - 操作者の作業（T-59）: 自分の PC で `keyctl install-claude` → `keyctl set WP_BEARER_TOKEN`
 - 第 2 段階の選択肢: A) `http` 計画で WordPress REST を直接呼ぶ / B) 専用コマンドを `allowed_commands` に登録
+
+## 18. Claude Code のサンドボックス評価と keyctl doctor（2026-10-04 追記）
+
+- Anthropic Sandbox Runtime（srt 0.0.78）を評価。操作者の許可を得て npm パッケージを実行（ダミー値のみ）
+  - seccomp あり: サンドボックス内のスクリプトはキーチェーンに届かない（C2 の Bash 経路を遮断）
+  - seccomp なし: 警告なしで届き、偽の承認も書けた（S1）
+  - ネイティブ Windows の Claude Code はサンドボックスを使わない → WSL2 で使う
+- keykeeper に `keyctl doctor`（R-15）を追加。エージェントが Bash で実行して D6 が OK なら、フィルターが効いている
+- 自己監査で見つけたこと: `keyctl plan-check`・`status` もキーチェーンを読むため、サンドボックスの中で動かない → 除外コマンドを 3 つにした
+- keykeeper のリポジトリ直下の README が見出し 1 行だけだった → 英語の正本と日本語版を作成。バージョンも 0.2.0 に揃えた
+- 要件 §37-4 を、確認済みの設定値と `keyctl doctor` の確認に書き換え
+- 残り: 操作者が WSL2 実機で確認（keykeeper README の確認表、T-59）
