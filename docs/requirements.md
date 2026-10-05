@@ -1948,6 +1948,14 @@ aiguide.blog/
   - 実機（WSL2）での確認手順は keykeeper の README「Recommended setup」にある。未実施（操作者の T-59 に含める）。
   - ファイル系ツール（Read など）とフックはサンドボックスの外で動く。ファイル系ツールは guard が守る。
 
+### 37-6. 運用記録とトークンの分離（2026-10-05）
+
+- **トークンの用途別分離**: Claude Code・keykeeper 用の `WP_BEARER_TOKEN` は、WordPress.com の OAuth アプリ `ai-solution` と Application Password `ai-solution` から発行した（§24-2 の手順④）。n8n 用のアプリ・パスワード（`n8n`・`n8n-ai-navi`）とは別にしたため、片方だけを取り消せる。
+- **実機確認**: 操作者の Windows PC で `keyctl set` → `keyctl run`（承認つき `GET /wp/v2/sites/{WP_SITE}/users/me`）が HTTP 200 を返した。値はエージェントに渡っていない。
+- **K-5（台帳の補足）**: `keys.manifest.yaml` の `WP_BEARER_TOKEN` に `issue_url`（`https://developer.wordpress.com/apps/`）と `scopes: [global]`（§24-4: blog_id が空の全サイト有効トークン）を書き、発行元アプリ名を `notes` に残す。期限は無期限のため `expires` は書かない。
+- **K-6（環境変数一覧の整合）**: CLAUDE.md §A-7 の環境変数一覧に `WP_BEARER_TOKEN` と `WP_SITE` を加える（§24-3 の本番用。一覧に無かった）。
+- **既知の限界（keykeeper）**: `keyctl run` は鍵の値を伏せるが、応答の他の項目はそのまま返す（今回は gravatar URL が出力に含まれた）。keykeeper 側で、返す項目の許可リストを追加する（keykeeper 要件 R-20）。
+
 ### 37-5. 範囲外（第 2 段階以降）
 
 - 作業 #8 の公開処理を keykeeper 経由にする方法（A: `http` 計画で WordPress REST を直接呼ぶ / B: 専用コマンドを `allowed_commands` に登録）。keykeeper の `exec` は `python`・`bash` を常に拒否するため、既存スクリプトはそのままでは包めない。

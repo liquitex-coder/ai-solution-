@@ -62,6 +62,11 @@ class KeysManifestTests(unittest.TestCase):
     def test_bearer_token_is_pinned_to_wordpress_com(self):
         self.assertEqual(self.keys["WP_BEARER_TOKEN"].get("allowed_hosts"), ["public-api.wordpress.com"])
 
+    def test_bearer_token_records_where_it_is_issued(self):
+        spec = self.keys["WP_BEARER_TOKEN"]
+        self.assertEqual(spec.get("issue_url"), "https://developer.wordpress.com/apps/")
+        self.assertEqual(spec.get("scopes"), ["global"])
+
     def test_sandbox_password_is_never_sent(self):
         spec = self.keys["WP_APP_PASSWORD"]
         self.assertFalse(spec.get("allowed_hosts"))
