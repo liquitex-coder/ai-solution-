@@ -183,7 +183,8 @@ operator round). T-37 starts when T-36b is merged. T-38 after T-37. T-39 (commit
 | ID | Owner | Task | Done when |
 |---|---|---|---|
 | T-58 ✅ | Claude | Stage 1: value-free `keys.manifest.yaml` (WordPress keys only, `WP_BEARER_TOKEN` pinned to `public-api.wordpress.com`), `.keykeeper/` in `.gitignore`, regression test | done 2026-10-04: `keyctl scan` shows "Manifest exists"; policy probe 1 allow / 5 deny; 5 tests, 2/2 mutants killed |
-| T-59 | operator | K-3: run `keyctl install-claude` on the operator PC (human-only), then `keyctl set WP_BEARER_TOKEN`; on WSL2, apply the sandbox settings in §37-4 and run the keykeeper README verification table | operator's `install-claude` output; `keyctl doctor` all `OK` when the agent runs it |
+| T-59 ✅ | operator | K-3: run `keyctl install-claude` on the operator PC (human-only), then `keyctl set WP_BEARER_TOKEN`; on WSL2, apply the sandbox settings in §37-4 and run the keykeeper README verification table | done 2026-10-05 (Windows): `install-claude` up to date, `status` OK, approved `GET /users/me` returned 200. WSL2 sandbox setup stays optional |
+| T-60 ✅ | Claude | K-5 ledger fields (issue_url, scopes, issuing app) and K-6 env var list in the agent rules (§37-6) | done 2026-10-05: manifest test extended, gates green |
 
 ---
 
@@ -211,10 +212,10 @@ Formula: `% = completed / total × 100` (rounded). Update at every task completi
 | Phase 1 definition (A–D) | 15 | 21 | 71% |
 | Phase G | 9 | 12 | 75% |
 | Phase I | 2 | 6 | 33% |
-| Phase K | 1 | 2 | 50% |
-| Whole roadmap (A–G, D2, I, K) | 28 | 55 | 51% |
+| Phase K | 3 | 3 | 100% |
+| Whole roadmap (A–G, D2, I, K) | 30 | 56 | 54% |
 
-Last recomputed 2026-10-04 (Phase K T-58–T-59 added, requirements §37; T-58 done). Previous: 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
+Last recomputed 2026-10-05 (T-59 done, T-60 added and done). Previous: 2026-10-04 (Phase K T-58–T-59 added, requirements §37; T-58 done). Previous: 2026-09-25 (Phase I T-52–T-57 added, requirements §8 v2.8; T-52 and T-57 done). Previous: 2026-09-24 (Phase G T-40–T-50 added, requirements §35; T-40–T-44, T-46–T-47, T-50–T-51 done; T-51 added for the plugin-based design). Previous: 2026-09-17 (T-39 commit-msg sensor added to Phase B; T-35 split into T-35a done/T-35b pending, T-36 split into T-36a/T-36b).
 
 <details>
 <summary>🇯🇵 日本語補足 / Japanese notes</summary>

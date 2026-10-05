@@ -17,7 +17,8 @@ AI content automation platform: n8n → Claude API → WordPress.
    配線されるまで「完了」ではない。意図的な未配線は LIBRARY_ONLY 登録（理由必須）。
 5. **Auditor gate 必須**: 全生成コンテンツは Auditor Gate を通す。FAIL / UNVERIFIABLE は WordPress へ公開しない（INV-R2）。
 6. **著作権**: 引用5要件（主従・明瞭区別・必要性・出所明示・改変禁止）に違反する処理を書かない。`n8n/prompts/00-copyright-transform.md` を全WFで読み込む。
-7. 環境変数: `WP_URL` `WP_USERNAME` `WP_APP_PASSWORD` `GITHUB_TOKEN` `FAL_API_KEY` `GOOGLE_DRIVE_CREDENTIALS` `KIMI_API_KEY`。
+7. 環境変数: `WP_URL` `WP_USERNAME` `WP_APP_PASSWORD` `WP_BEARER_TOKEN` `WP_SITE` `GITHUB_TOKEN` `FAL_API_KEY` `GOOGLE_DRIVE_CREDENTIALS` `KIMI_API_KEY`。
+   本番 WordPress.com は `WP_BEARER_TOKEN` + `WP_SITE`（要件§24）。操作者が使う `WP_BEARER_TOKEN` は keykeeper で管理する（要件§37）。
 
 ---
 

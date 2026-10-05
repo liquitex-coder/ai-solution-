@@ -7,10 +7,13 @@ keys:
 - name: WP_BEARER_TOKEN
   env_var: WP_BEARER_TOKEN
   issuer: WordPress.com
+  scopes:
+  - global
   rotation: manual
+  issue_url: https://developer.wordpress.com/apps/
   allowed_hosts:
   - public-api.wordpress.com
-  notes: Production publish (requirements §24). Sent only as a Bearer header to public-api.wordpress.com.
+  notes: Production publish (requirements §24). OAuth app "ai-solution", separate from the n8n apps (§37-6). No expiry until the app is revoked. Sent only as a Bearer header to public-api.wordpress.com.
 - name: WP_APP_PASSWORD
   env_var: WP_APP_PASSWORD
   issuer: local WordPress sandbox
